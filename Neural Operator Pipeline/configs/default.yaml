@@ -1,0 +1,39 @@
+# Basiskonfiguration. Fuer Experimente kopieren statt aendern -- dann bleibt
+# nachvollziehbar, welche Zahlen zu welcher Einstellung gehoeren.
+
+seed: 0
+device: auto            # auto | cpu | cuda | mps
+output_dir: outputs/run_default
+
+data:
+  path: data/train.h5
+  val_fraction: 0.15
+  num_workers: 0        # unter Windows bei 0 lassen
+
+model:
+  name: fno3d           # fno3d (eigene Implementierung) | neuralop_fno (Bibliothek)
+  in_channels: 7        # rho_hat + 3 Koordinaten + 3 Achsenverhaeltnisse
+  out_channels: 1       # phi_hat
+  width: 32             # Kanaele im latenten Raum
+  modes: [12, 12, 12]   # behaltene Fouriermoden pro Achse
+  num_layers: 4
+  lifting_channels: 128
+  # nur fuer neuralop_fno:
+  factorization: null   # z.B. tucker fuer weniger Gewichte
+  rank: 1.0
+
+loss:
+  kind: h1              # l2 | h1
+  gradient_weight: 1.0  # Gewicht des Gradientenfehlers -- der Kick ist ein Gradient
+  physics_weight: 0.0   # > 0 schaltet das Poisson-Residuum dazu (PiNN-Anteil)
+
+training:
+  epochs: 100
+  batch_size: 4
+  learning_rate: 1.0e-3
+  weight_decay: 1.0e-4
+
+logging:
+  wandb: false
+  project: space-charge-neural-operator
+  print_every: 5
