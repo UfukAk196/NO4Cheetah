@@ -1,9 +1,0 @@
-__pycache__/
-*.py[cod]
-.venv/
-data/
-outputs/
-wandb/
-.ipynb_checkpoints/
-*.h5
-*.pt
