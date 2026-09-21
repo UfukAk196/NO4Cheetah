@@ -4,7 +4,13 @@
 			"path": "Neural Operator Pipeline"
 		},
 		{
-			"path": "../Cheetah repos/cheetah-accelarator"
+			"path": "../cheetah repos/cheetah"
+		},
+		{
+			"path": "../cheetah repos/cheetah-demos/neural_network_space_charge_quad"
+		},
+		{
+			"path": "../pytorch-deep-learning"
 		}
 	],
 	"settings": {
