@@ -1,0 +1,150 @@
+\documentclass[17pt,institute=none]{tuhh_presentation}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[backend=biber,style=ieee]{biblatex}
+
+
+\title{Title/Headline of Hamburg University of Technology Presentation}
+\date{\today} % or \date{dd}{mm}{yyyy} or \date{Text}
+\author[Corresponding Author]{First Author, Second Author}
+\email{corresponding.author@tuhh.de}
+%\institute{Corresponding Author's Institute} % Optional: Please refer to https://collaborating.tuhh.de/e-4/tuhh_latex_presentation/-/wikis/Slides-with-Institute-Logos .
+\street{Am Schwarzenberg-Campus 1}
+\city{21073 Hamburg}
+\website{www.tuhh.de}
+\telephonenumber{+49 40 42878-3330}
+
+%\autofontdecrement % This commands will automatically reduce font size for itemize/enumerate environments
+
+\addbibresource{demo_tuhh_presentation.bib}
+
+\begin{document}
+
+\titlepage
+\agenda
+
+\section{Environments}\label{se:environments}
+\begin{frame}{List Environments}
+    \begin{minipage}{0.49\textwidth}
+        \begin{itemize}
+            \item This is an item.
+            \item This is a second item.
+            \begin{itemize}
+                \item This is a sub item.
+                \item This is a second sub item.
+            \end{itemize}
+            \item This is a third item.
+        \end{itemize}
+    \end{minipage}
+    \begin{minipage}{0.49\textwidth}
+        \begin{enumerate}
+            \item This is an item in an enumeration.
+            \item This is a second item in an enumeration.
+            \item This is a third item in an enumeration.
+        \end{enumerate}
+    \end{minipage}
+\end{frame}
+
+\begin{frame}{Block Environments}
+    \begin{block}{My Block}
+      This is a block with a title.
+    \end{block}
+
+    \begin{definition}
+      A \emph{sequence} is a mapping from $\mathbb{N}$ to a field of numbers.
+    \end{definition}
+
+    \begin{theorem}[Bolzano--Weierstrass]
+      Every bounded sequence of real numbers has a convergent subsequence.
+    \end{theorem}
+
+    \begin{proof}
+      Here comes the proof.
+    \end{proof}
+\end{frame}
+
+\begin{frame}{Figure Environment}
+    \begin{figure}
+        \centering
+        \includegraphics[width=0.8\textwidth]{.theme_imgs/TUHH_building-a.pdf}
+        \caption{Figures work as usual and support JPG, PNG or PDF files.\label{fig:test_image}}
+    \end{figure}
+\end{frame}
+
+\section{Fonts}
+\begin{frame}{Font Sizes}
+    \centering{\textbf{This is the place where you can write your content in bold.}}
+
+    \centering{\textit{This is the place where you can write your content in italic.}}
+
+    \centering{\textbf{\textit{This is the place where you can write your content in bold and italic.}}}
+
+    \centering{\LARGE This is the place where content is LARGE.}
+
+    \centering{But if your sentences get too long, you cannot be sure that the whole sentence will fit into the same line - You might get a linebreak!}
+\end{frame}
+
+\begin{frame}{Footnotes}
+    You can use footnotes\footnote{Hello from down here!}!
+
+    You can even have multiple footnotes\footnote{Hello again!}!
+
+    What about really long footnotes\footnote{Let's see how long we can make this footnote, just to make sure you can put everything you want here!}?
+\end{frame}
+
+
+\section{Tables}
+\begin{frame}{Tables}
+    \begin{table}
+        \begin{tuhhtabular}{|l|l|}
+            \multicolumn{2}{c}{\tuhhHead{TU Table for Presentations}} \\
+            Row 1 & 1 \\
+            \hline
+            Row 2 & 2 \\
+            \hline
+            Row 3 & 3 \\
+            \hline
+            Row 4 & 4 \\
+            \hline
+            Row 5 & 5 \\
+            \hline
+            Row 6 & 6 \\
+            \hline
+        \end{tuhhtabular}\quad\quad
+        \begin{tuhhtabular}{|l|l|}
+            \tuhhHead{Column 1} & \tuhhHead{Column 2} \\
+            Row 1 & 1 \\
+            \hline
+            Row 2 & 2 \\
+            \hline
+            Row 3 & 3 \\
+            \hline
+            Row 4 & 4 \\
+            \hline
+            Row 5 & 5 \\
+            \hline
+            Row 6 & 6 \\
+            \hline
+        \end{tuhhtabular}
+    \end{table}
+\end{frame}
+
+\section{Miscellaneous}
+\begin{frame}{Miscellaneous}
+    Collection of \LaTeX~commands and their appearance in this template:
+    \begin{itemize}
+        \item Citations using \textit{cite}: \cite{tuhh2022demo}
+        \item Hyperlinks using \textit{href}: \href{https://www.tuhh.de}{https://www.tuhh.de}
+        \item Hyperlinks using \textit{url}: \url{https://www.tuhh.de}
+        \item Document references using \textit{ref}: Section \ref{se:environments}
+    \end{itemize}
+\end{frame}
+
+\finalpage
+
+\begin{frame}{References}
+    \printbibliography
+\end{frame}
+
+\end{document}
