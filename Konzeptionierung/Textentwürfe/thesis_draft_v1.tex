@@ -1,0 +1,432 @@
+% =====================================================================
+%  NO4Cheetah -- First draft for supervisor feedback (v1, 29.09.2026)
+%  Snippets to paste into the IEEE template (E-10, TUHH).
+%
+%  Needed in the preamble (if not already there):
+%    \usepackage{amsmath,amssymb}
+%    \usepackage{xcolor}
+%    \newcommand{\ph}[1]{\textcolor{red}{[#1]}}   % placeholder marker
+%
+%  Placeholder convention: \ph{WERT}, \ph{BILD}, \ph{FORMEL}, \ph{ZITAT},
+%  \ph{TABELLE}, \ph{ABSCHNITT}. German %-comments are notes to the author.
+%  Bib keys used are listed in refs_draft.bib (check all entries).
+% =====================================================================
+
+
+% =====================================================================
+\begin{abstract}
+% 150-250 words, no symbols/maths/citations. Currently ~230 words incl.
+% placeholders. Results sentences are placeholders -- fill after Sec. 4.
+Differentiable beam dynamics codes such as Cheetah enable gradient-based
+tuning and system identification of particle accelerators. When
+three-dimensional space charge is included, the grid-based field
+calculation accounts for a large share of the computation time and of the
+memory required for reverse-mode differentiation. In each space charge
+kick, the
+charge density of the beam is convolved with an integrated Green function
+by fast Fourier transforms on a grid that is doubled in every dimension to
+represent open boundaries. This work replaces this field solve with a
+Fourier neural operator, a neural network that learns the mapping from
+charge density to electrostatic potential as an operator between function
+spaces and shares the Fourier-space convolution structure of the classical
+solver. The operator is trained on data generated with the existing solver
+and embedded in the kick without changing its interface, so that it remains
+usable in arbitrary beamlines. Computation time and peak memory of the
+forward and backward pass are compared with the Green function solver at
+equal and finer grid resolution on CPU and GPU. \ph{KERNBEFUND: e.g. The
+surrogate reduces the time of the field solve by about \ph{WERT} and the
+recorded memory by \ph{WERT}, at a relative error of the potential of
+\ph{WERT} percent.} \ph{GRENZE: e.g. Charge deposition and force
+interpolation, which scale with the number of particles, remain unchanged
+and limit the overall gain for large particle numbers.}
+\end{abstract}
+
+
+% =====================================================================
+\section{Introduction}
+\label{sec:intro}
+
+% --- 2.a Aim of this work / research question -------------------------
+% Hinweis: Viele Leser brauchen den Kontext aus 2.b vor der Forschungsfrage.
+% Alternative: diesen Absatz ans Ende der Einleitung stellen.
+Cheetah~\cite{kaiser2024cheetah} is a differentiable beam dynamics code
+whose three-dimensional space charge kick~\cite{dhamrait2026memory} is
+costly in computation time and in the memory needed for reverse-mode
+differentiation (Sec.~\ref{sec:intro-cost}). For $10^4$ macroparticles on
+the default grid of $32^3$ cells, most of this cost arises in the
+grid-based field solve, which maps the charge density of the beam to its
+electrostatic potential. This work investigates whether a Fourier neural
+operator (FNO)~\cite{li2021fno} can replace this field solve such that the
+computation time and the memory of the forward and backward pass decrease,
+while the relative error of the potential stays below \ph{WERT}\,\% and the
+beam moments after \ph{WERT} kicks deviate by less than \ph{WERT}\,\% from
+the reference solver.
+% Optional, falls Ziel der Arbeit (mit Betreuern klaeren):
+% "... and the gradients of beam properties with respect to the input
+%  parameters agree with those of the reference solver (cosine similarity
+%  above \ph{WERT})."
+
+
+% --- 2.b.i Cheetah: related work --------------------------------------
+\subsection{Cheetah and space charge}
+\label{sec:intro-cheetah}
+
+Cheetah~\cite{kaiser2024cheetah} is a beam dynamics code written in
+PyTorch. Lattice elements are modular objects that map an incoming to an
+outgoing beam, so that arbitrary beamlines are assembled by composing
+elements. Tensorised computation shortens simulations by orders of
+magnitude compared with established codes; in one reinforcement-learning
+application, training time dropped from over 12~days with
+Ocelot~\cite{agapov2014ocelot} to just over one hour with
+Cheetah~\cite{kaiser2024cheetah}. Since all operations are PyTorch
+operations, gradients of beam properties with respect to lattice and beam
+parameters follow from automatic differentiation, which enables
+gradient-based tuning and system identification~\cite{kaiser2024cheetah}.
+Dhamrait et al.~\cite{dhamrait2026memory} added a three-dimensional space
+charge kick based on the particle-in-cell (PIC) method; this kick is the
+subject of this work.
+
+% --- 2.b.ii Role of space charge in beamline simulations -------------
+Space charge denotes the Coulomb interaction among the particles of a
+beam. Its self-field defocuses the beam, with the magnetic contribution
+partially cancelling the electric one by a factor $1/\gamma^2$, where
+$\gamma$ is the Lorentz factor~\cite{schindl2006spacecharge}. It is
+therefore most pronounced for high bunch charge at low energy and drives,
+e.g., emittance growth and intensity-dependent beam
+loss~\cite{dhamrait2026memory}. Because the force depends on the
+distribution of the whole beam, space charge cannot be written as a
+transfer map of the element. It is applied instead as a sequence of
+kicks: between two kicks the beam is transported by the element map, and
+each kick changes the momentum of every macroparticle by the self-field
+force integrated over the time $\Delta t$ in which the beam travels the
+step $\Delta s$~\cite{dhamrait2026memory}. A direct summation over all
+particle pairs scales as $\mathcal{O}(N^2)$ for $N$ macroparticles. PIC
+methods instead deposit the charge on a grid, solve for the field on the
+grid, and interpolate the force back to the
+particles~\cite{birdsall2004plasma,hockney1988computer}. A kick thus
+consists of a particle part, whose cost grows with $N$, and a grid part,
+whose cost grows with the number of cells $N_\mathrm{cells}$
+(Sec.~\ref{sec:method-placement}).
+
+% --- 2.b.iii Computation time and memory ------------------------------
+% Zahlen unten: VORLAEUFIG aus P2-Profiling (21.09.2026, cheetah 0.8.4,
+% CPU 4 Kerne, float32). Vor Versand durch finale Messung ersetzen oder
+% im Text als vorlaeufig kennzeichnen. Messaufbau: Sec. method-measurement.
+\label{sec:intro-cost}
+Table~\ref{tab:profile} lists the computation time of one kick in
+Cheetah, broken down by step. For $10^4$ macroparticles on $32^3$ cells,
+the forward pass takes $46.0\,\mathrm{ms}$ and the backward pass
+$41.5\,\mathrm{ms}$. Of the forward time, $28.7\,\mathrm{ms}$ ($62\,\%$)
+are spent evaluating the integrated Green function (IGF) and
+$3.2\,\mathrm{ms}$ ($7\,\%$) on the FFT-based convolution; on $64^3$ cells
+the IGF share rises to $78\,\%$. The IGF depends only on the cell size and
+$\gamma$, not on $N$. Charge deposition and force interpolation, in
+contrast, grow with $N$ and account for $60\,\%$ of the forward time at
+$10^5$ macroparticles on $32^3$ cells. For comparison, a linear element
+tracks the same beam in \ph{WERT}\,ms.
+% ^ Messung nachtragen (z.B. Drift oder Quadrupol, gleiche N) -- macht
+%   "teuer" erst messbar.
+Memory is the second constraint. For the backward pass, PyTorch stores
+intermediate results of every kick until the gradient is computed.
+Dhamrait et al.~\cite{dhamrait2026memory} measured that this memory grows
+linearly with $N$ and $N_\mathrm{cells}$ and proportionally to the number of
+kicks, with $1.4\,\mathrm{kB}$ per macroparticle, dominated by deposition
+and interpolation, and $1.2\,\mathrm{kB}$ per cell, dominated by the IGF
+evaluation. For $10^4$ macroparticles on $32^3$ cells this amounts to
+about $53\,\mathrm{MB}$ per kick, i.e.\ \ph{WERT}\,GB for a beamline with
+\ph{WERT} kicks. Because time and memory of the grid part grow with
+$N_\mathrm{cells}$, the grid resolution trades cost against the accuracy
+of the field \ph{ZITAT -- Beleg fuer: Genauigkeit vs. Gitteraufloesung;
+oder eigene Aufloesungsstudie, Abschnitt \ph{ABSCHNITT}}.
+
+\begin{table}[t]
+  \centering
+  \caption{Forward and backward computation time of one space charge kick
+  in Cheetah~\cite{kaiser2024cheetah,dhamrait2026memory}, in ms, broken
+  down by step (forward pass). CPU \ph{WERT: Modell, 4 Kerne}, float32,
+  Cheetah \ph{WERT}, PyTorch \ph{WERT}. IGF: evaluation of the integrated
+  Green function on the doubled grid; FFT: convolution; Dep.+Int.: charge
+  deposition and force interpolation. \ph{WERT: Median ueber n
+  Wiederholungen, Streuung}.}
+  \label{tab:profile}
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{rrrrrrr}
+    \hline
+    Grid & $N$ & IGF & FFT & Dep.+Int. & Fwd & Bwd \\
+    \hline
+    $32^3$ & $10^4$ &  28.7 &  3.2 &  8.6 &  46.0 &  41.5 \\
+    $32^3$ & $10^5$ &  20.7 &  1.7 & 57.7 &  95.8 & 120.3 \\
+    $64^3$ & $10^4$ & 136.8 & 22.7 &  8.5 & 174.4 & 134.4 \\
+    $64^3$ & $10^5$ & 116.0 & 22.7 & 85.0 & 240.8 & 216.2 \\
+    \hline
+  \end{tabular}
+\end{table}
+% Optional statt/zusaetzlich zur Tabelle: \ph{BILD} gestapelte Balken je
+% Schritt, vorwaerts/rueckwaerts nebeneinander (vollstaendige Plots -> Anhang).
+
+
+% --- 2.c.i Fourier neural operators: related work ---------------------
+\subsection{Fourier neural operators}
+\label{sec:intro-fno}
+
+Neural operators learn mappings between function spaces instead of
+between finite-dimensional
+vectors~\cite{kovachki2023neural,li2021fno,azizzadenesheli2024neural}. In
+the present case, the input function is the charge density $\rho$ and the
+output function the potential $\phi$; the solution operator
+$\mathcal{G}\colon\rho\mapsto\phi$ is linear and, for open boundaries,
+given by the convolution with the Green function
+(Eq.~\eqref{eq:conv}). A conventional network, e.g.\ a convolutional
+network, approximates this map for one fixed grid, and its error grows
+when the resolution changes~\cite{li2021fno}. A neural operator
+parametrises $\mathcal{G}$ itself; its parameters do not depend on the
+discretisation, so one trained model can be evaluated on different grids,
+provided the grid resolves the relevant
+features~\cite{li2021fno,kovachki2023neural}. The FNO~\cite{li2021fno}
+lifts the input pointwise to $d_v$ channels, applies $L$ Fourier layers
+\begin{equation}
+  v_{t+1}(\mathbf{x}) = \sigma\!\left( W v_t(\mathbf{x})
+  + \mathcal{F}^{-1}\!\big( R \cdot \mathcal{F}(v_t) \big)(\mathbf{x})
+  \right),
+  \label{eq:fourier-layer}
+\end{equation}
+and projects the result pointwise to the output. Here $\mathcal{F}$ is the
+Fourier transform, $R$ a learned complex weight tensor acting on the lowest
+$k_\mathrm{max}$ modes per dimension, $W$ a learned pointwise linear map,
+and $\sigma$ a nonlinear activation. With FFTs, one layer costs
+$\mathcal{O}(n\log n)$ for $n$ grid points~\cite{li2021fno}. Li et
+al.~\cite{li2021fno} report consistent errors across resolutions and
+evaluation on finer grids than used in training (zero-shot
+super-resolution).
+
+% --- 2.c.ii Why an FNO for this work ----------------------------------
+The FNO fits the space charge problem because it shares the structure of
+the classical solver. Cheetah computes the potential as
+$\phi = \mathcal{F}^{-1}\big(\mathcal{F}(\tilde G)\cdot
+\mathcal{F}(\tilde\rho)\big)$ on a doubled grid (Eq.~\eqref{eq:hockney}),
+while a Fourier layer computes $\mathcal{F}^{-1}\big(R\cdot
+\mathcal{F}(v)\big)$. A single Fourier layer on the doubled grid, without
+nonlinearity, local term and mode truncation and with
+$R=\mathcal{F}(\tilde G)$, thus reproduces the solver exactly; the FNO
+contains the classical solver as a special case. This has three
+consequences for Cheetah. First, the learned weights replace the
+evaluation of the IGF, which dominates time and memory of the kick for
+moderate $N$ (Sec.~\ref{sec:intro-cost}). Second, discretisation
+invariance allows a refinement of the \emph{grid} without retraining; it
+does not affect the particle part of the kick, whose cost grows with $N$.
+Third, Li et al.\ attribute to the local term $W$ the ability to represent
+non-periodic boundary conditions~\cite{li2021fno}, shown for problems with
+bounded domains. Whether this extends to the open boundaries of the space
+charge problem, so that the grid doubling of the classical solver can be
+omitted, is tested in this work (Sec.~\ref{sec:method-fno}).
+This approach differs from the space charge surrogate of Kaiser et
+al.~\cite{kaiser2024cheetah}: their network predicts the space-charge
+induced change of the second beam moments in a quadrupole, which takes
+$370\,\mu\mathrm{s}$ compared with $1.36\,\mathrm{s}$ for tracking with
+space charge in Ocelot, but acts on moment-based beams and is tied
+to one element. The FNO replaces the field solve inside the kick, keeps
+the element interface, and therefore acts on particle beams in any
+beamline.
+
+
+% =====================================================================
+\section{Methodology}
+\label{sec:method}
+
+\subsection{FNO surrogate in Cheetah}
+
+% --- 3.a.iii Placement in Cheetah -------------------------------------
+% Reihenfolge-Vorschlag: iii (Einbettung) vor i (Aufbau), weil der Aufbau
+% erst mit bekannten Ein-/Ausgaengen nachvollziehbar ist.
+\label{sec:method-placement}
+A space charge kick over the step $\Delta s$ consists of the following
+steps~\cite{dhamrait2026memory}:
+\begin{enumerate}
+  \item The macroparticles are transformed from coordinates at fixed $s$
+  to coordinates at fixed time $t$.
+  \item Their charge is deposited on a Cartesian grid of $32^3$ cells
+  spanning $\pm3\sigma$ of the beam in each dimension by trilinear
+  (cloud-in-cell) weighting~\cite{birdsall2004plasma}, which yields the
+  charge density $\rho_{ijk}$.
+  \item The potential follows from the modified Poisson
+  equation~\cite{vay2008simulation}
+  \begin{equation}
+    \partial_x^2\phi + \partial_y^2\phi + \frac{1}{\gamma^2}\partial_z^2\phi
+    = -\frac{\rho}{\epsilon_0},
+    \label{eq:poisson}
+  \end{equation}
+  solved in the laboratory frame by convolution with the
+  IGF~\cite{qiang2006three,dhamrait2026memory}
+  \begin{equation}
+    \phi_{ijk} = \sum_{i'j'k'} \rho_{i'j'k'}\,
+    G(\mathbf{x}_{ijk}-\mathbf{x}_{i'j'k'}).
+    \label{eq:conv}
+  \end{equation}
+  $G$ is the Green function of Eq.~\eqref{eq:poisson} integrated over one
+  cell. It is evaluated in closed form from an antiderivative $g$ at the
+  eight corners of the cell~\cite{qiang2024implementation},
+  \begin{equation}
+    G(\mathbf{x}) = \sum_{a,b,c\in\{\pm1\}} abc\;
+    g\!\left(x+a\tfrac{\Delta x}{2},\, y+b\tfrac{\Delta y}{2},\,
+    \gamma z+c\tfrac{\gamma\Delta z}{2}\right).
+    \label{eq:igf}
+  \end{equation}
+  Since Eq.~\eqref{eq:conv} costs $\mathcal{O}(N_\mathrm{cells}^2)$ when
+  evaluated directly, Cheetah uses the Hockney
+  method~\cite{hockney1988computer}: $\rho$ is zero-padded and $G$ is
+  evaluated on a grid doubled in every dimension ($\tilde\rho$, $\tilde G$,
+  $64^3$ points), so that the cyclic convolution computed by the FFT equals
+  the linear convolution of Eq.~\eqref{eq:conv}, i.e.\ open boundaries:
+  \begin{equation}
+    \phi = \mathcal{F}^{-1}\!\big(\mathcal{F}(\tilde G)\cdot
+    \mathcal{F}(\tilde\rho)\big)\Big|_{32^3}.
+    \label{eq:hockney}
+  \end{equation}
+  \item The force $\mathbf{F} = -q\nabla\phi/\gamma^2$ is computed on the
+  grid by central differences~\cite{dhamrait2026memory}.
+  \item $\mathbf{F}$ is interpolated trilinearly to the macroparticles.
+  \item Each momentum is updated, $\mathbf{p}\leftarrow\mathbf{p}+
+  \mathbf{F}\Delta t$ with $\Delta t = \Delta s/(\beta c)$, and the
+  coordinates are transformed back to fixed $s$.
+\end{enumerate}
+The surrogate replaces step~3, i.e.\ the evaluation of $\tilde G$ and the
+convolution of Eq.~\eqref{eq:hockney}, and maps $\rho$ on $32^3$ cells to
+$\phi$ on the same grid. Steps~1, 2 and 4--6 remain unchanged, and so does
+the interface of the kick element; the surrogate kick can therefore be
+placed in any Cheetah beamline. The replaced routine is given in
+Listing~\ref{lst:solve} in the appendix.
+
+% --- 3.a.i Structure of the FNO ----------------------------------------
+\label{sec:method-fno}
+The input of the FNO is the charge density of the whole beam on the grid,
+$\rho\in\mathbb{R}^{B\times32\times32\times32}$ for a batch of $B$ beams.
+Because $\tilde G$ depends on the cell size $(\Delta x,\Delta y,
+\gamma\Delta z)$ (Eq.~\eqref{eq:igf}), the operator $\rho\mapsto\phi$
+depends on these parameters as well, and the FNO must receive them. We
+remove the dependence on scale by normalising
+\begin{equation}
+  \hat\rho = \frac{\rho L^3}{Q}, \qquad
+  \hat\phi = \frac{4\pi\epsilon_0 L}{Q}\,\phi,
+  \label{eq:nondim}
+\end{equation}
+with the total charge $Q$ on the grid and the mean edge length $L$ of the
+grid box \ph{FORMEL: Definition von L, inkl. $\gamma$-Streckung}, and pass
+the remaining aspect ratios of the box as constant input channels.
+% ^ nur stehen lassen, wenn so umgesetzt. Kalibrierlauf: L an Box statt
+%   Zelle gekoppelt -> 3 % statt 142 % Fehler beim Wechsel 16^3 -> 32^3
+%   (gehoert dann in Ergebnisse, nicht hierher).
+The FNO lifts the input to $d_v=\ph{WERT}$ channels, applies $L_F=\ph{WERT}$
+Fourier layers (Eq.~\eqref{eq:fourier-layer}) with
+$k_\mathrm{max}=\ph{WERT}$ modes per dimension and \ph{WERT: Aktivierung},
+and projects to one output channel, $\hat\phi\in
+\mathbb{R}^{B\times32\times32\times32}$; the model has \ph{WERT} parameters.
+The number of layers is a hyperparameter, set to \ph{WERT} following
+\ph{ZITAT -- Details zu: Hyperparameterwahl, z.\,B. Li et al. (vier
+Schichten)} or a hyperparameter search (\ph{ABSCHNITT}).
+Two boundary treatments are compared: (a) the input zero-padded to $64^3$
+as in the Hockney method, and (b) the unpadded $32^3$ grid, relying on the
+local term $W$ for the open boundaries~\cite{li2021fno}. Variant~(b) uses
+one eighth of the grid points of variant~(a).
+% Randbedingungen, die unabhaengig vom Surrogat bleiben (ggf. 1 Satz):
+% zentrale Differenzen setzen den Gradienten in der aeussersten Zellschicht
+% auf null, Teilchen ausserhalb +-3 sigma erhalten keine Kraft.
+
+% --- 3.a.ii Training and evaluation -----------------------------------
+The training data are pairs $(\hat\rho,\hat\phi)$ generated with the IGF
+solver of Cheetah for \ph{WERT} beams drawn from \ph{WERT: Verteilungen,
+z.\,B. gaussisch und nicht-gaussisch} with $\gamma\in\ph{WERT}$ and
+\ph{WERT: weitere Parameterbereiche}, split \ph{WERT} into training,
+validation and test sets. The loss is the relative $L_2$ error of
+$\hat\phi$ plus \ph{WERT} times the relative $L_2$ error of its
+central-difference gradient, because the kick depends on $\nabla\phi$ and
+differentiation amplifies high-frequency errors. We train with Adam,
+learning rate \ph{WERT}, batch size \ph{WERT}, for \ph{WERT} epochs on
+\ph{WERT: Hardware}.
+The model is evaluated on three levels against the IGF solver at the same
+and at finer resolution: the relative $L_2$ error of $\phi$ and
+$\nabla\phi$, reported as median, 95th percentile and maximum over the
+test set; the deviation of beam sizes and emittances after \ph{WERT}
+kicks; and \ph{falls Ziel: the cosine similarity between the gradients of
+a beam objective with respect to the input parameters computed through
+surrogate and solver}. Resolution transfer is tested by evaluating a
+model trained on $32^3$ cells on $64^3$ cells without retraining.
+% Optional (empfohlen, sonst ist "Operator statt CNN" nur behauptet):
+% Ablation gegen ein CNN/U-Net mit gleicher Parameterzahl auf festem Gitter.
+
+% --- 3.b Measurement of computation time and memory -------------------
+\subsection{Measurement of computation time and memory}
+\label{sec:method-measurement}
+Three field solvers are compared inside the otherwise unchanged kick:
+the IGF solver as implemented, the IGF solver with $\tilde G$ computed once
+and reused, since $\tilde G$ depends only on cell size and $\gamma$
+(Eq.~\eqref{eq:igf}), and the FNO. For each solver, we measure time and
+peak memory of one kick, forward and backward pass separately, and break
+the time down by the steps of Sec.~\ref{sec:method-placement}. Wall time
+is the median of \ph{WERT} repetitions after one warm-up run, measured
+with the PyTorch benchmark utility and with device synchronisation on the
+GPU. Peak memory is read from the allocator on the GPU and as the maximum
+resident set size of a separate process per configuration on the CPU. We
+vary the grid ($32^3$, $64^3$) and $N$ ($10^4$, $10^5$, $10^6$) on a
+\ph{WERT: CPU} and a \ph{WERT: GPU}, with PyTorch \ph{WERT}, Cheetah
+\ph{WERT} and float32. Speed-ups are reported at equal accuracy of the
+potential, not only at equal resolution. Code and environment
+(\texttt{requirements.txt}) are available at \ph{ABSCHNITT: TUHH-GitLab}.
+
+
+% =====================================================================
+\section{Results}
+\label{sec:results}
+% 4.a Zeit und Speicher FNO vs. Status quo. Muster je Abbildung:
+%   (1) was dargestellt ist, (2) Beobachtung mit Zahlen, (3) welche
+%   Aussage das stuetzt. Vorlage:
+Fig.~\ref{fig:timing} shows forward and backward time per kick over the
+number of cells for the IGF solver, the IGF solver with reused $\tilde G$,
+and the FNO. \ph{WERT: Beobachtung, z.\,B. ab $n^3$ Zellen ist das FNO
+um Faktor x schneller}. \ph{Aussage, die das stuetzt}.
+% 4.b Was das FNO leistet: Fehler Feld/Strahl(/Gradient), Aufloesungstransfer.
+% 4.c Was fehlt: z.B. Randfehler, Gradiententreue, Teilchenteil unveraendert.
+
+
+% =====================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+% 5.a Kernbefunde, 5.b Antwort auf die Forschungsfrage (gut genug? was
+% gewinnt Cheetah?) -- nach den Ergebnissen schreiben.
+
+% --- 5.c Outlook -------------------------------------------------------
+The surrogate replaces only the grid part of the kick. Charge deposition
+and force interpolation scale with $N$; they dominate the memory per
+macroparticle in reverse mode~\cite{dhamrait2026memory} and, in our
+profile, the computation time at $10^5$ macroparticles
+(Table~\ref{tab:profile}). Reducing this part requires a model that acts on
+the particle cloud directly, e.g.\ a permutation-invariant network such as
+PointNet~\cite{qi2017pointnet}, which Kaiser et al.\ proposed for
+extending Cheetah's surrogates to particle beams~\cite{kaiser2024cheetah}.
+Such a model maps a point cloud instead of a function on a grid and thus
+gives up discretisation invariance. Independently of the surrogate,
+gradient checkpointing reduces the memory of reverse mode at the cost of
+recomputation~\cite{dhamrait2026memory}.
+
+
+% =====================================================================
+\appendix
+\section{Code}
+% Listing der ersetzten Routine (Original + Surrogat-Variante)
+\begin{figure}[h]
+  \centering
+  \ph{Listing: Poisson-Loesung mit FNO statt IGF-Faltung}
+  \caption{Replaced field solve of the space charge kick.}
+  \label{lst:solve}
+\end{figure}
+% -> mit listings/minted als lstlisting-Umgebung ersetzen.
+
+\section{Computation time and memory measurements}
+% Alle Plots aus Sec. method-measurement; im Haupttext nur die
+% Kernabbildung(en).
+\begin{figure}[h]
+  \centering
+  \ph{BILD: Zeit je Kick ueber Zellzahl, alle Konfigurationen}
+  \caption{\ph{Bildunterschrift}}
+  \label{fig:timing}
+\end{figure}
