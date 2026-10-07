@@ -39,7 +39,7 @@ SMOKE_RANGES = {
 }
 
 
-def plot_predictions(model, test_samples, data_processor):
+def plot_predictions(model, test_samples, data_processor, tag="", save_dir=None):
     """Plot FNO-Predictions auf Cheetah-SC-Daten (3D, 32^3).
 
     `test_samples` ist ein Roh-Batch-Dict aus einem test_loader:
@@ -130,11 +130,23 @@ def plot_predictions(model, test_samples, data_processor):
     fig2.suptitle("phi_hat (entdimensionalisiert): Ground-Truth vs. Prediction", y=0.99)
     fig2.tight_layout()
 
+    # ----- Figuren speichern -----
+    if save_dir is None:
+        save_dir = ROOT / "figures"
+    save_dir = Path(save_dir)
+    save_dir.mkdir(parents=True, exist_ok=True)
+    suffix = f"_{tag}" if tag else ""
+    fig1_path = save_dir / f"rho_hat{suffix}.png"
+    fig2_path = save_dir / f"phi_hat_gt_vs_pred{suffix}.png"
+    fig1.savefig(fig1_path, dpi=150, bbox_inches="tight")
+    fig2.savefig(fig2_path, dpi=150, bbox_inches="tight")
+    print(f"Figuren gespeichert: {fig1_path}, {fig2_path}")
+
     plt.show()
     return fig1, fig2
 
 def main() -> int:
-    device = torch.device("cpu")
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     data_root = Path(tempfile.mkdtemp(prefix="cheetah_sc_smoke_"))
 
     # --- Daten: kleines Setup, wird bei Bedarf generiert (generate=True) ---
@@ -158,7 +170,7 @@ def main() -> int:
     )
     data_processor = data_processor.to(device)
 
-    # --- Modell: 3D-FNO ---
+    # --- Modell: 3D-FNO ---, tag="before_training_res16"
     model = FNO(
         n_modes=(8, 8, 8),
         in_channels=4,          # rho_hat + 3x E_hat
@@ -170,7 +182,7 @@ def main() -> int:
 
     # --- Plot predictions before training ---
     batch = next(iter(test_loaders[16]))   # ein Roh-Batch: {"x","y"}
-    plot_predictions(model, batch, data_processor)
+    plot_predictions(model, batch, data_processor, tag=f"before_training")
 
     # --- Optimizer/Scheduler wie im Darcy-Tutorial ---
     optimizer = torch.optim.Adam(model.parameters(), lr=3e-4, weight_decay=1e-4)
@@ -183,14 +195,14 @@ def main() -> int:
     # --- Trainer (Darcy-Tutorial-Muster) ---
     trainer = Trainer(
         model=model,
-        n_epochs=2,
+        n_epochs=1000,
         device=device,
         data_processor=data_processor,
-        eval_interval=1,
+        eval_interval=100,
         verbose=True,   # druckt avg_loss je Epoche + Eval-Werte je Aufloesung
     )
 
-    print("== Training (2 Epochen) ==")
+    print("== Training (1000 Epochen) ==")
     trainer.train(
         train_loader=train_loader,
         test_loaders=test_loaders,
@@ -210,7 +222,6 @@ def main() -> int:
             for data_dict in loader:
                 data_dict = data_processor.preprocess(data_dict)
                 out = model(data_dict["x"])
-                out, data_dict = data_processor.postprocess(out, data_dict)
                 y = data_dict["y"]
                 for name, fn in eval_losses.items():
                     metrics[name] += fn(out, y).item() * out.size(0)
@@ -222,8 +233,7 @@ def main() -> int:
     model.eval()
     for res, loader in test_loaders.items():
         batch = next(iter(loader))
-        plot_predictions(model, batch, data_processor)
-
+        plot_predictions(model, batch, data_processor, tag=f"after_training_res{res}")
     return 0
 
 
