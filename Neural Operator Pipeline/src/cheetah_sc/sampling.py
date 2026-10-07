@@ -112,7 +112,9 @@ def sample_beam_params(
         # der Zufallszahlen stabil bleibt, falls jemand die Menge der
         # log-uniformen Parameter aendert.
         for key in UNIFORM_KEYS:
-            lo, hi = ranges[key]["min"], ranges[key]["max"]
+            # float() erzwungen: YAML-Configs liefern Grenzen teils als Strings
+            # (z.B. '5.0e8'), die sonst als str-Vergleich enden wuerden.
+            lo, hi = float(ranges[key]["min"]), float(ranges[key]["max"])
             if lo > hi:
                 raise ValueError(f"ranges[{key}]: min ({lo}) > max ({hi})")
             sample[key] = float(rng.uniform(lo, hi))
@@ -123,7 +125,7 @@ def sample_beam_params(
         sample["n_particles"] = max(1, sample["n_particles"])
 
         for key in LOG_UNIFORM_KEYS:
-            lo, hi = ranges[key]["min"], ranges[key]["max"]
+            lo, hi = float(ranges[key]["min"]), float(ranges[key]["max"])
             if lo <= 0 or hi <= 0:
                 raise ValueError(f"ranges[{key}] muss strikt positiv sein")
             if lo > hi:

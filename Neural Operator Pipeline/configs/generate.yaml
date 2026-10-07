@@ -1,0 +1,23 @@
+# CLI-Config fuer den Datengenerator (G3, `python -m cheetah_sc.generate -c ...`).
+#
+# TODO: Die `ranges` sind Beispielwerte - durch echte Grenzen aus der
+# ML-Pipeline ersetzen (siehe configs/sampling.yaml fuer die Einheiten).
+
+seed: 0
+root: data/cheetah_sc
+
+n_train: 1000
+n_tests: [100, 50]
+train_resolution: 32
+test_resolutions: [32, 64]
+
+ranges:
+  # log-uniform
+  sigma_x:      { min: 5.0e-4, max: 2.0e-3 }   # [m]
+  sigma_y:      { min: 5.0e-4, max: 2.0e-3 }   # [m]
+  sigma_tau:    { min: 1.0e-3, max: 8.0e-3 }   # [m]
+  # uniform
+  energy:       { min: 5.0e8,  max: 2.0e9 }    # [eV]
+  total_charge: { min: 1.0e-10, max: 5.0e-9 }  # [C]
+  # uniform (ganzzahlig)
+  n_particles:  { min: 5.0e4,  max: 5.0e5 }    # [1]

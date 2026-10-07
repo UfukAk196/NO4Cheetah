@@ -93,6 +93,29 @@ def test_default_ranges_valid():
             assert bounds["min"] <= sample[key] <= bounds["max"]
 
 
+def test_ranges_as_strings_from_yaml():
+    """YAML-Configs liefern Grenzen teils als Strings (z.B. '5.0e8').
+
+    sample_beam_params muss damit umgehen koennen, ohne in str-Vergleiche zu
+    laufen (roter Faden zu G3/CLI).
+    """
+    ranges = {
+        "sigma_x": {"min": "5.0e-4", "max": "1.5e-3"},
+        "sigma_y": {"min": "5.0e-4", "max": "1.5e-3"},
+        "sigma_tau": {"min": "1.0e-3", "max": "5.0e-3"},
+        "energy": {"min": "5.0e8", "max": "1.5e9"},
+        "total_charge": {"min": "1.0e-10", "max": "2.0e-9"},
+        "n_particles": {"min": "1.0e4", "max": "3.0e4"},
+    }
+    samples = sample_beam_params(50, seed=0, ranges=ranges)
+    assert len(samples) == 50
+    for sample in samples:
+        for key, bounds in ranges.items():
+            lo, hi = float(bounds["min"]), float(bounds["max"])
+            assert lo <= sample[key] <= hi, (key, sample[key])
+        assert isinstance(sample["n_particles"], int)
+
+
 def test_log_uniform_spans_decades_within_bounds():
     """Log-uniform gezogene Groessen liegen strikt innerhalb [min, max]."""
     ranges = _example_ranges()
