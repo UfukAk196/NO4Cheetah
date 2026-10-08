@@ -151,8 +151,8 @@ def main() -> int:
 
     # --- Daten: kleines Setup, wird bei Bedarf generiert (generate=True) ---
     n_train, batch_size = 16, 4
-    n_tests, test_batch_sizes = [4, 4], [4, 4]
-    train_resolution, test_resolutions = 16, [16, 32]
+    n_tests, test_batch_sizes = [4, 4, 4, 4], [4, 4, 4, 4]
+    train_resolution, test_resolutions = 16, [16, 32, 64, 128]
 
     print("== load_cheetah_sc (Daten laden/generieren) ==")
     train_loader, test_loaders, data_processor = load_cheetah_sc(

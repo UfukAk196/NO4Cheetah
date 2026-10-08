@@ -113,6 +113,15 @@ class CheetahDataset(PTDataset):
                     ranges=ranges,
                 )
 
+        if len(n_tests) != len(test_resolutions):
+            raise ValueError(
+                f"n_tests ({len(n_tests)}) must match test_resolutions ({len(test_resolutions)})"
+            )
+        if len(test_batch_sizes) != len(test_resolutions):
+            raise ValueError(
+                f"test_batch_sizes ({len(test_batch_sizes)}) must match test_resolutions ({len(test_resolutions)})"
+            )
+
         super().__init__(
             root_dir=root_dir,
             dataset_name=DATASET_NAME,
