@@ -75,6 +75,12 @@ def plot_predictions(model, test_samples, data_processor, tag="", save_dir=None)
     phi_gt = y[:, 0]         # (B, nx, ny, nz)
     phi_pred = out[:, 0]     # (B, nx, ny, nz)
 
+    # Debug-Ausgabe
+    print(f"x: shape={tuple(x.shape)}\n{x}")
+    print(f"y: shape={tuple(y.shape)}")
+    print(f"rho: shape={tuple(rho.shape)}\n{rho}")
+    print(f"phi_gt: shape={tuple(phi_gt.shape)}")
+
     nx, ny, nz = rho.shape[1], rho.shape[2], rho.shape[3]
     cx, cy, ct = nx // 2, ny // 2, nz // 2
 
@@ -172,11 +178,12 @@ def main() -> int:
 
     # --- Modell: 3D-FNO ---, tag="before_training_res16"
     model = FNO(
-        n_modes=(8, 8, 8),
+        n_modes=(8, 8, 8),      # max. lowest fourier modes per dimension (k_max)
         in_channels=4,          # rho_hat + 3x E_hat
         out_channels=1,         # phi_hat
         hidden_channels=16,
         n_layers=2,
+        domain_padding=0.25
     ).to(device)
     print(f"FNO Parameter: {sum(p.numel() for p in model.parameters()):,}")
 
@@ -185,8 +192,9 @@ def main() -> int:
     plot_predictions(model, batch, data_processor, tag=f"before_training")
 
     # --- Optimizer/Scheduler wie im Darcy-Tutorial ---
+    n_epochs = 1000
     optimizer = torch.optim.Adam(model.parameters(), lr=3e-4, weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=30)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=n_epochs, eta_min=1e-6)
 
     # --- Verluste ---
     training_loss = H1Loss(d=3)
@@ -195,14 +203,14 @@ def main() -> int:
     # --- Trainer (Darcy-Tutorial-Muster) ---
     trainer = Trainer(
         model=model,
-        n_epochs=1000,
+        n_epochs=n_epochs,
         device=device,
         data_processor=data_processor,
         eval_interval=100,
         verbose=True,   # druckt avg_loss je Epoche + Eval-Werte je Aufloesung
     )
 
-    print("== Training (1000 Epochen) ==")
+    print(f"== Training ({n_epochs} Epochen) ==")
     trainer.train(
         train_loader=train_loader,
         test_loaders=test_loaders,
