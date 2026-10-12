@@ -199,6 +199,7 @@ def make_sample(params: dict, res: int) -> tuple[torch.Tensor, torch.Tensor]:
     )
 
     x = torch.cat([rho_hat, e_hat], dim=1).float()  # (1, 4, res, res, res)
+    x = rho_hat.float()  # (1, 1, res, res, res)
     y = phi_hat.float()  # (1, 1, res, res, res)
 
     return x.squeeze(0), y.squeeze(0)  # (4, res, res, res), (1, res, res, res)

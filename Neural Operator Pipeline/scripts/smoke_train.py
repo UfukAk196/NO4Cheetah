@@ -12,7 +12,6 @@ Aufruf: python scripts/smoke_train.py
 from __future__ import annotations
 
 import sys
-import tempfile
 from pathlib import Path
 import numpy as np
 import torch
@@ -35,7 +34,7 @@ SMOKE_RANGES = {
     "sigma_tau": {"min": 1.0e-3, "max": 5.0e-3},
     "energy": {"min": 5.0e8, "max": 1.5e9},
     "total_charge": {"min": 1.0e-10, "max": 2.0e-9},
-    "n_particles": {"min": 1.0e4, "max": 2.0e4},
+    "n_particles": {"min": 1.0e4, "max": 1.0e5},
 }
 
 
@@ -74,12 +73,6 @@ def plot_predictions(model, test_samples, data_processor, tag="", save_dir=None)
     rho = x[:, 0]            # Kanal 0 = rho_hat: (B, nx, ny, nz)
     phi_gt = y[:, 0]         # (B, nx, ny, nz)
     phi_pred = out[:, 0]     # (B, nx, ny, nz)
-
-    # Debug-Ausgabe
-    print(f"x: shape={tuple(x.shape)}\n{x}")
-    print(f"y: shape={tuple(y.shape)}")
-    print(f"rho: shape={tuple(rho.shape)}\n{rho}")
-    print(f"phi_gt: shape={tuple(phi_gt.shape)}")
 
     nx, ny, nz = rho.shape[1], rho.shape[2], rho.shape[3]
     cx, cy, ct = nx // 2, ny // 2, nz // 2
@@ -151,14 +144,145 @@ def plot_predictions(model, test_samples, data_processor, tag="", save_dir=None)
     plt.show()
     return fig1, fig2
 
+
+class HistoryTrainer(Trainer):
+    """``Trainer``, der die Metriken jeder Epoche mitschreibt.
+
+    Der neuralop-``Trainer`` gibt die Werte nur nach stdout aus und speichert
+    sie nicht. Hier werden ``log_training`` (jede Epoche) und ``log_eval``
+    (alle ``eval_interval`` Epochen) ueberschrieben und die Werte zusaetzlich
+    in ``self.history`` abgelegt:
+
+        history["train"] = {"epoch": [...], "avg_loss": [...], "train_err": [...]}
+        history["eval"]  = {"epoch": [...], "<res>_h1": [...], "<res>_l2": [...]}
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.history = {"train": {}, "eval": {}}
+
+    def log_training(self, epoch, time, avg_loss, train_err, avg_lasso_loss=None, lr=None):
+        super().log_training(
+            epoch=epoch,
+            time=time,
+            avg_loss=avg_loss,
+            train_err=train_err,
+            avg_lasso_loss=avg_lasso_loss,
+            lr=lr,
+        )
+        train_hist = self.history["train"]
+        train_hist.setdefault("epoch", []).append(epoch)
+        train_hist.setdefault("avg_loss", []).append(float(avg_loss))
+        train_hist.setdefault("train_err", []).append(float(train_err))
+        train_hist.setdefault("lr", []).append(float(lr) if lr is not None else float("nan"))
+
+    def log_eval(self, epoch, eval_metrics):
+        super().log_eval(epoch=epoch, eval_metrics=eval_metrics)
+        eval_hist = self.history["eval"]
+        eval_hist.setdefault("epoch", []).append(epoch)
+        for metric, value in eval_metrics.items():
+            if isinstance(value, torch.Tensor):
+                value = value.item()
+            if isinstance(value, (int, float)):
+                eval_hist.setdefault(metric, []).append(float(value))
+
+
+def plot_losses(history, save_dir=None, tag=""):
+    """Plottet Trainings- und Eval-Lossverlaeufe aus ``HistoryTrainer.history``.
+
+    Drei Panels:
+      1. Trainings-Loss (avg_loss, train_err) ueber die Epochen (log-y).
+      2. Eval-Loss je Test-Aufloesung (h1, l2) ueber die Epochen (log-y).
+      3. Lernrate ueber die Epochen (log-y).
+
+    Die Eval-Kurven haben nur alle ``eval_interval`` Epochen Punkte.
+    """
+    train_hist = history.get("train", {})
+    eval_hist = history.get("eval", {})
+
+    fig, axs = plt.subplots(1, 3, figsize=(18, 5))
+
+    # --- Panel 1: Trainings-Loss ---
+    ax = axs[0]
+    if train_hist.get("epoch"):
+        ax.plot(train_hist["epoch"], train_hist["avg_loss"], label="avg_loss", color="tab:blue")
+        ax.plot(train_hist["epoch"], train_hist["train_err"], label="train_err", color="tab:orange", alpha=0.7)
+        ax.set_yscale("log")
+        ax.legend()
+    else:
+        ax.text(0.5, 0.5, "keine Trainingsdaten", ha="center", va="center")
+    ax.set_title("Trainings-Loss")
+    ax.set_xlabel("Epoche")
+    ax.set_ylabel("Loss (log)")
+    ax.grid(True, which="both", alpha=0.3)
+
+    # --- Panel 2: Eval-Loss je Aufloesung ---
+    ax = axs[1]
+    eval_epochs = eval_hist.get("epoch", [])
+    if eval_epochs:
+        # Metriknamen haben die Form "<res>_<loss>", z.B. "16_h1"
+        metric_names = [k for k in eval_hist if k != "epoch"]
+        resolutions = sorted({int(k.split("_")[0]) for k in metric_names})
+        cmap = plt.get_cmap("tab10")
+        for i, res in enumerate(resolutions):
+            for loss_name, style in (("h1", "-"), ("l2", "--")):
+                key = f"{res}_{loss_name}"
+                if key in eval_hist:
+                    ax.plot(
+                        eval_epochs,
+                        eval_hist[key],
+                        style,
+                        color=cmap(i % 10),
+                        label=f"res {res} {loss_name}",
+                    )
+        ax.set_yscale("log")
+        ax.legend(fontsize=8, ncol=2)
+    else:
+        ax.text(0.5, 0.5, "keine Eval-Daten", ha="center", va="center")
+    ax.set_title("Eval-Loss je Aufloesung")
+    ax.set_xlabel("Epoche")
+    ax.set_ylabel("Loss (log)")
+    ax.grid(True, which="both", alpha=0.3)
+
+    # --- Panel 3: Lernrate ---
+    ax = axs[2]
+    if train_hist.get("epoch") and train_hist.get("lr"):
+        ax.plot(train_hist["epoch"], train_hist["lr"], color="tab:green")
+        ax.set_yscale("log")
+    else:
+        ax.text(0.5, 0.5, "keine LR-Daten", ha="center", va="center")
+    ax.set_title("Lernrate")
+    ax.set_xlabel("Epoche")
+    ax.set_ylabel("lr (log)")
+    ax.grid(True, which="both", alpha=0.3)
+
+    fig.suptitle("Trainingsverlauf (Smoke-Test)", y=1.0)
+    fig.tight_layout()
+
+    if save_dir is None:
+        save_dir = ROOT / "figures"
+    save_dir = Path(save_dir)
+    save_dir.mkdir(parents=True, exist_ok=True)
+    suffix = f"_{tag}" if tag else ""
+    path = save_dir / f"loss_curves{suffix}.png"
+    fig.savefig(path, dpi=150, bbox_inches="tight")
+    print(f"Figur gespeichert: {path}")
+
+    plt.show()
+    return fig
+
+
 def main() -> int:
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    data_root = Path(tempfile.mkdtemp(prefix="cheetah_sc_smoke_"))
+    # Persistenter Datenordner im Projekt (statt tempfile.mkdtemp), damit die
+    # generierten .pt-Dateien zwischen Laeufen erhalten bleiben. generate=True
+    # erzeugt dann nur noch die fehlenden Dateien (s. _missing_files).
+    data_root = ROOT / "data" / "cheetah_sc_smoke"
 
     # --- Daten: kleines Setup, wird bei Bedarf generiert (generate=True) ---
     n_train, batch_size = 16, 4
-    n_tests, test_batch_sizes = [4, 4, 4, 4], [4, 4, 4, 4]
-    train_resolution, test_resolutions = 16, [16, 32, 64, 128]
+    n_tests, test_batch_sizes = [4, 4, 4], [4, 4, 4]
+    train_resolution, test_resolutions = 16, [16, 32, 64]
 
     print("== load_cheetah_sc (Daten laden/generieren) ==")
     train_loader, test_loaders, data_processor = load_cheetah_sc(
@@ -179,10 +303,11 @@ def main() -> int:
     # --- Modell: 3D-FNO ---, tag="before_training_res16"
     model = FNO(
         n_modes=(8, 8, 8),      # max. lowest fourier modes per dimension (k_max)
-        in_channels=4,          # rho_hat + 3x E_hat
+        #in_channels=4,          # rho_hat + 3x E_hat
+        in_channels=1,          # rho_hat only
         out_channels=1,         # phi_hat
         hidden_channels=16,
-        n_layers=2,
+        n_layers=3,
         domain_padding=0.25
     ).to(device)
     print(f"FNO Parameter: {sum(p.numel() for p in model.parameters()):,}")
@@ -200,8 +325,8 @@ def main() -> int:
     training_loss = H1Loss(d=3)
     eval_losses = {"h1": H1Loss(d=3), "l2": LpLoss(d=3, p=2)}
 
-    # --- Trainer (Darcy-Tutorial-Muster) ---
-    trainer = Trainer(
+    # --- Trainer (Darcy-Tutorial-Muster, mit Loss-Historie) ---
+    trainer = HistoryTrainer(
         model=model,
         n_epochs=n_epochs,
         device=device,
@@ -236,6 +361,9 @@ def main() -> int:
                 count += out.size(0)
         line = ", ".join(f"{name}={v / count:.4f}" for name, v in metrics.items())
         print(f"  Aufloesung {res}: {line}")
+
+    # --- Loss-Kurven aus der Trainings-Historie ---
+    plot_losses(trainer.history, tag="smoke")
 
     # --- Plot predictions after training for each resolution ---
     model.eval()
