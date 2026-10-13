@@ -24,13 +24,13 @@ from pathlib import Path
 
 import torch
 
-from data.dataset import CheetahDataset
-from data.generate import DISTRIBUTIONS
-from utils.losses import central_gradient, relative_l2
-from models.fno import build_model
-from utils.normalization import Scaling, build_input
-from train import batch_to_input
-from utils.common import load_checkpoint, pick_device
+from scno.data.dataset import CheetahDataset
+from scno.data.generate import DISTRIBUTIONS
+from scno.utils.losses import central_gradient, relative_l2
+from scno.models.fno import build_model
+from scno.utils.normalization import Scaling, build_input
+from scno.train import batch_to_input
+from scno.utils.common import load_checkpoint, pick_device
 
 
 @torch.no_grad()
@@ -107,8 +107,8 @@ def gradient_consistency(model, dataset, device, num_samples: int = 4) -> dict:
     beiden Gradientenfelder: 1.0 heisst gleiche Richtung, und die Richtung
     ist das, was ein Optimierer tatsaechlich verwendet.
     """
-    from utils.physics import solve_poisson
-    from utils.normalization import potential_to_hat
+    from scno.utils.physics import solve_poisson
+    from scno.utils.normalization import potential_to_hat
 
     model.eval()
     similarities, magnitudes = [], []

@@ -13,13 +13,8 @@ Aufruf: python scripts/inspect_scaling.py --data data/train.h5
 """
 
 import argparse
-import sys
-from pathlib import Path
-
 import h5py
 import numpy as np
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 
 def spread(values: np.ndarray) -> float:

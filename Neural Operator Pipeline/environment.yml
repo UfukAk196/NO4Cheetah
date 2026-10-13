@@ -4,7 +4,7 @@ channels:
 dependencies:
   - python=3.12
   # Core numerics
-  - pytorch=2.14          # on Maxwell: pytorch-gpu + cuda-version=12.x instead
+  - pytorch>=2.2          # on Maxwell: pytorch-gpu + cuda-version=12.x instead
   - numpy>=1.26
   - scipy>=1.11
   - h5py>=3.10
@@ -19,7 +19,7 @@ dependencies:
   - pytest-mock
   - pip
   - pip:
-      - cheetah-accelerator==0.8.4
+      - cheetah-accelerator==0.8.5
       - neuraloperator==2.0.0
       - wandb
       - -e .              # installs your scno + cheetah_sc from src/

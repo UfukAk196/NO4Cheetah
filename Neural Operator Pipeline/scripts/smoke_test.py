@@ -16,17 +16,16 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
 
 import torch  # noqa: E402
 import yaml  # noqa: E402
 
-from data.dataset import CheetahDataset  # noqa: E402
-from data.generate import write_hdf5  # noqa: E402
-from evaluate import evaluate, gradient_consistency, resolution_study  # noqa: E402
-from models.exact import ExactOperator  # noqa: E402
-from models.fno import build_model  # noqa: E402
-from utils.common import count_parameters  # noqa: E402
+from scno.data.dataset import CheetahDataset  # noqa: E402
+from scno.data.generate import write_hdf5  # noqa: E402
+from scno.evaluate import evaluate, gradient_consistency, resolution_study  # noqa: E402
+from scno.models.exact import ExactOperator  # noqa: E402
+from scno.models.fno import build_model  # noqa: E402
+from scno.utils.common import count_parameters  # noqa: E402
 
 
 def main() -> int:

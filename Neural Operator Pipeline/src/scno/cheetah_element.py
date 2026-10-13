@@ -18,8 +18,8 @@ from __future__ import annotations
 
 import torch
 
-from utils.normalization import build_input, nondimensionalize, potential_from_hat
-from utils.physics import cloud_in_cell, potential_gradient
+from scno.utils.normalization import build_input, nondimensionalize, potential_from_hat
+from scno.utils.physics import cloud_in_cell, potential_gradient
 
 try:
     from cheetah.accelerator.element import Element

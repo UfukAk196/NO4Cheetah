@@ -10,11 +10,16 @@
 			"path": "../pytorch-deep-learning"
 		},
 		{
-			"path": "../cheetah repos/cheetah"
+			"path": "../cheetah repos/cheetah-accelerator"
 		}
 	],
 	"settings": {
 		"python-envs.defaultEnvManager": "ms-python.python:conda",
 		"python-envs.defaultPackageManager": "ms-python.python:conda"
-	}
+		"python.terminal.activateEnvironment": true,
+	      	"files.exclude": { "**/__pycache__": true }
+   	},
+    	"extensions": {
+      		"recommendations": ["ms-python.python", "ms-toolsai.jupyter", "ms-vscode-remote.remote-ssh"]
+    	}
 }

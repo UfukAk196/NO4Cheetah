@@ -1,19 +1,11 @@
-# Kern
-torch>=2.2
-numpy>=1.26
-scipy>=1.11
-h5py>=3.10
-pyyaml>=6.0
+# Installationsliste fuer pip-only-Umgebungen (Google Colab, venv ohne conda).
+# Die eigentliche Paketliste steht in pyproject.toml -- hier nichts doppelt pflegen.
+#
+# Colab:   !git clone https://github.com/UfukAk196/NO4Cheetah.git
+#          %cd "NO4Cheetah/Neural Operator Pipeline"
+#          !pip install -r requirements.txt
+#
+# torch wird NICHT neu installiert: Colab bringt eine passende CUDA-Version mit,
+# und torch>=2.2 aus pyproject.toml ist damit bereits erfuellt.
 
-# Neural Operators (offizielle Implementierung der FNO-Autoren)
-neuraloperator>=1.0
-
-# Auswertung und Plots
-matplotlib>=3.8
-
-# Optional, aber empfohlen
-# wandb>=0.16          # Experimente mitschreiben
-# hydra-core>=1.3      # Configs, sobald es mehr als eine Handvoll Laeufe werden
-# einops>=0.7          # lesbare Tensor-Umformungen
-# torchdiffeq>=0.2     # falls der Neural-ODE-Zweig dazukommt
-# cheetah-accelerator  # fuer die Integration ins echte Lattice
+-e .[logging]

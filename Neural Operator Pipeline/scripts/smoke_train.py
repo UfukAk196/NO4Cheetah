@@ -11,20 +11,18 @@ Aufruf: python scripts/smoke_train.py
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
 
 from neuralop import Trainer  # noqa: E402
 from neuralop.losses import H1Loss, LpLoss  # noqa: E402
 from neuralop.models import FNO  # noqa: E402
 
-from data.dataset import load_cheetah_sc  # noqa: E402
+from scno.data.dataset import load_cheetah_sc  # noqa: E402
 
 
 # Kleine Parameter-Grenzen, damit der Smoke-Test auf CPU schnell bleibt.

@@ -19,11 +19,11 @@ from pathlib import Path
 
 import torch
 
-from data.dataset import make_loaders
-from utils.losses import build_loss, relative_l2
-from models.fno import build_model
-from utils.normalization import Scaling, build_input
-from utils.common import count_parameters, load_config, pick_device, save_checkpoint, set_seed
+from scno.data.dataset import make_loaders
+from scno.utils.losses import build_loss, relative_l2
+from scno.models.fno import build_model
+from scno.utils.normalization import Scaling, build_input
+from scno.utils.common import count_parameters, load_config, pick_device, save_checkpoint, set_seed
 
 
 def batch_to_input(batch: dict, device: torch.device) -> tuple[torch.Tensor, torch.Tensor, Scaling]:
