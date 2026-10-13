@@ -3,7 +3,7 @@
 # TODO: Die Zahlen sind Beispielwerte. Ersetze sie durch die echten Grenzen
 # aus der ML-Pipeline, bevor der volle Datensatz erzeugt wird. Dieselben
 # Werte stehen (ebenfalls als TODO) im Default von
-# src/cheetah_sc/sampling.py -- die Config hier hat Vorrang, sobald sie
+# src/data/sampling.py -- die Config hier hat Vorrang, sobald sie
 # explizit an `sample_beam_params` bzw. `generate_cheetah_sc` uebergeben wird.
 #
 # Alle Angaben sind inklusive: Werte liegen in [min, max].

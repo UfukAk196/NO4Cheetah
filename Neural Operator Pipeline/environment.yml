@@ -1,0 +1,25 @@
+name: no4cheetah
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  # Core numerics
+  - pytorch=2.14          # on Maxwell: pytorch-gpu + cuda-version=12.x instead
+  - numpy>=1.26
+  - scipy>=1.11
+  - h5py>=3.10
+  - pyyaml>=6.0
+  # Analysis, plots, progress
+  - matplotlib>=3.8
+  - pandas
+  - tqdm
+  # Notebooks and tests
+  - ipykernel
+  - pytest
+  - pytest-mock
+  - pip
+  - pip:
+      - cheetah-accelerator==0.8.4
+      - neuraloperator==2.0.0
+      - wandb
+      - -e .              # installs your scno + cheetah_sc from src/

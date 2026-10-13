@@ -34,10 +34,10 @@ Neu zu schreiben sind nur drei Dinge: ein Generator, der `.pt`-Dateien erzeugt, 
 
 | Darcy-Vorlage (neuralop) | Cheetah-Gegenstück | Datei | Neu oder übernommen | Was sich ändert |
 | --- | --- | --- | --- | --- |
-| Zenodo-Download (`download_from_zenodo_record`) | `generate_cheetah_sc(...)` | `cheetah_sc/generate.py` | neu | Erzeugt die Daten selbst aus Cheetah statt sie herunterzuladen |
-| `DarcyDataset(PTDataset)` | `CheetahDataset(PTDataset)` | `cheetah_sc/dataset.py` | neu | `generate`-Flag statt `download`, eigene erlaubte Auflösungen, `channels_squeezed=False` |
+| Zenodo-Download (`download_from_zenodo_record`) | `generate_cheetah_sc(...)` | `data/generate.py` | neu | Erzeugt die Daten selbst aus Cheetah statt sie herunterzuladen |
+| `DarcyDataset(PTDataset)` | `CheetahDataset(PTDataset)` | `data/dataset.py` | neu | `generate`-Flag statt `download`, eigene erlaubte Auflösungen, `channels_squeezed=False` |
 | `PTDataset` | `PTDataset` | neuralop `pt_dataset.py` | übernommen | nichts; liest `{name}_train_{res}.pt` und `{name}_test_{res}.pt` |
-| `load_darcy_flow_small(...)` | `load_cheetah_sc(...)` | `cheetah_sc/dataset.py` | neu | gleiche Signatur und Rückgabe, Auflösungen frei wählbar |
+| `load_darcy_flow_small(...)` | `load_cheetah_sc(...)` | `data/dataset.py` | neu | gleiche Signatur und Rückgabe, Auflösungen frei wählbar |
 | `DefaultDataProcessor` | `DefaultDataProcessor` | neuralop `data_processors.py` | übernommen | nichts; kommt über `dataset.data_processor` zurück |
 | `torch.utils.data.DataLoader` | `DataLoader` | PyTorch `dataloader.py` | übernommen | kleinere Batches, `num_workers` konfigurierbar |
 
@@ -51,7 +51,7 @@ Der Generator schreibt pro Auflösung zwei Dateien, die `PTDataset` ohne jede An
 | --- | --- | --- |
 | Dateinamen | `cheetah_sc_train_{res}.pt`, `cheetah_sc_test_{res}.pt` | `PTDataset` baut `f"{dataset_name}_train_{train_resolution}.pt"` |
 | Inhalt | `torch.save({"x": x, "y": y, "meta": {...}}, pfad)` | gelesen werden nur `data["x"]` und `data["y"]`, weitere Keys werden ignoriert |
-| Form `x` | `(N, 4, res, res, res)`: ρ̂ + drei Kanäle `E_i/L` | mehrere Kanäle, deshalb `channels_squeezed=False`, `channel_dim=1` |
+| Form `x` | `(N, 4, res, res, res)`: ρ̂ + drei konstante Kanäle `log(E_i/L)`, E_i = Boxkanten (nicht das E-Feld!) | mehrere Kanäle, deshalb `channels_squeezed=False`, `channel_dim=1` |
 | Form `y` | `(N, 1, res, res, res)`: φ̂ | Kanal explizit mitspeichern, sonst bricht die Normalisierung |
 | Dtype | beide `torch.float32` | `y` wird in `PTDataset` nicht nach float32 gecastet, nur `x` |
 | Normalisierung | `encode_input=True`, `encode_output=True`, `encoding="channel-wise"` | `UnitGaussianNormalizer` pro Kanal, gefittet nur auf Trainingsdaten |
@@ -110,7 +110,7 @@ Die letzte Zeile ist eine Kontrollfrage: Erwartet sind `channels_squeezed` (unsq
 **Prompt G1:**
 
 ```text
-Paket G1: Schreibe cheetah_sc/sampling.py mit
+Paket G1: Schreibe data/sampling.py mit
 sample_beam_params(n: int, seed: int, ranges: dict) -> list[dict].
 Größen: sigma_x, sigma_y, sigma_tau [m], energy [eV], total_charge [C],
 n_particles [int]. Breite Größen log-uniform, Rest uniform.
@@ -121,13 +121,14 @@ Test: gleicher Seed -> identische Ausgabe; alle Werte in den Grenzen.
 **Prompt G2:**
 
 ```text
-Paket G2: Schreibe cheetah_sc/fields.py mit
+Paket G2: Schreibe data/fields.py mit
 make_sample(params: dict, res: int) -> tuple[Tensor, Tensor].
 Ablauf: ParticleBeam aus params erzeugen (Cheetah), dann die Blöcke 1–7
 aus SpaceChargeKick nachbilden: Gitterausdehnung, Deposition,
 _array_rho, _solve_poisson_equation. Rufe die Methoden von
 SpaceChargeKick auf, statt sie zu kopieren.
-x = [rho_hat (ungepolstert, res^3), E_x/L, E_y/L, E_z/L] als (4,res,res,res)
+x = [rho_hat (ungepolstert, res^3), log(E_x/L), log(E_y/L), log(E_z/L)] als (4,res,res,res),
+E_i = gamma-gestreckte Boxkanten (NICHT das elektrische Feld)
 y = [phi_hat] als (1,res,res,res), Entdimensionalisierung laut Plan,
 L aus der Boxgröße. float32.
 Test: phi aus make_sample (vor Entdimensionalisierung) == phi aus
@@ -137,14 +138,14 @@ SpaceChargeKick._solve_poisson_equation, relativer Fehler < 1e-6.
 **Prompt G3:**
 
 ```text
-Paket G3: Schreibe cheetah_sc/generate.py mit
+Paket G3: Schreibe data/generate.py mit
 generate_cheetah_sc(root, n_train, n_tests, train_resolution,
 test_resolutions, seed, ranges).
 Schreibt {root}/cheetah_sc_train_{res}.pt und cheetah_sc_test_{res}.pt
 als torch.save({"x": x, "y": y, "meta": meta}).
 Train- und Test-Seeds getrennt ableiten, damit sich keine Probe doppelt.
 Fortschrittsanzeige mit tqdm, Abbruch bei NaN/Inf mit Probenindex.
-CLI: python -m cheetah_sc.generate --config config.yaml
+CLI: python -m data.generate --config config.yaml
 Test: kleiner Lauf (n_train=4, n_tests=[2,2], res 16/32) prüft Dateien,
 Keys, Formen, dtype und Endlichkeit.
 ```
@@ -152,7 +153,7 @@ Keys, Formen, dtype und Endlichkeit.
 **Prompt G4 + G5:**
 
 ```text
-Pakete G4+G5: Schreibe cheetah_sc/dataset.py nach dem Muster von
+Pakete G4+G5: Schreibe data/dataset.py nach dem Muster von
 darcy.py:
 - class CheetahDataset(PTDataset): wie DarcyDataset, aber generate=True
   ruft generate_cheetah_sc für fehlende Dateien statt Zenodo-Download.

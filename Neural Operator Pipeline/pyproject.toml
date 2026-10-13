@@ -19,6 +19,14 @@ dependencies = [
 [project.optional-dependencies]
 full = ["neuraloperator>=1.0", "wandb>=0.16", "hydra-core>=1.3", "einops>=0.7"]
 
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = [
+    "cheetah_element",
+    "evaluate",
+    "train",
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

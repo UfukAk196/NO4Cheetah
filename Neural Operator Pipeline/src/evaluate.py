@@ -12,7 +12,7 @@ Vier Fragen werden hier beantwortet:
      also messen und zeigen, statt nur behaupten.
 
 Aufruf:
-    python -m scno.evaluate --checkpoint outputs/best.pt --data data/val.h5
+    python -m evaluate --checkpoint outputs/best.pt --data data/val.h5
 """
 
 from __future__ import annotations
@@ -24,13 +24,13 @@ from pathlib import Path
 
 import torch
 
-from .data.dataset import SpaceChargeDataset
-from .data.generate import DISTRIBUTIONS
-from .losses import central_gradient, relative_l2
-from .models.fno import build_model
-from .normalization import Scaling, build_input
-from .train import batch_to_input
-from .utils import load_checkpoint, pick_device
+from data.dataset import CheetahDataset
+from data.generate import DISTRIBUTIONS
+from utils.losses import central_gradient, relative_l2
+from models.fno import build_model
+from utils.normalization import Scaling, build_input
+from train import batch_to_input
+from utils.common import load_checkpoint, pick_device
 
 
 @torch.no_grad()
@@ -85,7 +85,7 @@ def resolution_study(model, data_path, device, factors=(1, 2), batch_size: int =
     """
     out = {}
     for f in factors:
-        ds = SpaceChargeDataset(data_path, downsample=f)
+        ds = CheetahDataset(data_path, downsample=f)
         res = evaluate(model, ds, device, batch_size=batch_size)
         out[f"downsample_{f}"] = {
             "grid": tuple(s // f for s in ds.grid_shape),
@@ -107,8 +107,8 @@ def gradient_consistency(model, dataset, device, num_samples: int = 4) -> dict:
     beiden Gradientenfelder: 1.0 heisst gleiche Richtung, und die Richtung
     ist das, was ein Optimierer tatsaechlich verwendet.
     """
-    from .physics import solve_poisson
-    from .normalization import potential_to_hat
+    from utils.physics import solve_poisson
+    from utils.normalization import potential_to_hat
 
     model.eval()
     similarities, magnitudes = [], []
@@ -169,7 +169,7 @@ def main():
     model = build_model(ckpt["config"]["model"]).to(device)
     load_checkpoint(args.checkpoint, model, map_location=device)
 
-    dataset = SpaceChargeDataset(args.data)
+    dataset = CheetahDataset(args.data)
     report = {"accuracy": evaluate(model, dataset, device, args.batch_size)}
     report["gradients"] = gradient_consistency(model, dataset, device)
     if not args.skip_resolution:

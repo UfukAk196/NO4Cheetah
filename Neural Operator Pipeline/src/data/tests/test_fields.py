@@ -1,26 +1,21 @@
 """G2-Abnahmetest: Feld-Paar aus Cheetah gegen die SpaceChargeKick-Referenz.
 
-Abnahmekriterium (Plan G2):
-- phi aus ``make_sample`` (VOR Entdimensionalisierung, aus y zurueckgerechnet)
-  stimmt mit ``SpaceChargeKick._solve_poisson_equation`` auf demselben Beam
-  mit relativem Fehler < 1e-6 ueberein.
-Zusaetzlich: Formen (4,res,res,res)/(1,res,res,res), dtype float32, endlich.
+Abnahmekriterien (Plan G2):
+- phi aus ``make_sample`` (aus phi_hat zurueckgerechnet) stimmt mit
+  ``SpaceChargeKick._solve_poisson_equation`` auf demselben Beam mit
+  relativem Fehler < 1e-6 ueberein.
+- Die Entdimensionalisierung passt zu ``utils/normalization.py``: der exakte
+  Solver in Hut-Einheiten (``ExactOperator``) reproduziert phi_hat aus rho_hat.
+Zusaetzlich: Formen, dtype float32, endlich, deterministisch.
 """
 
 from __future__ import annotations
 
-import math
-
 import torch
-from cheetah.accelerator import SpaceChargeKick
 
-from cheetah_sc.fields import (
-    DEFAULT_GRID_EXTENT,
-    EPSILON_0,
-    _compute_quantities,
-    _prepare,
-    make_sample,
-)
+from data.fields import _compute_quantities, make_sample, make_space_charge_kick
+from models.exact import ExactOperator
+from utils.normalization import Scaling, build_input, potential_from_hat
 
 
 def _sample_params(seed: int = 0) -> dict:
@@ -35,68 +30,73 @@ def _sample_params(seed: int = 0) -> dict:
     }
 
 
+def _scaling(sample: dict) -> Scaling:
+    return Scaling(
+        total_charge=torch.tensor([sample["total_charge"]], dtype=torch.float64),
+        reference_length=torch.tensor([sample["reference_length"]], dtype=torch.float64),
+        aspect=sample["aspect"][None].double(),
+    )
+
+
+def _rel_err(a: torch.Tensor, b: torch.Tensor) -> float:
+    return float((a - b).norm() / b.norm())
+
+
 def test_phi_matches_spacechargekick_reference():
     res = 16
     params = _sample_params(seed=3)
-    sck = SpaceChargeKick(  # identisches Element wie in make_sample
-        effect_length=torch.tensor(0.0),
-        grid_shape=(res, res, res),
-        grid_extent_x=torch.tensor(DEFAULT_GRID_EXTENT),
-        grid_extent_y=torch.tensor(DEFAULT_GRID_EXTENT),
-        grid_extent_tau=torch.tensor(DEFAULT_GRID_EXTENT),
-    )
+    sck = make_space_charge_kick(res)  # identisches Element wie in make_sample
 
     # Referenz: phi direkt aus SpaceChargeKick auf dem von make_sample
     # verwendeten Beam (deterministisch ueber params['seed']).
     beam, grid_dimensions, cell_size, xp = _compute_quantities(params, sck)
     phi_ref = sck._solve_poisson_equation(beam, xp, cell_size, grid_dimensions)  # (1,res,res,res)
 
-    # Aus make_sample das y (phi_hat) holen und zurueck entdimensionalisieren.
-    x_sample, y_sample = make_sample(params, res)
-    assert x_sample.dtype == torch.float32
-    assert y_sample.dtype == torch.float32
+    sample = make_sample(params, res)
+    phi_make = potential_from_hat(sample["phi_hat"][None].double(), _scaling(sample))
 
-    # phi_hat = phi * 4*pi*eps0 * L / Q  ->  phi = phi_hat / (4*pi*eps0*L/Q)
-    gx, gy, gz = (
-        grid_dimensions[..., 0],
-        grid_dimensions[..., 1],
-        grid_dimensions[..., 2],
-    )
-    L = (gx * gy * gz) ** (1.0 / 3.0)
-    Q = torch.tensor(float(params["total_charge"]), dtype=y_sample.dtype)
-    coulomb = torch.tensor(4 * math.pi * EPSILON_0, dtype=y_sample.dtype)
-    phi_make = y_sample[0] / (coulomb * L / Q)  # (res,res,res)
-
-    # Relativer Fehler (normiert auf Referenznorm), muss < 1e-6 sein.
-    denom = phi_ref.norm()
-    rel_err = (phi_make - phi_ref.squeeze(0)).norm() / denom
+    rel_err = _rel_err(phi_make, phi_ref.double())
     assert rel_err < 1e-6, f"relativer phi-Fehler zu gross: {rel_err:.2e}"
 
 
-def test_sample_shapes_and_dtypes():
-    res = 16
-    params = _sample_params(seed=1)
-    x, y = make_sample(params, res)
+def test_exact_operator_reproduces_phi_hat():
+    """phi_hat = ExactOperator(rho_hat): Daten und Normierung sind konsistent."""
+    sample = make_sample(_sample_params(seed=4), 16)
+    x = build_input(sample["rho_hat"][None], _scaling(sample))
+    phi_exact = ExactOperator()(x.double())[:, 0]
 
-    assert tuple(x.shape) == (4, res, res, res), f"x-Form falsch: {x.shape}"
-    assert tuple(y.shape) == (1, res, res, res), f"y-Form falsch: {y.shape}"
-    assert x.dtype == torch.float32
-    assert y.dtype == torch.float32
+    rel_err = _rel_err(phi_exact, sample["phi_hat"][None].double())
+    assert rel_err < 1e-4, f"ExactOperator weicht ab: {rel_err:.2e}"
+
+
+def test_rho_hat_mean_is_one():
+    sample = make_sample(_sample_params(seed=2), 16)
+    assert abs(float(sample["rho_hat"].double().mean()) - 1.0) < 1e-5
+    assert abs(float(sample["aspect"].prod()) - 1.0) < 1e-9
+
+
+def test_sample_shapes_and_dtypes():
+    sample = make_sample(_sample_params(seed=1), (16, 12, 8))
+
+    assert tuple(sample["rho_hat"].shape) == (16, 12, 8), sample["rho_hat"].shape
+    assert tuple(sample["phi_hat"].shape) == (16, 12, 8), sample["phi_hat"].shape
+    assert sample["rho_hat"].dtype == torch.float32
+    assert sample["phi_hat"].dtype == torch.float32
+    assert tuple(sample["aspect"].shape) == (3,)
+    assert tuple(sample["cell_size"].shape) == (3,)
+    assert sample["gamma"] > 1.0
 
 
 def test_sample_finite():
-    res = 16
-    params = _sample_params(seed=5)
-    x, y = make_sample(params, res)
+    sample = make_sample(_sample_params(seed=5), 16)
 
-    assert torch.isfinite(x).all(), "x enthaelt NaN/Inf"
-    assert torch.isfinite(y).all(), "y enthaelt NaN/Inf"
+    assert torch.isfinite(sample["rho_hat"]).all(), "rho_hat enthaelt NaN/Inf"
+    assert torch.isfinite(sample["phi_hat"]).all(), "phi_hat enthaelt NaN/Inf"
 
 
 def test_sample_deterministic_same_params():
-    res = 16
     params = _sample_params(seed=9)
-    x1, y1 = make_sample(params, res)
-    x2, y2 = make_sample(params, res)
-    assert torch.equal(x1, x2)
-    assert torch.equal(y1, y2)
+    s1 = make_sample(params, 16)
+    s2 = make_sample(params, 16)
+    assert torch.equal(s1["rho_hat"], s2["rho_hat"])
+    assert torch.equal(s1["phi_hat"], s2["phi_hat"])

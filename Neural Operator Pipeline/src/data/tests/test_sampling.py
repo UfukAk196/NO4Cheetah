@@ -8,7 +8,7 @@ Zusaetzlich: korrekte Keys/Typen und die log-uniform / uniform-Verteilung.
 
 from __future__ import annotations
 
-from cheetah_sc.sampling import (
+from data.sampling import (
     DEFAULT_RANGES,
     LOG_UNIFORM_KEYS,
     UNIFORM_KEYS,

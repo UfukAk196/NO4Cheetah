@@ -21,12 +21,12 @@ sys.path.insert(0, str(ROOT / "src"))
 import torch  # noqa: E402
 import yaml  # noqa: E402
 
-from scno.data.dataset import SpaceChargeDataset  # noqa: E402
-from scno.data.generate import write_hdf5  # noqa: E402
-from scno.evaluate import evaluate, gradient_consistency, resolution_study  # noqa: E402
-from scno.models.exact import ExactOperator  # noqa: E402
-from scno.models.fno import build_model  # noqa: E402
-from scno.utils import count_parameters  # noqa: E402
+from data.dataset import CheetahDataset  # noqa: E402
+from data.generate import write_hdf5  # noqa: E402
+from evaluate import evaluate, gradient_consistency, resolution_study  # noqa: E402
+from models.exact import ExactOperator  # noqa: E402
+from models.fno import build_model  # noqa: E402
+from utils.common import count_parameters  # noqa: E402
 
 
 def main() -> int:
@@ -43,7 +43,7 @@ def main() -> int:
         seed=1,
         batch_size=4,
     )
-    ds = SpaceChargeDataset(data_path)
+    ds = CheetahDataset(data_path)
     item = ds[0]
     print(f"      rho_hat {tuple(item['rho_hat'].shape)}, "
           f"Mittelwert {item['rho_hat'].mean():.4f} (Soll 1.0)")
@@ -73,7 +73,7 @@ def main() -> int:
     cfg_path.write_text(yaml.safe_dump(cfg))
 
     result = subprocess.run(
-        [sys.executable, "-m", "scno.train", "--config", str(cfg_path)],
+        [sys.executable, "-m", "train", "--config", str(cfg_path)],
         cwd=ROOT, env={**__import__("os").environ, "PYTHONPATH": str(ROOT / "src")},
         capture_output=True, text=True,
     )

@@ -6,8 +6,8 @@ Wenn das Projekt waechst, kann man das jederzeit gegen Lightning tauschen --
 aber am Anfang willst du jede Zeile sehen koennen, die deine Zahlen erzeugt.
 
 Aufruf:
-    python -m scno.train --config configs/default.yaml
-    python -m scno.train --config configs/default.yaml --override training.epochs=200
+    python -m train --config configs/default.yaml
+    python -m train --config configs/default.yaml --override training.epochs=200
 """
 
 from __future__ import annotations
@@ -19,11 +19,11 @@ from pathlib import Path
 
 import torch
 
-from .data.dataset import make_loaders
-from .losses import build_loss, relative_l2
-from .models.fno import build_model
-from .normalization import Scaling, build_input
-from .utils import count_parameters, load_config, pick_device, save_checkpoint, set_seed
+from data.dataset import make_loaders
+from utils.losses import build_loss, relative_l2
+from models.fno import build_model
+from utils.normalization import Scaling, build_input
+from utils.common import count_parameters, load_config, pick_device, save_checkpoint, set_seed
 
 
 def batch_to_input(batch: dict, device: torch.device) -> tuple[torch.Tensor, torch.Tensor, Scaling]:

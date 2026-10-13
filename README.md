@@ -50,15 +50,18 @@ Arbeit -- und, so viel vorweg, der schwierige Teil (siehe unten).
 ## Struktur
 
 ```
-src/scno/
-  physics.py           klassischer Solver: CIC-Deposition, IGF, Hockney-FFT
-                       -> erzeugt die Trainingsdaten UND ist die Referenz
-  normalization.py     Entdimensionalisierung -- lies das zuerst
-  losses.py            relativer L2, H1 (Gradient!), Poisson-Residuum
+src/
+  utils/physics.py     klassischer Solver: CIC-Deposition, IGF, Hockney-FFT
+                       -> die Referenz, gegen die gemessen wird
+  utils/normalization.py  Entdimensionalisierung -- lies das zuerst
+  utils/losses.py      relativer L2, H1 (Gradient!), Poisson-Residuum
+  utils/common.py      Seed, Geraet, Config, Checkpoints
   models/fno.py        FNO-3D, eigene Implementierung + Anbindung an neuraloperator
   models/exact.py      der exakte Solver als "Modell" -- die Kontrolle
-  data/generate.py     Strahlverteilungen wuerfeln, loesen, nach HDF5 schreiben
-  data/dataset.py      Laden, Splits, Vergroebern fuer Aufloesungsstudien
+  data/sampling.py     Strahlparameter aus der Config ziehen
+  data/fields.py       Feld-Paar (rho_hat, phi_hat) aus Cheetahs SpaceChargeKick
+  data/generate.py     write_hdf5: Proben + Skalierung als HDF5 (h5py) schreiben
+  data/dataset.py      CheetahDataset (HDF5), make_loaders, load_cheetah_sc
   train.py             Trainingsschleife, eine Datei, keine Framework-Magie
   evaluate.py          Genauigkeit, Aufloesung, Gradiententreue
   cheetah_element.py   NeuralSpaceChargeKick -- der Einbau ins echte Lattice
@@ -84,20 +87,19 @@ export PYTHONPATH=src                               # Windows: set PYTHONPATH=sr
 python scripts/verify_physics.py
 
 # 2. Daten erzeugen (klein anfangen)
-python -m scno.data.generate --out data/train.h5 --num-samples 512 \
-    --grid 32 32 32 --num-particles 200000
+python -m data.generate --config configs/generate.yaml
 
 # 3. Trainieren
-python -m scno.train --config configs/default.yaml
+python -m train --config configs/default.yaml
 
 # 4. Auswerten
-python -m scno.evaluate --checkpoint outputs/run_default/best.pt --data data/train.h5
+python -m evaluate --checkpoint outputs/run_default/best.pt --data data/train.h5
 ```
 
 Ueberschreiben ohne die Config anzufassen:
 
 ```bash
-python -m scno.train --config configs/default.yaml \
+python -m train --config configs/default.yaml \
     --override training.epochs=300 model.width=64 loss.gradient_weight=2.0
 ```
 
@@ -228,7 +230,7 @@ halten als eines auf Eigenbau.
 - [neuraloperator.github.io](https://neuraloperator.github.io) -- Doku,
   Beispiel-Notebooks. Das Darcy-Flow-Beispiel ist mathematisch der Nachbar
   dieses Problems (auch elliptisch).
-- Qiang et al., PRST-AB 9, 044204 -- die IGF-Methode, die `physics.py` umsetzt.
+- Qiang et al., PRST-AB 9, 044204 -- die IGF-Methode, die `utils/physics.py` umsetzt.
 - Cheetah: [github.com/desy-ml/cheetah](https://github.com/desy-ml/cheetah)
 
 ---

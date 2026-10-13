@@ -53,7 +53,7 @@ def poisson_residual(
 ) -> torch.Tensor:
     """Residuum von laplace(phi_hat) = -4*pi*rho_hat.
 
-    In entdimensionalisierter Form (Herleitung in normalization.py) faellt
+    In entdimensionalisierter Form (Herleitung in utils/normalization.py) faellt
     jede Materialkonstante raus, uebrig bleibt der Faktor 4*pi. Die
     Gitterabstaende in diesen Einheiten sind h_i = E_i / (L * N_i), also
     aspect_i / N_i. Nur Innenpunkte -- am offenen Rand gilt der

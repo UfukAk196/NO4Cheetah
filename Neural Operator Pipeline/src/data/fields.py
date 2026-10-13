@@ -1,4 +1,4 @@
-"""G2 - Feld-Paar (rho_hat, phi_hat, E_hat) aus Cheetah fuer eine Probe.
+"""G2 - Feld-Paar (rho_hat, phi_hat) aus Cheetah fuer eine Probe.
 
 Baut zu einem Satz Strahlparameter einen ``ParticleBeam`` und ruft die
 Methoden von ``cheetah.accelerator.SpaceChargeKick`` direkt auf (statt sie
@@ -6,34 +6,33 @@ zu kopieren), um auf dem Gitter zu loesen:
 
 - ``_array_rho``             (Block 4+5: Deposition + Dichte, nullgepolstert auf 2x)
 - ``_solve_poisson_equation``(Block 6+7: IGF-Faltung -> Potential, zurueckgeschnitten)
-- ``_E_plus_vB_field``       (Block 8: Feldgradienten inkl. -1/gamma^2)
 
 Die Gitterausdehnung (``grid_dimensions``) und ``cell_size`` stehen in
 ``SpaceChargeKick.track`` (Block 2) und werden hier identisch nachgebildet;
 sie sind keine Methoden, sondern im ``track``-Koerper kodiert.
 
-Entdimensionalisierung (Plan, "L aus der Boxgroesse, nicht der Zellgroesse"):
-    rho_hat = rho * L^3 / Q          mit L^3 = gx*gy*gz   (Box-Halbkanten-Wuerfel)
-    phi_hat = phi * 4*pi*eps0 * L / Q      , L = (gx*gy*gz)^(1/3)
-    E_hat   = E   * 4*pi*eps0 * L^2 / Q
-    rho [C/m^3], phi [V], E [V/m], Q [C], gx,gy,gz [m], L [m].
-    rho ist ein einziges Skalarfeld (Ladungsdichte ueber alle 3 Dimensionen),
-    deshalb ist das Volumen intrinsisch 3D -> L^3 = gx*gy*gz (nicht vektoriell).
-    E_hat ist der Kanal inkl. der -1/gamma^2-Skalierung aus _E_plus_vB_field.
+Entdimensionalisierung: exakt die Konvention aus ``utils/normalization.py``, die
+auch ``NeuralSpaceChargeKick`` beim Einsatz im Lattice verwendet. Nur so
+passt das trainierte Modell spaeter zu dem, was es im Element sieht.
+Bezugsgroessen kommen aus der gamma-gestreckten Box (Ruhesystem):
 
-Alle drei Formen geben die *ungepolsterten* Groessen auf dem Originalgitter
-res^3 zurueck (FNO-Ein-/Ausgabe auf demselben Gitter).
+    cell_s  = (dx, dy, gamma*dtau)            Zellgroesse, tau gestreckt
+    L       = (Ex*Ey*Ez)^(1/3)                Ei = volle Boxkanten aus cell_s
+    Q_s     = sum(rho * prod(cell_s))         = gamma * Ladung im Gitter
+    rho_hat = rho * L^3 / Q_s                 (Mittelwert 1)
+    phi_hat = phi * 4*pi*eps0 * L / Q_s
+
+Damit gilt in Hut-Einheiten ``phi_hat = ExactOperator(rho_hat, aspect)``.
+Alle Groessen sind die *ungepolsterten* Felder auf dem Originalgitter.
 """
 
 from __future__ import annotations
-
-import math
 
 import torch
 from cheetah.accelerator import SpaceChargeKick
 from cheetah.particles import ParticleBeam
 
-EPSILON_0 = 8.8541878128e-12  # F/m (= C/(V m))
+from utils.normalization import nondimensionalize, potential_to_hat
 
 # SpaceChargeKick-Default: Boxgroesse in Vielfachen von sigma je Achse.
 DEFAULT_GRID_EXTENT = 3.0
@@ -71,7 +70,7 @@ def _prepare(
 
     Rueckgabe (alle mit Batch-Dimension (1,)):
         grid_dimensions (1, 3) [m]  Halbkanten = grid_extent * sigma
-        cell_size       (1, 3) [m]  = 2 * grid_dimensions / res (ohne gamma)
+        cell_size       (1, 3) [m]  = 2 * grid_dimensions / grid_shape (ohne gamma)
         xp_coordinates  (1, N, 7)    = to_xyz_pxpypz()
     """
     grid_dimensions = torch.stack(
@@ -110,96 +109,71 @@ def _compute_quantities(
     return beam, grid_dimensions, cell_size, xp_coordinates
 
 
-def _nondimensionalize(
-    rho: torch.Tensor,
-    phi: torch.Tensor,
-    e_fields: torch.Tensor,
-    grid_dimensions: torch.Tensor,
-    total_charge: float,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Wendet die Plan-Entdimensionalisierung auf Gittergroessen an.
-
-    Eingaben (Batch-Dim (1,)):
-        rho   (1, res, res, res) [C/m^3]      ungepolstert
-        phi   (1, res, res, res) [V]
-        e_fields (1, 3, res, res, res) [V/m]  (gx, gy, gtau gestapelt)
-        grid_dimensions (1, 3) [m]            Halbkanten gx,gy,gz
-        total_charge [C]                       Gesamtladung Q
-
-    Rueckgabe (alle dimensionslos, Batch-Dim (1,)):
-        rho_hat (1, 1, res, res, res)
-        phi_hat (1, 1, res, res, res)
-        e_hat   (1, 3, res, res, res)
-    """
-    dtype = rho.dtype
-    gx, gy, gz = (
-        grid_dimensions[..., 0],
-        grid_dimensions[..., 1],
-        grid_dimensions[..., 2],
-    )  # (1,)
-    # L^3 = gx*gy*gz (Box-Halbkanten-Wuerfel); L = (L^3)^(1/3)
-    box_volume = gx * gy * gz  # (1,) m^3
-    L = box_volume ** (1.0 / 3.0)  # (1,) m (geometrisches Mittel der Halbkanten)
-
-    Q = torch.tensor(float(total_charge), dtype=dtype)
-    coulomb = torch.tensor(4 * math.pi * EPSILON_0, dtype=dtype)  # F/m
-
-    rho_hat = (rho * box_volume / Q).unsqueeze(1)  # (1, 1, res, res, res)
-    phi_hat = (phi * coulomb * L / Q).unsqueeze(1)  # (1, 1, res, res, res)
-    e_hat = e_fields * coulomb * L.square() / Q  # (1, 3, res, res, res)
-
-    return rho_hat, phi_hat, e_hat
+def _as_grid_shape(grid_shape: int | tuple[int, int, int]) -> tuple[int, int, int]:
+    if isinstance(grid_shape, int):
+        return (grid_shape, grid_shape, grid_shape)
+    return tuple(int(n) for n in grid_shape)
 
 
-def make_sample(params: dict, res: int) -> tuple[torch.Tensor, torch.Tensor]:
-    """Erzeugt das entdimensionalisierte Feld-Paar (x, y) fuer eine Probe.
+def make_space_charge_kick(grid_shape: int | tuple[int, int, int]) -> SpaceChargeKick:
+    """Das ``SpaceChargeKick``-Element, dessen Methoden ``make_sample`` nutzt."""
+    return SpaceChargeKick(
+        effect_length=torch.tensor(0.0),
+        grid_shape=_as_grid_shape(grid_shape),
+        grid_extent_x=torch.tensor(DEFAULT_GRID_EXTENT),
+        grid_extent_y=torch.tensor(DEFAULT_GRID_EXTENT),
+        grid_extent_tau=torch.tensor(DEFAULT_GRID_EXTENT),
+    )
+
+
+def make_sample(params: dict, grid_shape: int | tuple[int, int, int]) -> dict:
+    """Erzeugt das entdimensionalisierte Feld-Paar samt Skalierung fuer eine Probe.
 
     Parameters
     ----------
     params : dict
         Strahlparameter (Keys und Einheiten wie in ``_build_beam``),
         optional ``seed`` fuer reproduzierbare Beam-Erzeugung.
-    res : int
-        Gitteraufloesung je Achse (``SpaceChargeKick.grid_shape=(res,res,res)``).
+    grid_shape : int | (nx, ny, nz)
+        Gitteraufloesung (``SpaceChargeKick.grid_shape``); ein int meint res^3.
 
     Returns
     -------
-    x : torch.Tensor  (4, res, res, res) float32
-        Kanal 0 = rho_hat (dimensionslos), Kanaele 1..3 = E_hat (dimensionslos,
-        inkl. -1/gamma^2-Skalierung aus _E_plus_vB_field).
-    y : torch.Tensor  (1, res, res, res) float32
-        Kanal 0 = phi_hat (dimensionslos).
+    dict mit
+        rho_hat          (nx, ny, nz) float32   dimensionslose Dichte
+        phi_hat          (nx, ny, nz) float32   dimensionsloses Potential
+        total_charge     float  [C]  Q_s = gamma * Ladung im Gitter (Skalierung)
+        reference_length float  [m]  L der gestreckten Box
+        aspect           (3,) float64  Ei / L (gestreckt), Produkt = 1
+        cell_size        (3,) float64  [m]  Zellgroesse OHNE gamma
+        gamma            float  relativistisches gamma
     """
-    sck = SpaceChargeKick(
-        effect_length=torch.tensor(0.0),
-        grid_shape=(res, res, res),
-        grid_extent_x=torch.tensor(DEFAULT_GRID_EXTENT),
-        grid_extent_y=torch.tensor(DEFAULT_GRID_EXTENT),
-        grid_extent_tau=torch.tensor(DEFAULT_GRID_EXTENT),
-    )
+    nx, ny, nz = _as_grid_shape(grid_shape)
+    sck = make_space_charge_kick((nx, ny, nz))
 
     beam, grid_dimensions, cell_size, xp_coordinates = _compute_quantities(params, sck)
 
     # Block 4+5: Deposition (cloud_in_cell) + Dichte, nullgepolstert auf 2x. Die
     # *ungepolsterte* Dichte steht im ersten Quadranten der Rueckgabe.
     rho_padded = sck._array_rho(beam, xp_coordinates, cell_size, grid_dimensions)
-    rho = rho_padded[..., :res, :res, :res]  # (1, res, res, res) C/m^3
+    rho = rho_padded[..., :nx, :ny, :nz]  # (1, nx, ny, nz) C/m^3
 
-    # Block 6+7: Potential auf dem Originalgitter res^3.
+    # Block 6+7: Potential auf dem Originalgitter.
     phi = sck._solve_poisson_equation(beam, xp_coordinates, cell_size, grid_dimensions)
 
-    # Block 8: Feldgradienten (E+vB, inkl. -1/gamma^2), je (1, res, res, res).
-    grad_x, grad_y, grad_tau = sck._E_plus_vB_field(
-        beam, xp_coordinates, cell_size, grid_dimensions
-    )
-    e_fields = torch.stack([grad_x, grad_y, grad_tau], dim=1)  # (1, 3, res, res, res)
+    gamma = beam.relativistic_gamma.reshape(1).double()  # (1,)
+    stretched = cell_size.double().clone()
+    stretched[:, 2] = stretched[:, 2] * gamma  # (1, 3) m, wie in SpaceChargeKick
 
-    rho_hat, phi_hat, e_hat = _nondimensionalize(
-        rho, phi, e_fields, grid_dimensions, float(params["total_charge"])
-    )
+    rho_hat, scaling = nondimensionalize(rho.double(), stretched)
+    phi_hat = potential_to_hat(phi.double(), scaling)
 
-    x = torch.cat([rho_hat, e_hat], dim=1).float()  # (1, 4, res, res, res)
-    x = rho_hat.float()  # (1, 1, res, res, res)
-    y = phi_hat.float()  # (1, 1, res, res, res)
-
-    return x.squeeze(0), y.squeeze(0)  # (4, res, res, res), (1, res, res, res)
+    return {
+        "rho_hat": rho_hat[0].float(),
+        "phi_hat": phi_hat[0].float(),
+        "total_charge": float(scaling.total_charge[0]),
+        "reference_length": float(scaling.reference_length[0]),
+        "aspect": scaling.aspect[0],
+        "cell_size": cell_size[0].double(),
+        "gamma": float(gamma[0]),
+    }

@@ -1,4 +1,4 @@
-# CLI-Config fuer den Datengenerator (G3, `python -m cheetah_sc.generate -c ...`).
+# CLI-Config fuer den Datengenerator (G3, `python -m data.generate -c ...`).
 #
 # TODO: Die `ranges` sind Beispielwerte - durch echte Grenzen aus der
 # ML-Pipeline ersetzen (siehe configs/sampling.yaml fuer die Einheiten).

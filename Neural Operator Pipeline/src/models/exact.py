@@ -18,7 +18,7 @@ import math
 
 import torch
 
-from ..physics import EPSILON_0, solve_poisson
+from utils.physics import EPSILON_0, solve_poisson
 
 
 class ExactOperator(torch.nn.Module):

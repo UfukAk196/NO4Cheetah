@@ -24,7 +24,7 @@ from neuralop import Trainer  # noqa: E402
 from neuralop.losses import H1Loss, LpLoss  # noqa: E402
 from neuralop.models import FNO  # noqa: E402
 
-from cheetah_sc.dataset import load_cheetah_sc  # noqa: E402
+from data.dataset import load_cheetah_sc  # noqa: E402
 
 
 # Kleine Parameter-Grenzen, damit der Smoke-Test auf CPU schnell bleibt.
@@ -275,8 +275,8 @@ def plot_losses(history, save_dir=None, tag=""):
 def main() -> int:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     # Persistenter Datenordner im Projekt (statt tempfile.mkdtemp), damit die
-    # generierten .pt-Dateien zwischen Laeufen erhalten bleiben. generate=True
-    # erzeugt dann nur noch die fehlenden Dateien (s. _missing_files).
+    # generierten .h5-Dateien zwischen Laeufen erhalten bleiben. generate=True
+    # erzeugt dann nur noch die fehlenden Dateien (s. missing_files).
     data_root = ROOT / "data" / "cheetah_sc_smoke"
 
     # --- Daten: kleines Setup, wird bei Bedarf generiert (generate=True) ---
@@ -303,8 +303,7 @@ def main() -> int:
     # --- Modell: 3D-FNO ---, tag="before_training_res16"
     model = FNO(
         n_modes=(8, 8, 8),      # max. lowest fourier modes per dimension (k_max)
-        #in_channels=4,          # rho_hat + 3x E_hat
-        in_channels=1,          # rho_hat only
+        in_channels=4,          # rho_hat + 3x log(E_i/L), E_i = Boxkanten
         out_channels=1,         # phi_hat
         hidden_channels=16,
         n_layers=3,

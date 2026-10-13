@@ -19,7 +19,7 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from scno.physics import EPSILON_0, solve_poisson  # noqa: E402
+from utils.physics import EPSILON_0, solve_poisson  # noqa: E402
 
 
 def main(n: int = 64, radius: float = 1.0, total_charge: float = 1.0) -> int:

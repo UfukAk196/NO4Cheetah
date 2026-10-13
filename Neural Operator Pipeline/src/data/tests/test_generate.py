@@ -1,17 +1,19 @@
-"""G3-Abnahmetest: Datei-Writer erzeugt korrekte .pt-Dateien.
+"""G3-Abnahmetest: Datei-Writer erzeugt korrekte HDF5-Dateien.
 
 Prueft (Plan G3):
 - kleiner Lauf (n_train=4, n_tests=[2,2], res 16/32) legt die Dateien an
-- Keys x, y, meta vorhanden
-- Formen (N,4,res,res,res)/(N,1,res,res,res), dtype float32
+- alle Datensaetze vorhanden, Formen (N,res,res,res), dtype float32
 - keine NaN/Inf
 - Train- und Test-Seeds ueberschneiden sich nicht
+- ``write_hdf5`` einzeln: Gitterform, feste Teilchenzahl, Attribute
 """
 
 from __future__ import annotations
 
-import torch
-from cheetah_sc.generate import generate_cheetah_sc
+import h5py
+import numpy as np
+
+from data.generate import DATASET_NAME, DISTRIBUTIONS, generate_cheetah_sc, write_hdf5
 
 
 SMALL_RANGES = {
@@ -23,94 +25,94 @@ SMALL_RANGES = {
     "n_particles": {"min": 1.0e4, "max": 3.0e4},
 }
 
+EXPECTED_KEYS = {
+    "rho_hat", "phi_hat", "total_charge", "reference_length", "aspect",
+    "cell_size", "gamma", "kind", "seed", "params",
+}
 
-def test_generate_writes_files(tmp_path):
-    n_train, n_tests = 4, [2, 2]
-    train_res, test_res = 16, [16, 32]
 
-    written = generate_cheetah_sc(
+def _generate(tmp_path, seed=7):
+    return generate_cheetah_sc(
         root=tmp_path,
-        n_train=n_train,
-        n_tests=n_tests,
-        train_resolution=train_res,
-        test_resolutions=test_res,
-        seed=7,
+        n_train=4,
+        n_tests=[2, 2],
+        train_resolution=16,
+        test_resolutions=[16, 32],
+        seed=seed,
         ranges=SMALL_RANGES,
     )
 
+
+def test_generate_writes_files(tmp_path):
+    written = _generate(tmp_path)
+
     expected_names = {
-        "cheetah_sc_train_16.pt",
-        "cheetah_sc_test_16.pt",
-        "cheetah_sc_test_32.pt",
+        f"{DATASET_NAME}_train_16.h5",
+        f"{DATASET_NAME}_test_16.h5",
+        f"{DATASET_NAME}_test_32.h5",
     }
     got_names = {p.name for p in written}
     assert got_names == expected_names, f"erwartete Dateien: {expected_names - got_names}"
     for name in expected_names:
         assert (tmp_path / name).exists()
+    assert not list(tmp_path.glob("*.tmp")), "temporaere Datei liegen geblieben"
 
 
 def test_file_contents_and_shapes(tmp_path):
-    n_train, n_tests = 4, [2, 2]
-    train_res, test_res = 16, [16, 32]
-    generate_cheetah_sc(
-        root=tmp_path,
-        n_train=n_train,
-        n_tests=n_tests,
-        train_resolution=train_res,
-        test_resolutions=test_res,
-        seed=7,
-        ranges=SMALL_RANGES,
-    )
+    _generate(tmp_path)
 
-    # Train-Datei: (n_train, 4, 16, 16, 16) / (n_train, 1, 16, 16, 16)
-    train = torch.load(tmp_path / "cheetah_sc_train_16.pt", weights_only=False)
-    assert set(train.keys()) == {"x", "y", "meta"}
-    assert tuple(train["x"].shape) == (4, 4, 16, 16, 16), train["x"].shape
-    assert tuple(train["y"].shape) == (4, 1, 16, 16, 16), train["y"].shape
-    assert train["x"].dtype == torch.float32
-    assert train["y"].dtype == torch.float32
-    assert torch.isfinite(train["x"]).all()
-    assert torch.isfinite(train["y"]).all()
-
-    # Test-32-Datei: (2, 4, 32, 32, 32) / (2, 1, 32, 32, 32)
-    test32 = torch.load(tmp_path / "cheetah_sc_test_32.pt", weights_only=False)
-    assert tuple(test32["x"].shape) == (2, 4, 32, 32, 32), test32["x"].shape
-    assert tuple(test32["y"].shape) == (2, 1, 32, 32, 32), test32["y"].shape
-    assert test32["x"].dtype == torch.float32
-    assert test32["y"].dtype == torch.float32
-    assert torch.isfinite(test32["x"]).all()
-    assert torch.isfinite(test32["y"]).all()
+    for name, n, res in (("train_16", 4, 16), ("test_32", 2, 32)):
+        with h5py.File(tmp_path / f"{DATASET_NAME}_{name}.h5", "r") as f:
+            assert set(f.keys()) == EXPECTED_KEYS
+            for key in ("rho_hat", "phi_hat"):
+                assert f[key].shape == (n, res, res, res), (key, f[key].shape)
+                assert f[key].dtype == np.float32
+                assert np.isfinite(f[key][:]).all()
+            assert f["aspect"].shape == (n, 3)
+            assert f["cell_size"].shape == (n, 3)
+            for key in ("total_charge", "reference_length", "gamma", "kind", "seed"):
+                assert f[key].shape == (n,), key
+            assert (f["kind"][:] < len(DISTRIBUTIONS)).all()
+            assert tuple(f.attrs["grid_shape"]) == (res, res, res)
 
 
 def test_train_test_seeds_disjoint(tmp_path):
-    n_train, n_tests = 4, [2, 2]
-    train_res, test_res = 16, [16, 32]
     base_seed = 7
-    generate_cheetah_sc(
-        root=tmp_path,
-        n_train=n_train,
-        n_tests=n_tests,
-        train_resolution=train_res,
-        test_resolutions=test_res,
-        seed=base_seed,
-        ranges=SMALL_RANGES,
-    )
+    _generate(tmp_path, seed=base_seed)
 
-    def seeds(fname):
-        return [p["seed"] for p in torch.load(tmp_path / fname, weights_only=False)["meta"]["params"]]
+    def seeds(name):
+        with h5py.File(tmp_path / f"{DATASET_NAME}_{name}.h5", "r") as f:
+            return set(f["seed"][:].tolist())
 
-    train_seeds = set(seeds("cheetah_sc_train_16.pt"))
-    test16_seeds = set(seeds("cheetah_sc_test_16.pt"))
-    test32_seeds = set(seeds("cheetah_sc_test_32.pt"))
+    train_seeds = seeds("train_16")
+    test16_seeds = seeds("test_16")
+    test32_seeds = seeds("test_32")
 
-    assert len(train_seeds) == n_train
-    assert len(test16_seeds) == n_tests[0]
-    assert len(test32_seeds) == n_tests[1]
+    assert len(train_seeds) == 4
+    assert len(test16_seeds) == 2
+    assert len(test32_seeds) == 2
     # keine Ueberschneidung: weder train<->test noch zwischen Test-Aufloesungen
     assert train_seeds.isdisjoint(test16_seeds)
     assert train_seeds.isdisjoint(test32_seeds)
     assert test16_seeds.isdisjoint(test32_seeds)
 
     # Seeds sind genau die fortlaufenden base+global_index
-    expected = set(range(base_seed, base_seed + n_train + sum(n_tests)))
+    expected = set(range(base_seed, base_seed + 8))
     assert train_seeds | test16_seeds | test32_seeds == expected
+
+
+def test_write_hdf5_single_file(tmp_path):
+    path = write_hdf5(
+        tmp_path / "smoke.h5",
+        num_samples=3,
+        grid_shape=(16, 12, 8),
+        seed=1,
+        ranges=SMALL_RANGES,
+        num_particles=20_000,
+        batch_size=2,  # zwei Schreibbloecke: 2 + 1
+    )
+    with h5py.File(path, "r") as f:
+        assert f["rho_hat"].shape == (3, 16, 12, 8)
+        assert (f["params/n_particles"][:] == 20_000).all()
+        assert np.isfinite(f["phi_hat"][:]).all()
+        assert np.abs(f["rho_hat"][:].mean(axis=(1, 2, 3)) - 1.0).max() < 1e-4
