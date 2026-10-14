@@ -124,6 +124,7 @@ def build_model(cfg: dict) -> nn.Module:
             n_layers=cfg.get("num_layers", 4),
             factorization=cfg.get("factorization"),
             rank=cfg.get("rank", 1.0),
+            domain_padding=cfg.get("domain_padding"),
         )
     if name == "fno3d":
         return FNO3d(

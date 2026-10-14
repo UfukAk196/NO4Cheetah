@@ -59,13 +59,13 @@ class Scaling:
 
     total_charge: torch.Tensor  # (B,) in Coulomb
     reference_length: torch.Tensor  # (B,) in Meter: (Ex*Ey*Ez)^(1/3), Boxkanten
-    aspect: torch.Tensor  # (B, 3) -> E_i / L, Produkt = 1, aufloesungsunabhaengig
+    normalized_extent: torch.Tensor  # (B, 3) -> E_i / L, Produkt = 1, aufloesungsunabhaengig
 
     def to(self, device):
         return Scaling(
             self.total_charge.to(device),
             self.reference_length.to(device),
-            self.aspect.to(device),
+            self.normalized_extent.to(device),
         )
 
 
@@ -79,18 +79,18 @@ def nondimensionalize(
     )
     cell_volume = cell_size.prod(dim=1)  # (B,)
     charge_per_cell = charge_density * cell_volume[:, None, None, None]
-    total = charge_per_cell.flatten(1).sum(dim=1)  # (B,)
-    total = torch.where(total.abs() < eps, torch.full_like(total, eps), total)
+    total_charge = charge_per_cell.flatten(1).sum(dim=1)  # (B,)
+    total_charge = torch.where(total_charge.abs() < eps, torch.full_like(total_charge, eps), total_charge)
 
     extent = cell_size * grid_shape[None, :]  # (B, 3) Boxkanten
-    ref = extent.prod(dim=1).pow(1.0 / 3.0)  # geometrisches Mittel der Boxkanten
-    aspect = extent / ref[:, None]  # Produkt der drei Werte ist 1
+    reference_length = extent.prod(dim=1).pow(1.0 / 3.0)  # geometrisches Mittel der Boxkanten
+    normalized_extent = extent / reference_length[:, None]  # Produkt der drei Werte ist 1
 
     # Als Dichte, nicht als Ladungsanteil: das ist die Groesse, die beim
     # Verfeinern des Gitters gegen eine feste Funktion konvergiert.
-    volume_ratio = ref.pow(3) / cell_volume  # = Anzahl Zellen
-    rho_hat = charge_per_cell / total[:, None, None, None] * volume_ratio[:, None, None, None]
-    return rho_hat, Scaling(total, ref, aspect)
+    volume_ratio = reference_length.pow(3) / cell_volume  # = Anzahl Zellen
+    rho_hat = charge_per_cell / total_charge[:, None, None, None] * volume_ratio[:, None, None, None]
+    return rho_hat, Scaling(total_charge, reference_length, normalized_extent)
 
 
 def potential_to_hat(potential: torch.Tensor, scaling: Scaling) -> torch.Tensor:
@@ -127,7 +127,7 @@ def build_input(rho_hat: torch.Tensor, scaling: Scaling) -> torch.Tensor:
     coords = coordinate_channels(grid_shape, rho_hat.device, rho_hat.dtype)
     coords = coords[None].expand(batch, -1, -1, -1, -1)
 
-    log_aspect = scaling.aspect.log()[:, :, None, None, None].expand(
+    log_normalized_extent = scaling.normalized_extent.log()[:, :, None, None, None].expand(
         -1, -1, *grid_shape
     )
-    return torch.cat([rho_hat[:, None], coords, log_aspect], dim=1)
+    return torch.cat([rho_hat[:, None], coords, log_normalized_extent], dim=1)

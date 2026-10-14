@@ -32,7 +32,7 @@ def batch_to_input(batch: dict, device: torch.device) -> tuple[torch.Tensor, tor
     scaling = Scaling(
         total_charge=batch["total_charge"].to(device).float(),
         reference_length=batch["reference_length"].to(device).float(),
-        aspect=batch["aspect"].to(device).float(),
+        normalized_extent=batch["normalized_extent"].to(device).float(),
     )
     x = build_input(rho, scaling)
     return x, phi[:, None], scaling
@@ -49,7 +49,7 @@ def run_epoch(model, loader, loss_fn, device, optimizer=None) -> dict[str, float
         with torch.set_grad_enabled(training):
             pred = model(x)
             loss, metrics = loss_fn(
-                pred, target, rho_hat=x[:, :1], aspect=scaling.aspect
+                pred, target, rho_hat=x[:, :1], normalized_extent=scaling.normalized_extent
             )
         if training:
             optimizer.zero_grad(set_to_none=True)

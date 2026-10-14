@@ -10,11 +10,11 @@
 
 ranges:
   # log-uniform
-  sigma_x:      { min: 5.0e-4, max: 2.0e-3 }   # [m]   horizontal (0.5 .. 2 mm)
-  sigma_y:      { min: 5.0e-4, max: 2.0e-3 }   # [m]   vertikal   (0.5 .. 2 mm)
-  sigma_tau:    { min: 1.0e-3, max: 8.0e-3 }   # [m]   longitudinal (1 .. 8 mm)
+  sigma_x:      { min: 5.0e-6, max: 1.5e-3 }   # [m]   horizontal
+  sigma_y:      { min: 5.0e-6, max: 1.5e-3 }   # [m]   vertikal
+  sigma_tau:    { min: 1.0e-3, max: 5.0e-3 }   # [m]   longitudinal
   # uniform
-  energy:       { min: 5.0e8,  max: 2.0e9 }    # [eV]  0.5 .. 2 GeV
-  total_charge: { min: 1.0e-10, max: 5.0e-9 }  # [C]   0.1 .. 5 nC
+  energy:       { min: 5.0e7,  max: 1.5e8 }    # [eV]
+  total_charge: { min: 1.0e-10, max: 2.0e-9 }  # [C]
   # uniform (ganzzahlig)
-  n_particles:  { min: 5.0e4,  max: 5.0e5 }    # [1]   Makropartikel pro Bunch
+  n_particles:  { min: 1.0e4,  max: 1.0e6 }    # [1]   Makropartikel pro Bunch

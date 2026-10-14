@@ -6,7 +6,7 @@ Liest die HDF5-Dateien aus ``generate.py``:
   ``x`` (4 Kanaele: rho_hat + log(E_i/L), s. ``input_channels``) und
   ``y`` (1 Kanal: phi_hat) fuer den neuralop-``Trainer`` und auf
   Wunsch die Skalierung (``rho_hat``, ``phi_hat``, ``total_charge``,
-  ``reference_length``, ``aspect``, ``cell_size``, ``gamma``, ``kind``) fuer
+  ``reference_length``, ``normalized_extent``, ``cell_size``, ``gamma``, ``kind``) fuer
   ``train.py``/``evaluate.py``. ``downsample=f`` vergroebert um Faktor f
   pro Achse (Aufloesungsstudie).
 - ``make_loaders(path, ...)``: Train/Val-Split einer Datei fuer ``train.py``.
@@ -36,20 +36,20 @@ from .generate import dataset_path, generate_cheetah_sc
 # TODO: an die tatsaechliche Projektstruktur anpassen.
 example_data_root = Path("data/cheetah_sc")
 
-META_KEYS = ("total_charge", "reference_length", "aspect", "cell_size", "gamma", "kind")
+META_KEYS = ("total_charge", "reference_length", "normalized_extent", "cell_size", "gamma", "kind")
 
 
-def input_channels(rho_hat: torch.Tensor, aspect: torch.Tensor) -> torch.Tensor:
+def input_channels(rho_hat: torch.Tensor, normalized_extent: torch.Tensor) -> torch.Tensor:
     """Modelleingabe x: rho_hat + drei konstante Kanaele log(E_i/L).
 
     E_i sind die (gamma-gestreckten) Boxkanten, nicht das E-Feld. Ohne sie
     sieht das Netz nur Gitterindizes und kann gleiche rho_hat bei
     verschiedenen Achsenverhaeltnissen nicht unterscheiden.
 
-    rho_hat (..., nx, ny, nz), aspect (..., 3) -> x (..., 4, nx, ny, nz)
+    rho_hat (..., nx, ny, nz), normalized_extent (..., 3) -> x (..., 4, nx, ny, nz)
     """
     grid = rho_hat.shape[-3:]
-    log_aspect = aspect.log().to(rho_hat.dtype)[..., :, None, None, None]
+    log_aspect = normalized_extent.log().to(rho_hat.dtype)[..., :, None, None, None]
     return torch.cat(
         [rho_hat.unsqueeze(-4), log_aspect.expand(*log_aspect.shape[:-3], *grid)], dim=-4
     )
@@ -68,7 +68,7 @@ class CheetahDataset(Dataset):
     downsample : int
         Vergroeberung pro Achse. Dichte und Potential werden ueber
         f^3-Bloecke gemittelt (Mittelwert von rho_hat bleibt 1), die
-        Zellgroesse waechst um f; Box, L und aspect bleiben gleich.
+        Zellgroesse waechst um f; Box, L und normalized_extent bleiben gleich.
     return_meta : bool
         False -> Proben enthalten nur ``x``/``y`` (neuralop-``Trainer`` reicht
         alle Keys an Modell und Loss weiter).
@@ -111,8 +111,8 @@ class CheetahDataset(Dataset):
         f = self._h5()
         rho = self._coarsen(torch.from_numpy(f["rho_hat"][index]))
         phi = self._coarsen(torch.from_numpy(f["phi_hat"][index]))
-        aspect = torch.from_numpy(f["aspect"][index])
-        item = {"x": input_channels(rho, aspect), "y": phi[None]}  # (4, ...), (1, ...)
+        normalized_extent = torch.from_numpy(f["normalized_extent"][index])
+        item = {"x": input_channels(rho, normalized_extent), "y": phi[None]}  # (4, ...), (1, ...)
 
         if self.return_meta:
             item["rho_hat"] = rho
@@ -128,7 +128,7 @@ class CheetahDataset(Dataset):
 
     def read_inputs(self, n: int | None = None) -> torch.Tensor:
         """Modelleingaben x der ersten ``n`` Proben: (n, 4, nx, ny, nz)."""
-        return input_channels(self.read_all("rho_hat", n), self.read_all("aspect", n))
+        return input_channels(self.read_all("rho_hat", n), self.read_all("normalized_extent", n))
 
 
 def make_loaders(

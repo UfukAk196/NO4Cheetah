@@ -9,7 +9,7 @@ Layout einer Datei (N Proben, Gitter nx x ny x nz):
     phi_hat           (N, nx, ny, nz) float32   dimensionsloses Potential
     total_charge      (N,)    float64  [C]  Skalierungsladung Q_s (s. fields.py)
     reference_length  (N,)    float64  [m]  L der gamma-gestreckten Box
-    aspect            (N, 3)  float64       Ei / L, Produkt = 1
+    normalized_extent (N, 3)  float64       Ei / L, Produkt = 1
     cell_size         (N, 3)  float64  [m]  Zellgroesse OHNE gamma
     gamma             (N,)    float64
     kind              (N,)    int64         Index in ``DISTRIBUTIONS``
@@ -48,7 +48,7 @@ DATASET_NAME = "cheetah_sc"
 DISTRIBUTIONS = ("gaussian",)
 
 SCALAR_KEYS = ("total_charge", "reference_length", "gamma")
-VECTOR_KEYS = ("aspect", "cell_size")
+VECTOR_KEYS = ("normalized_extent", "cell_size")
 PARAM_KEYS = LOG_UNIFORM_KEYS + UNIFORM_KEYS
 
 

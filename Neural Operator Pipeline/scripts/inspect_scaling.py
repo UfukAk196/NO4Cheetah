@@ -25,12 +25,12 @@ def spread(values: np.ndarray) -> float:
 
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--data", default="data/train.h5")
+    p.add_argument("--data", default="data/cheetah_sc_train_16.h5")
     a = p.parse_args()
 
     with h5py.File(a.data, "r") as f:
         phi = f["phi_hat"][:]
-        aspect = f["aspect"][:]
+        normalized_extent = f["normalized_extent"][:]
         cell = f["cell_size"][:]
         gamma = f["gamma"][:]
         charge = f["total_charge"][:]
@@ -40,7 +40,7 @@ def main() -> int:
 
     # Gegenprobe: dieselben Potentiale mit der transversalen Boxkante Ex als
     # Bezugslaenge statt des geometrischen Mittels aller drei Kanten.
-    scaled_ex = std_hat * aspect[:, 0]
+    scaled_ex = std_hat * normalized_extent[:, 0]
 
     print(f"Datensatz: {a.data}, {len(phi)} Proben, Gitter {phi.shape[1:]}")
     print()
@@ -55,7 +55,7 @@ def main() -> int:
     print()
     print("Achsenverhaeltnisse E_i / L (gehen als log ins Netz):")
     for i, name in enumerate("xyz"):
-        col = aspect[:, i]
+        col = normalized_extent[:, i]
         print(f"  E{name}/L: {col.min():9.3e} .. {col.max():9.3e}")
     print()
     print("Faustregel: bleibt die Streuung von phi_hat unter etwa einer Dekade,")

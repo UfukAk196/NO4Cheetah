@@ -173,7 +173,7 @@ def make_sample(params: dict, grid_shape: int | tuple[int, int, int]) -> dict:
         "phi_hat": phi_hat[0].float(),
         "total_charge": float(scaling.total_charge[0]),
         "reference_length": float(scaling.reference_length[0]),
-        "aspect": scaling.aspect[0],
+        "normalized_extent": scaling.normalized_extent[0],
         "cell_size": cell_size[0].double(),
         "gamma": float(gamma[0]),
     }

@@ -6,21 +6,22 @@ device: auto            # auto | cpu | cuda | mps
 output_dir: outputs/run_default
 
 data:
-  path: data/train.h5
+  path: data/cheetah_sc_train_16.h5   # statich - ggf. ändern, wenn andere Daten genutzt werden sollen
   val_fraction: 0.15
   num_workers: 0        # unter Windows bei 0 lassen
 
 model:
-  name: fno3d           # fno3d (eigene Implementierung) | neuralop_fno (Bibliothek)
-  in_channels: 7        # rho_hat + 3 Koordinaten + 3 Achsenverhaeltnisse
+  name: neuralop_fno     # fno3d (eigene Implementierung) | neuralop_fno (Bibliothek)
+  in_channels: 4        # rho_hat + 3 Achsenverhaeltnisse log(E_i/L)
   out_channels: 1       # phi_hat
-  width: 32             # Kanaele im latenten Raum
-  modes: [12, 12, 12]   # behaltene Fouriermoden pro Achse
-  num_layers: 4
+  width: 16             # Kanaele im latenten Raum (hidden_channels)
+  modes: [8, 8, 8]      # behaltene Fouriermoden pro Achse (n_modes)
+  num_layers: 3
   lifting_channels: 128
   # nur fuer neuralop_fno:
   factorization: null   # z.B. tucker fuer weniger Gewichte
   rank: 1.0
+  domain_padding: 0.25  # Rand-Padding gegen die offenen Raender
 
 loss:
   kind: h1              # l2 | h1
@@ -28,9 +29,9 @@ loss:
   physics_weight: 0.0   # > 0 schaltet das Poisson-Residuum dazu (PiNN-Anteil)
 
 training:
-  epochs: 100
+  epochs: 1000
   batch_size: 4
-  learning_rate: 1.0e-3
+  learning_rate: 1.0e-4
   weight_decay: 1.0e-4
 
 logging:

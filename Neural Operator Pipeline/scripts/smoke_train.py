@@ -27,13 +27,15 @@ from scno.data.dataset import load_cheetah_sc  # noqa: E402
 
 # Kleine Parameter-Grenzen, damit der Smoke-Test auf CPU schnell bleibt.
 SMOKE_RANGES = {
-    "sigma_x": {"min": 5.0e-4, "max": 1.5e-3},
-    "sigma_y": {"min": 5.0e-4, "max": 1.5e-3},
+    "sigma_x": {"min": 5.0e-6, "max": 1.5e-3},
+    "sigma_y": {"min": 5.0e-6, "max": 1.5e-3},
     "sigma_tau": {"min": 1.0e-3, "max": 5.0e-3},
-    "energy": {"min": 5.0e8, "max": 1.5e9},
-    "total_charge": {"min": 1.0e-10, "max": 2.0e-9},
-    "n_particles": {"min": 1.0e4, "max": 1.0e5},
+    "energy": {"min": 5.0e7, "max": 1.5e8}, # ggf. min noch weiter runter
+    "total_charge": {"min": 1.0e-10, "max": 2.0e-9}, # ggf. auf XFEL oder ARES-Panel nachschauen oder Space Charge Paper vom CERN (auch für energy)
+    "n_particles": {"min": 1.0e4, "max": 1.0e6},
 }
+# ggf. Ranges wieder enger machen für den Anfang
+# In Zukunft für Evaluierung schauen, ab welchen Ranges der FNO scheitert.
 
 
 def plot_predictions(model, test_samples, data_processor, tag="", save_dir=None):
@@ -275,7 +277,7 @@ def main() -> int:
     # Persistenter Datenordner im Projekt (statt tempfile.mkdtemp), damit die
     # generierten .h5-Dateien zwischen Laeufen erhalten bleiben. generate=True
     # erzeugt dann nur noch die fehlenden Dateien (s. missing_files).
-    data_root = ROOT / "data" / "cheetah_sc_smoke"
+    data_root = ROOT / "data"
 
     # --- Daten: kleines Setup, wird bei Bedarf generiert (generate=True) ---
     n_train, batch_size = 16, 4
@@ -315,9 +317,9 @@ def main() -> int:
 
     # --- Optimizer/Scheduler wie im Darcy-Tutorial ---
     n_epochs = 1000
-    optimizer = torch.optim.Adam(model.parameters(), lr=3e-4, weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=n_epochs, eta_min=1e-6)
-
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-4)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=n_epochs, eta_min=1e-4)
+    
     # --- Verluste ---
     training_loss = H1Loss(d=3)
     eval_losses = {"h1": H1Loss(d=3), "l2": LpLoss(d=3, p=2)}

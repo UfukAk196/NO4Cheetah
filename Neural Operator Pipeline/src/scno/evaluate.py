@@ -119,7 +119,7 @@ def gradient_consistency(model, dataset, device, num_samples: int = 4) -> dict:
         scaling = Scaling(
             total_charge=item["total_charge"][None].to(device).float(),
             reference_length=item["reference_length"][None].to(device).float(),
-            aspect=item["aspect"][None].to(device).float(),
+            normalized_extent=item["normalized_extent"][None].to(device).float(),
         )
 
         # Skalare Zielgroesse: mittleres Quadrat des Potentials -- steht
