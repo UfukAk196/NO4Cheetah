@@ -1,25 +1,15 @@
+# Lokale CPU-Umgebung (Laptop + Arbeits-PC).
+# Conda liefert nur Python und torch -- alle anderen Pakete stehen in pyproject.toml.
+#
+#   conda env create -f environment.yml      # einmalig
+#   conda env update -f environment.yml      # nach Aenderungen an dieser Datei
+#   pip install -e ".[dev]"                  # nach Aenderungen an pyproject.toml
 name: no4cheetah
 channels:
   - conda-forge
 dependencies:
   - python=3.12
-  # Core numerics
-  - pytorch>=2.2          # on Maxwell: pytorch-gpu + cuda-version=12.x instead
-  - numpy>=1.26
-  - scipy>=1.11
-  - h5py>=3.10
-  - pyyaml>=6.0
-  # Analysis, plots, progress
-  - matplotlib>=3.8
-  - pandas
-  - tqdm
-  # Notebooks and tests
-  - ipykernel
-  - pytest
-  - pytest-mock
+  - pytorch>=2.2          # CPU-Build
   - pip
   - pip:
-      - cheetah-accelerator==0.8.5
-      - neuraloperator==2.0.0
-      - wandb
-      - -e .              # installs your scno + cheetah_sc from src/
+      - -e .[dev]       # scno + alle Abhaengigkeiten aus pyproject.toml

@@ -7,15 +7,16 @@ name = "scno"
 version = "0.1.0"
 description = "Neural Operator als Ersatz fuer den Space-Charge-Poisson-Solver in Cheetah"
 requires-python = ">=3.10,<3.13"
+# EINZIGE Paketliste des Projekts. Neues Paket? -> hier eintragen, dann `pip install -e ".[dev]"`.
 dependencies = [
-    "torch>=2.2",                    # in conda via pytorch / pytorch-gpu installieren, nicht per pip
+    "torch>=2.2",                    # kommt per conda (pytorch / pytorch-gpu) bzw. von Colab, pip laesst es dann in Ruhe
     "numpy>=1.26",
     "scipy>=1.11",
     "h5py>=3.10",
     "pyyaml>=6.0",
     "matplotlib>=3.8",
     "tqdm",
-    "cheetah-accelerator==0.8.5",
+    "cheetah-accelerator>=0.8.4",    # neueste PyPI-Version; 0.8.5-dev kommt optional aus dem lokalen Clone
     "neuraloperator==2.0.0",
 ]
 
@@ -29,7 +30,7 @@ dev = ["scno[notebooks,logging,test]"]
 where = ["src"]
 
 [tool.pytest.ini_options]
-testpaths = ["src/data/tests"]
+testpaths = ["src/scno/data/tests"]
 
 [tool.ruff]
 line-length = 100

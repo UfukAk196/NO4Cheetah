@@ -1,9 +1,12 @@
 __pycache__/
 *.py[cod]
+*.egg-info/
 .venv/
-data/
-outputs/
-wandb/
 .ipynb_checkpoints/
+
+# Erzeugte Daten und Ergebnisse (nur im Pipeline-Ordner, NICHT src/scno/data/!)
+/Neural Operator Pipeline/data/
+/Neural Operator Pipeline/outputs/
+wandb/
 *.h5
 *.pt
