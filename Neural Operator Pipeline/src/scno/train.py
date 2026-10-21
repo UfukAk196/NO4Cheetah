@@ -18,6 +18,7 @@ import time
 from pathlib import Path
 
 import torch
+from neuralop import Trainer  # noqa: E402
 
 from scno.data.dataset import make_loaders
 from scno.utils.losses import build_loss, relative_l2
@@ -65,6 +66,46 @@ def run_epoch(model, loader, loss_fn, device, optimizer=None) -> dict[str, float
 
     return {k: v / max(count, 1) for k, v in totals.items()}
 
+class HistoryTrainer(Trainer):
+    """``Trainer``, der die Metriken jeder Epoche mitschreibt.
+
+    Der neuralop-``Trainer`` gibt die Werte nur nach stdout aus und speichert
+    sie nicht. Hier werden ``log_training`` (jede Epoche) und ``log_eval``
+    (alle ``eval_interval`` Epochen) ueberschrieben und die Werte zusaetzlich
+    in ``self.history`` abgelegt:
+
+        history["train"] = {"epoch": [...], "avg_loss": [...], "train_err": [...]}
+        history["eval"]  = {"epoch": [...], "<res>_h1": [...], "<res>_l2": [...]}
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.history = {"train": {}, "eval": {}}
+
+    def log_training(self, epoch, time, avg_loss, train_err, avg_lasso_loss=None, lr=None):
+        super().log_training(
+            epoch=epoch,
+            time=time,
+            avg_loss=avg_loss,
+            train_err=train_err,
+            avg_lasso_loss=avg_lasso_loss,
+            lr=lr,
+        )
+        train_hist = self.history["train"]
+        train_hist.setdefault("epoch", []).append(epoch)
+        train_hist.setdefault("avg_loss", []).append(float(avg_loss))
+        train_hist.setdefault("train_err", []).append(float(train_err))
+        train_hist.setdefault("lr", []).append(float(lr) if lr is not None else float("nan"))
+
+    def log_eval(self, epoch, eval_metrics):
+        super().log_eval(epoch=epoch, eval_metrics=eval_metrics)
+        eval_hist = self.history["eval"]
+        eval_hist.setdefault("epoch", []).append(epoch)
+        for metric, value in eval_metrics.items():
+            if isinstance(value, torch.Tensor):
+                value = value.item()
+            if isinstance(value, (int, float)):
+                eval_hist.setdefault(metric, []).append(float(value))
 
 def main():
     p = argparse.ArgumentParser()

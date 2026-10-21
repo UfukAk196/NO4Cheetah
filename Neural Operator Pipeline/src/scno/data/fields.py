@@ -125,8 +125,7 @@ def make_space_charge_kick(grid_shape: int | tuple[int, int, int]) -> SpaceCharg
         grid_extent_tau=torch.tensor(DEFAULT_GRID_EXTENT),
     )
 
-
-def make_sample(params: dict, grid_shape: int | tuple[int, int, int]) -> dict:
+def make_sample(params: dict, grid_shape: int | tuple[int, int, int], nondim: bool = True) -> dict:
     """Erzeugt das entdimensionalisierte Feld-Paar samt Skalierung fuer eine Probe.
 
     Parameters
@@ -165,15 +164,20 @@ def make_sample(params: dict, grid_shape: int | tuple[int, int, int]) -> dict:
     stretched = cell_size.double().clone()
     stretched[:, 2] = stretched[:, 2] * gamma  # (1, 3) m, wie in SpaceChargeKick
 
-    rho_hat, scaling = nondimensionalize(rho.double(), stretched)
-    phi_hat = potential_to_hat(phi.double(), scaling)
+    if nondim:
+        rho_hat, scaling = nondimensionalize(rho.double(), stretched)
+        phi_hat = potential_to_hat(phi.double(), scaling)
+    else:
+        rho_hat = rho.double()
+        phi_hat = phi.double()
+        scaling = None
 
     return {
         "rho_hat": rho_hat[0].float(),
         "phi_hat": phi_hat[0].float(),
-        "total_charge": float(scaling.total_charge[0]),
-        "reference_length": float(scaling.reference_length[0]),
-        "normalized_extent": scaling.normalized_extent[0],
+        "total_charge": float(scaling.total_charge[0]) if scaling is not None else None,
+        "reference_length": float(scaling.reference_length[0]) if scaling is not None else None,
+        "normalized_extent": scaling.normalized_extent[0] if scaling is not None else None,
         "cell_size": cell_size[0].double(),
         "gamma": float(gamma[0]),
     }

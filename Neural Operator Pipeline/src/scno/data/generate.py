@@ -75,6 +75,7 @@ def write_hdf5(
     num_samples: int,
     grid_shape: int | tuple[int, int, int],
     seed: int,
+    nondim: bool,
     ranges: dict[str, dict[str, float]] | None = None,
     num_particles: int | None = None,
     first_index: int = 0,
@@ -143,7 +144,7 @@ def write_hdf5(
                 p["n_particles"] = int(num_particles)
             p["seed"] = _probe_seed(seed, g)
 
-            sample = make_sample(p, grid)
+            sample = make_sample(p, grid, nondim=nondim)
             rho, phi = sample["rho_hat"], sample["phi_hat"]
             if not (rho.isfinite().all() and phi.isfinite().all()):
                 raise ValueError(f"NaN/Inf in Probe {g} ({path.name}, params={p})")
@@ -192,6 +193,7 @@ def generate_cheetah_sc(
     train_resolution: int,
     test_resolutions: list[int],
     seed: int,
+    nondim: bool,
     ranges: dict[str, dict[str, float]] | None = None,
 ) -> list[Path]:
     """Erzeugt den Cheetah-Space-Charge-Datensatz als HDF5-Dateien.
@@ -233,6 +235,7 @@ def generate_cheetah_sc(
             ranges=ranges,
             first_index=0,
             desc=f"train @ {train_resolution}",
+            nondim=nondim,
         )
     ]
 
@@ -246,6 +249,7 @@ def generate_cheetah_sc(
                 n_test,
                 res,
                 seed,
+                nondim,
                 ranges=ranges,
                 first_index=offset,
                 desc=f"test @ {res}",

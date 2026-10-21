@@ -34,7 +34,7 @@ from .generate import dataset_path, generate_cheetah_sc
 
 # Beispiel-Datenwurzel, analog ``example_data_root`` in darcy.py.
 # TODO: an die tatsaechliche Projektstruktur anpassen.
-example_data_root = Path("data/cheetah_sc")
+example_data_root = Path("data")
 
 META_KEYS = ("total_charge", "reference_length", "normalized_extent", "cell_size", "gamma", "kind")
 
@@ -197,6 +197,7 @@ def load_cheetah_sc(
     n_tests,
     batch_size,
     test_batch_sizes,
+    nondim,
     data_root=example_data_root,
     train_resolution=32,
     test_resolutions=[32, 64],
@@ -269,6 +270,7 @@ def load_cheetah_sc(
             train_resolution=train_resolution,
             test_resolutions=test_resolutions,
             seed=seed,
+            nondim=nondim,
             ranges=ranges,
         )
 
