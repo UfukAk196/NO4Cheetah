@@ -1,40 +1,50 @@
-# Basiskonfiguration. Fuer Experimente kopieren statt aendern -- dann bleibt
-# nachvollziehbar, welche Zahlen zu welcher Einstellung gehoeren.
+# Base configuration. Copy it for experiments instead of editing it -- then it stays
+# traceable which numbers belong to which setting.
+#
+#   python -m scno.data.generate --config configs/default.yaml   # data only
+#   python -m scno.train --config configs/default.yaml           # generates missing data
 
 seed: 0
 device: auto            # auto | cpu | cuda | mps
 output_dir: outputs/run_default
 
+# Keyword arguments of scno.data.dataset.load_cheetah_sc (also read by the generator).
 data:
-  path: data/cheetah_sc_train_16.h5   # statich - ggf. ändern, wenn andere Daten genutzt werden sollen
-  val_fraction: 0.15
-  num_workers: 0        # unter Windows bei 0 lassen
+  data_root: data
+  seed: 0
+  nondim: true          # true: rho_hat -> phi_hat, false: rho [C/m^3] -> phi [V] (ablation)
+  # encode_output: unset = not nondim (Gaussian normalizer only for the raw ablation)
+  n_train: 16           # TODO: target 5k-50k samples
+  n_tests: [4, 4, 4]
+  train_resolution: 16
+  test_resolutions: [16, 32, 64]
+  batch_size: 4
+  test_batch_sizes: [4, 4, 4]
+  num_workers: 0        # keep at 0 on Windows
+  # ranges: override of scno.data.sampling.DEFAULT_RANGES, same shape
 
+# Keyword arguments of neuralop.models.FNO.
 model:
-  name: neuralop_fno     # fno3d (eigene Implementierung) | neuralop_fno (Bibliothek)
-  in_channels: 4        # rho_hat + 3 Achsenverhaeltnisse log(E_i/L)
+  n_modes: [8, 8, 8]    # kept Fourier modes per axis
+  in_channels: 4        # rho_hat + 3 aspect ratios log(E_i/L)
   out_channels: 1       # phi_hat
-  width: 16             # Kanaele im latenten Raum (hidden_channels)
-  modes: [8, 8, 8]      # behaltene Fouriermoden pro Achse (n_modes)
-  num_layers: 3
-  lifting_channels: 128
-  # nur fuer neuralop_fno:
-  factorization: null   # z.B. tucker fuer weniger Gewichte
+  hidden_channels: 16
+  n_layers: 3
+  domain_padding: 0.25  # padding against the open boundaries
+  factorization: null   # e.g. tucker for fewer weights
   rank: 1.0
-  domain_padding: 0.25  # Rand-Padding gegen die offenen Raender
 
+# Keyword arguments of scno.utils.losses.SobolevLoss.
 loss:
-  kind: h1              # l2 | h1
-  gradient_weight: 1.0  # Gewicht des Gradientenfehlers -- der Kick ist ein Gradient
-  physics_weight: 0.0   # > 0 schaltet das Poisson-Residuum dazu (PiNN-Anteil)
+  gradient_weight: 1.0  # weight of the gradient error -- the kick is a gradient
+  physics_weight: 0.0   # > 0 adds the Poisson residual (PINN part)
 
 training:
   epochs: 1000
-  batch_size: 4
   learning_rate: 1.0e-4
   weight_decay: 1.0e-4
 
 logging:
   wandb: false
   project: space-charge-neural-operator
-  print_every: 5
+  eval_interval: 100

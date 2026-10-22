@@ -5,18 +5,20 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "scno"
 version = "0.1.0"
-description = "Neural Operator als Ersatz fuer den Space-Charge-Poisson-Solver in Cheetah"
+description = "Neural operator replacing the space-charge Poisson solver in Cheetah"
 requires-python = ">=3.10,<3.13"
-# EINZIGE Paketliste des Projekts. Neues Paket? -> hier eintragen, dann `pip install -e ".[dev]"`.
+# The ONLY package list of the project. New package? -> add it here, then `pip install -e ".[dev]"`.
 dependencies = [
-    "torch>=2.2",                    # kommt per conda (pytorch / pytorch-gpu) bzw. von Colab, pip laesst es dann in Ruhe
+    "torch>=2.2",                    # comes via conda (pytorch / pytorch-gpu) or from Colab; pip then leaves it alone
     "numpy>=1.26",
     "scipy>=1.11",
     "h5py>=3.10",
     "pyyaml>=6.0",
     "matplotlib>=3.8",
     "tqdm",
-    "cheetah-accelerator>=0.8.4",    # neueste PyPI-Version; 0.8.5-dev kommt optional aus dem lokalen Clone
+    # Fork branch with the grid-level SpaceChargeKick solve (`_solve_poisson_on_grid`).
+    # Until it is pushed, install the local clone: pip install -e "../../Cheetah repos/cheetah-accelerator"
+    "cheetah-accelerator @ git+https://github.com/UfukAk196/cheetah.git@space-charge-grid-solve",
     "neuraloperator==2.0.0",
 ]
 
@@ -30,7 +32,7 @@ dev = ["scno[notebooks,logging,test]"]
 where = ["src"]
 
 [tool.pytest.ini_options]
-testpaths = ["src/scno/data/tests"]
+testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100

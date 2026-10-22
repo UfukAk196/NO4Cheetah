@@ -1,0 +1,44 @@
+# Smoke run: the whole pipeline in miniature (tiny model, few epochs, CPU friendly).
+# The goal is not accuracy but the answer to: does everything run from data generation
+# to evaluation without an axis slipping or a tensor having the wrong shape?
+#
+#   python -m scno.train --config configs/smoke.yaml
+#   python -m scno.evaluate --run outputs/smoke --plot
+
+seed: 0
+device: auto
+output_dir: outputs/smoke
+
+data:
+  data_root: data
+  seed: 0
+  nondim: true
+  n_train: 16
+  n_tests: [4, 4, 4]
+  train_resolution: 16
+  test_resolutions: [16, 32, 64]
+  batch_size: 4
+  test_batch_sizes: [4, 4, 4]
+  num_workers: 0
+
+model:
+  n_modes: [6, 6, 6]
+  in_channels: 4
+  out_channels: 1
+  hidden_channels: 8
+  n_layers: 2
+  domain_padding: 0.25
+
+loss:
+  gradient_weight: 1.0
+  physics_weight: 0.0
+
+training:
+  epochs: 10
+  learning_rate: 1.0e-3
+  weight_decay: 1.0e-4
+
+logging:
+  wandb: false
+  project: space-charge-neural-operator
+  eval_interval: 5

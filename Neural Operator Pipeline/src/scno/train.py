@@ -1,78 +1,43 @@
 """
-Trainingsschleife.
+Training with the neuraloperator ``Trainer``.
 
-Bewusst schlicht gehalten: eine Datei, keine Framework-Magie, alles sichtbar.
-Wenn das Projekt waechst, kann man das jederzeit gegen Lightning tauschen --
-aber am Anfang willst du jede Zeile sehen koennen, die deine Zahlen erzeugt.
+One path for every run: config -> ``load_cheetah_sc`` -> ``FNO`` -> ``HistoryTrainer``
+-> neuralop checkpoint. Copy configs for experiments instead of editing them, so that
+numbers and settings stay together.
 
-Aufruf:
-    python -m train --config configs/default.yaml
-    python -m train --config configs/default.yaml --override training.epochs=200
+Call:
+    python -m scno.train --config configs/default.yaml
+    python -m scno.train --config configs/smoke.yaml --override training.epochs=5
+    python -m scno.train --config configs/smoke.yaml --override data.nondim=false
+
+Output in ``output_dir``: ``config.yaml`` (the resolved config), ``best_model_*`` (best
+checkpoint by the first test resolution's h1 loss), ``model_*`` (final checkpoint),
+``history.json`` and the loss curves.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import time
 from pathlib import Path
 
 import torch
-from neuralop import Trainer  # noqa: E402
+import yaml
+from neuralop import Trainer
+from neuralop.models import FNO
+from neuralop.utils import count_model_params
 
-from scno.data.dataset import make_loaders
-from scno.utils.losses import build_loss, relative_l2
-from scno.models.fno import build_model
-from scno.utils.normalization import Scaling, build_input
-from scno.utils.common import count_parameters, load_config, pick_device, save_checkpoint, set_seed
+from scno.data.dataset import load_cheetah_sc
+from scno.utils.common import load_config, pick_device, set_seed
+from scno.utils.losses import SobolevLoss
 
-
-def batch_to_input(batch: dict, device: torch.device) -> tuple[torch.Tensor, torch.Tensor, Scaling]:
-    rho = batch["rho_hat"].to(device).float()
-    phi = batch["phi_hat"].to(device).float()
-    scaling = Scaling(
-        total_charge=batch["total_charge"].to(device).float(),
-        reference_length=batch["reference_length"].to(device).float(),
-        normalized_extent=batch["normalized_extent"].to(device).float(),
-    )
-    x = build_input(rho, scaling)
-    return x, phi[:, None], scaling
-
-
-def run_epoch(model, loader, loss_fn, device, optimizer=None) -> dict[str, float]:
-    training = optimizer is not None
-    model.train(training)
-    totals: dict[str, float] = {}
-    count = 0
-
-    for batch in loader:
-        x, target, scaling = batch_to_input(batch, device)
-        with torch.set_grad_enabled(training):
-            pred = model(x)
-            loss, metrics = loss_fn(
-                pred, target, rho_hat=x[:, :1], normalized_extent=scaling.normalized_extent
-            )
-        if training:
-            optimizer.zero_grad(set_to_none=True)
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            optimizer.step()
-
-        n = x.shape[0]
-        count += n
-        totals["loss"] = totals.get("loss", 0.0) + float(loss.detach()) * n
-        for k, v in metrics.items():
-            totals[k] = totals.get(k, 0.0) + float(v) * n
-
-    return {k: v / max(count, 1) for k, v in totals.items()}
 
 class HistoryTrainer(Trainer):
-    """``Trainer``, der die Metriken jeder Epoche mitschreibt.
+    """``Trainer`` that records the metrics of every epoch.
 
-    Der neuralop-``Trainer`` gibt die Werte nur nach stdout aus und speichert
-    sie nicht. Hier werden ``log_training`` (jede Epoche) und ``log_eval``
-    (alle ``eval_interval`` Epochen) ueberschrieben und die Werte zusaetzlich
-    in ``self.history`` abgelegt:
+    The neuralop ``Trainer`` only prints the values to stdout and does not store them.
+    Here ``log_training`` (every epoch) and ``log_eval`` (every ``eval_interval``
+    epochs) are overridden and the values are additionally stored in ``self.history``:
 
         history["train"] = {"epoch": [...], "avg_loss": [...], "train_err": [...]}
         history["eval"]  = {"epoch": [...], "<res>_h1": [...], "<res>_l2": [...]}
@@ -107,94 +72,100 @@ class HistoryTrainer(Trainer):
             if isinstance(value, (int, float)):
                 eval_hist.setdefault(metric, []).append(float(value))
 
-def main():
-    p = argparse.ArgumentParser()
-    p.add_argument("--config", default="configs/default.yaml")
-    p.add_argument("--override", nargs="*", default=[], help="z.B. training.epochs=50")
-    args = p.parse_args()
 
-    cfg = load_config(args.config)
-    for item in args.override:
+def apply_overrides(cfg: dict, overrides: list[str]) -> dict:
+    """Applies ``a.b.c=value`` overrides (values parsed as YAML) to ``cfg`` in place."""
+    for item in overrides:
         key, value = item.split("=", 1)
         node = cfg
         *path, last = key.split(".")
         for part in path:
             node = node[part]
-        node[last] = yaml_value(value)
+        node[last] = yaml.safe_load(value)
+    return cfg
 
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--config", default="configs/default.yaml")
+    p.add_argument("--override", nargs="*", default=[], help="e.g. training.epochs=50")
+    p.add_argument("--plot", action="store_true", help="plot predictions after training")
+    args = p.parse_args()
+
+    cfg = apply_overrides(load_config(args.config), args.override)
     set_seed(cfg["seed"])
     device = pick_device(cfg["device"])
     out_dir = Path(cfg["output_dir"])
     out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "config.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False))
 
-    train_loader, val_loader = make_loaders(
-        cfg["data"]["path"],
-        batch_size=cfg["training"]["batch_size"],
-        val_fraction=cfg["data"]["val_fraction"],
-        num_workers=cfg["data"]["num_workers"],
-        seed=cfg["seed"],
-    )
+    data_cfg = cfg["data"]
+    train_loader, test_loaders, data_processor = load_cheetah_sc(**data_cfg)
+    if cfg["loss"].get("physics_weight", 0.0) > 0.0 and (
+        not data_cfg["nondim"]
+        or data_processor.in_normalizer is not None
+        or data_processor.out_normalizer is not None
+    ):
+        raise ValueError(
+            "loss.physics_weight > 0 needs nondimensionalized data without normalizers: "
+            "the Poisson residual reads rho_hat and log(E_i/L) from x and assumes phi_hat."
+        )
 
-    model = build_model(cfg["model"]).to(device)
-    print(f"Modell: {cfg['model']['name']}, {count_parameters(model):,} Parameter, Geraet {device}")
+    model = FNO(**cfg["model"]).to(device)
+    print(f"Model: FNO, {count_model_params(model):,} parameters, device {device}")
 
+    training = cfg["training"]
     optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=cfg["training"]["learning_rate"],
-        weight_decay=cfg["training"]["weight_decay"],
+        model.parameters(), lr=training["learning_rate"], weight_decay=training["weight_decay"]
     )
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=cfg["training"]["epochs"]
-    )
-    loss_fn = build_loss(cfg["loss"])
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=training["epochs"])
+    training_loss = SobolevLoss(**cfg["loss"])
+    eval_losses = {
+        "h1": SobolevLoss(gradient_weight=1.0),
+        "l2": SobolevLoss(gradient_weight=0.0),
+    }
 
-    logger = None
     if cfg["logging"]["wandb"]:
         import wandb
 
-        logger = wandb.init(project=cfg["logging"]["project"], config=cfg)
+        wandb.init(project=cfg["logging"]["project"], config=cfg)
 
-    history = []
-    best = float("inf")
-    for epoch in range(1, cfg["training"]["epochs"] + 1):
-        t0 = time.time()
-        train_metrics = run_epoch(model, train_loader, loss_fn, device, optimizer)
-        val_metrics = run_epoch(model, val_loader, loss_fn, device, None)
-        scheduler.step()
+    trainer = HistoryTrainer(
+        model=model,
+        n_epochs=training["epochs"],
+        device=device,
+        data_processor=data_processor,
+        eval_interval=cfg["logging"]["eval_interval"],
+        wandb_log=cfg["logging"]["wandb"],
+        verbose=True,
+    )
+    trainer.train(
+        train_loader=train_loader,
+        test_loaders=test_loaders,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        training_loss=training_loss,
+        eval_losses=eval_losses,
+        save_best=f"{data_cfg['test_resolutions'][0]}_h1",
+        save_dir=out_dir,
+    )
 
-        row = {
-            "epoch": epoch,
-            "lr": scheduler.get_last_lr()[0],
-            "seconds": time.time() - t0,
-            **{f"train/{k}": v for k, v in train_metrics.items()},
-            **{f"val/{k}": v for k, v in val_metrics.items()},
-        }
-        history.append(row)
-        if logger:
-            logger.log(row)
+    model.save_checkpoint(out_dir, "model")
+    (out_dir / "history.json").write_text(json.dumps(trainer.history, indent=2))
+    print(f"Checkpoints in {out_dir}")
 
-        if epoch % cfg["logging"]["print_every"] == 0 or epoch == 1:
-            print(
-                f"Epoche {epoch:4d} | train {train_metrics['loss']:.4e} "
-                f"| val {val_metrics['loss']:.4e} "
-                f"| feld {val_metrics.get('loss_field', float('nan')):.4e} "
-                f"| grad {val_metrics.get('loss_grad', float('nan')):.4e} "
-                f"| {row['seconds']:.1f}s"
+    from scno.evaluate import plot_losses, plot_predictions
+
+    plot_losses(trainer.history, save_dir=out_dir, tag=out_dir.name)
+    if args.plot:
+        for res, loader in test_loaders.items():
+            plot_predictions(
+                model,
+                next(iter(loader)),
+                data_processor,
+                data_cfg["nondim"],
+                tag=f"{out_dir.name}_res{res}",
             )
-
-        if val_metrics["loss"] < best:
-            best = val_metrics["loss"]
-            save_checkpoint(out_dir / "best.pt", model, optimizer, epoch, cfg, best)
-
-    save_checkpoint(out_dir / "last.pt", model, optimizer, cfg["training"]["epochs"], cfg, best)
-    (out_dir / "history.json").write_text(json.dumps(history, indent=2))
-    print(f"Bester Validierungsverlust: {best:.4e} -> {out_dir/'best.pt'}")
-
-
-def yaml_value(text: str):
-    import yaml
-
-    return yaml.safe_load(text)
 
 
 if __name__ == "__main__":

@@ -1,1 +1,1 @@
-"""Gemeinsame Hilfsmodule: Referenzsolver, Entdimensionalisierung, Verluste, Laufzeit-Helfer."""
+"""Shared helpers: nondimensionalization, losses, runtime helpers."""

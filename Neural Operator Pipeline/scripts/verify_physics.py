@@ -1,19 +1,24 @@
 """
-Prueft den klassischen Solver gegen eine Loesung, die man von Hand hinschreiben kann.
+Checks the classical solver against a solution one can write down by hand.
 
-Eine homogen geladene Kugel mit Radius R und Gesamtladung Q hat aussen das
-Potential Q/(4*pi*eps0*r) und innen Q*(3R^2 - r^2)/(8*pi*eps0*R^3).
+A homogeneously charged sphere of radius R and total charge Q has the potential
+Q/(4*pi*eps0*r) outside and Q*(3R^2 - r^2)/(8*pi*eps0*R^3) inside.
 
-Diesen Test zuerst laufen lassen, bevor irgendein Netz trainiert wird. Wenn der
-Lehrer falsch rechnet, lernt der Schueler zuverlaessig Unsinn -- und man sucht
-den Fehler tagelang im Netz.
+Run this test first, before any network is trained. If the teacher computes wrongly,
+the student reliably learns nonsense -- and one searches for the bug in the network
+for days.
 
-Aufruf: python scripts/verify_physics.py
+The solver checked is Cheetah's own grid-level solve
+(``SpaceChargeKick._solve_poisson_on_grid``), i.e. exactly what produces the labels.
+
+Call: python scripts/verify_physics.py
 """
 
 import math
+
 import torch
-from scno.utils.physics import EPSILON_0, solve_poisson  # noqa: E402
+from cheetah.accelerator import SpaceChargeKick
+from scipy.constants import epsilon_0
 
 
 def main(n: int = 64, radius: float = 1.0, total_charge: float = 1.0) -> int:
@@ -26,32 +31,37 @@ def main(n: int = 64, radius: float = 1.0, total_charge: float = 1.0) -> int:
 
     inside = r <= radius
     volume = 4 / 3 * math.pi * radius**3
-    density = torch.where(inside, total_charge / volume, torch.zeros(())).to(torch.float64)
+    density = torch.where(inside, total_charge / volume, torch.zeros(())).to(
+        torch.float64
+    )
 
-    phi_num = solve_poisson(density[None], cell)[0]
+    solver = SpaceChargeKick(effect_length=torch.tensor(0.0))
+    phi_num = solver._solve_poisson_on_grid(density[None], cell)[0]
 
-    k = 1.0 / (4 * math.pi * EPSILON_0)
+    k = 1.0 / (4 * math.pi * epsilon_0)
     phi_exact = torch.where(
         inside,
         k * total_charge * (3 * radius**2 - r.square()) / (2 * radius**3),
         k * total_charge / r.clamp(min=1e-12),
     )
 
-    # Randzellen weglassen: dort schneidet das endliche Gitter die Loesung ab
+    # Leave out the boundary cells: there the finite grid cuts off the solution
     sl = slice(4, -4)
     a = phi_num[sl, sl, sl]
     b = phi_exact[sl, sl, sl]
     rel = ((a - b).norm() / b.norm()).item()
     max_rel = ((a - b).abs() / b.abs()).max().item()
 
-    print(f"Gitter {n}^3, Kugelradius {radius}, Ladung {total_charge} C")
-    print(f"  relativer L2-Fehler : {rel:.3e}")
-    print(f"  groesster Punktfehler: {max_rel:.3e}")
-    print(f"  phi im Zentrum      : numerisch {phi_num[n//2, n//2, n//2]:.6e} V, "
-          f"exakt {phi_exact[n//2, n//2, n//2]:.6e} V")
+    print(f"Grid {n}^3, sphere radius {radius}, charge {total_charge} C")
+    print(f"  relative L2 error : {rel:.3e}")
+    print(f"  largest point error: {max_rel:.3e}")
+    print(
+        f"  phi at the centre  : numerical {phi_num[n//2, n//2, n//2]:.6e} V, "
+        f"exact {phi_exact[n//2, n//2, n//2]:.6e} V"
+    )
 
     ok = rel < 0.02
-    print("BESTANDEN" if ok else "DURCHGEFALLEN -- Solver oder Gitteraufloesung pruefen")
+    print("PASSED" if ok else "FAILED -- check the solver or the grid resolution")
     return 0 if ok else 1
 
 

@@ -1,58 +1,81 @@
 """
-Auswertung -- und zwar die Zahlen, die in der Thesis wirklich zaehlen.
+Evaluation -- the numbers that really count in the thesis.
 
-Vier Fragen werden hier beantwortet:
+Four questions are answered here:
 
-  1. Wie gut trifft das Modell das Potential?           (relativer L2)
-  2. Wie gut trifft es die Kraefte?                     (Gradientenfehler)
-     Das ist die entscheidende Groesse: der Kick ist ein Gradient.
-  3. Haelt es ueber Verteilungsfamilien hinweg?         (Aufschluesselung nach Typ)
-  4. Ueberlebt es eine andere Aufloesung?               (Zero-Shot-Super-Resolution)
-     Das ist das Alleinstellungsmerkmal von Neural Operators gegenueber CNNs --
-     also messen und zeigen, statt nur behaupten.
+  1. How well does the model hit the potential?       (relative L2)
+  2. How well does it hit the forces?                 (gradient error)
+     This is the decisive quantity: the kick is a gradient.
+  3. Does it hold across distribution families?       (breakdown by kind)
+  4. Does it survive a different resolution?          (zero-shot super-resolution)
+     That is the unique selling point of neural operators compared to CNNs -- so
+     measure and show it instead of just claiming it.
 
-Aufruf:
-    python -m evaluate --checkpoint outputs/best.pt --data data/val.h5
+Call:
+    python -m scno.evaluate --run outputs/run_default
+    python -m scno.evaluate --run outputs/smoke --data data/cheetah_sc_test_64.h5 --plot
 """
 
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
-import matplotlib.pyplot as plt
 from collections import defaultdict
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import torch
+from neuralop.models import FNO
+
+from scno.data.dataset import CheetahDataset, load_cheetah_sc
+from scno.data.generate import DISTRIBUTIONS, dataset_path
+from scno.models.exact import ExactOperator
+from scno.utils.common import load_config, pick_device
+from scno.utils.losses import field_error, gradient_error
+from scno.utils.normalization import Scaling, decode_prediction, input_channels
+
 ROOT = Path(__file__).resolve().parents[2]
 
-import torch
 
-from scno.data.dataset import CheetahDataset
-from scno.data.generate import DISTRIBUTIONS
-from scno.utils.losses import central_gradient, relative_l2
-from scno.models.fno import build_model
-from scno.utils.normalization import Scaling, build_input
-from scno.train import batch_to_input
-from scno.utils.common import load_checkpoint, pick_device
+def _device(model: torch.nn.Module) -> torch.device:
+    """Device of a model; ``ExactOperator`` has buffers but no parameters."""
+    return next(itertools.chain(model.parameters(), model.buffers())).device
+
+
+def predict(model, batch: dict, data_processor=None) -> torch.Tensor:
+    """Model output for ``batch`` (keys ``x``, ``y``) in the units of ``y``.
+
+    The single path through the data processor: in ``eval`` mode ``preprocess``
+    normalizes only ``x`` and ``postprocess`` undoes the output normalization. Calling
+    ``eval()`` explicitly matters, because the processor is an ``nn.Module`` that starts
+    in training mode, in which ``postprocess`` silently does nothing.
+    (``DefaultDataProcessor.forward`` is not used: in neuralop 2.0.0 it calls
+    ``postprocess`` without ``data_dict``.)
+    """
+    if data_processor is None:
+        return model(batch["x"].to(_device(model)))
+    data_processor.eval()
+    sample = data_processor.preprocess(dict(batch))
+    out, _ = data_processor.postprocess(model(sample["x"]), sample)
+    return out
 
 
 @torch.no_grad()
-def evaluate(model, dataset, device, batch_size: int = 4) -> dict:
+def evaluate(model, dataset, data_processor=None, batch_size: int = 4) -> dict:
+    """Relative L2 errors of potential and force on ``dataset`` (``return_meta=True``),
+    in the units the model was trained on (phi_hat or phi [V])."""
     loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
     per_kind = defaultdict(lambda: {"field": [], "grad": []})
     field_errors, grad_errors = [], []
 
     model.eval()
     for batch in loader:
-        x, target, _ = batch_to_input(batch, device)
-        pred = model(x)
-        for i in range(x.shape[0]):
-            fe = float(relative_l2(pred[i : i + 1], target[i : i + 1]))
-            ge = float(
-                relative_l2(
-                    central_gradient(pred[i : i + 1]), central_gradient(target[i : i + 1])
-                )
-            )
+        pred = predict(model, batch, data_processor)
+        target = batch["y"].to(pred.device)
+        for i in range(pred.shape[0]):
+            fe = float(field_error(pred[i : i + 1], target[i : i + 1]))
+            ge = float(gradient_error(pred[i : i + 1], target[i : i + 1]))
             field_errors.append(fe)
             grad_errors.append(ge)
             kind = DISTRIBUTIONS[int(batch["kind"][i])]
@@ -80,16 +103,23 @@ def evaluate(model, dataset, device, batch_size: int = 4) -> dict:
 
 
 @torch.no_grad()
-def resolution_study(model, data_path, device, factors=(1, 2), batch_size: int = 2) -> dict:
-    """Trainiert auf einer Aufloesung, getestet auf mehreren.
+def resolution_study(
+    model,
+    data_path,
+    nondim: bool,
+    data_processor=None,
+    factors=(1, 2),
+    batch_size: int = 2,
+) -> dict:
+    """Trained on one resolution, tested on several.
 
-    factor=2 bedeutet halbe Aufloesung pro Achse. Ein FNO kann das ohne
-    Nachtraining, weil er im Fourierraum arbeitet -- ein CNN kann es nicht.
+    factor=2 means half the resolution per axis. An FNO can do this without
+    retraining because it works in Fourier space -- a CNN cannot.
     """
     out = {}
     for f in factors:
-        ds = CheetahDataset(data_path, downsample=f)
-        res = evaluate(model, ds, device, batch_size=batch_size)
+        ds = CheetahDataset(data_path, downsample=f, nondim=nondim)
+        res = evaluate(model, ds, data_processor, batch_size=batch_size)
         out[f"downsample_{f}"] = {
             "grid": tuple(s // f for s in ds.grid_shape),
             "potential_rel_l2_mean": res["potential_rel_l2"]["mean"],
@@ -98,55 +128,38 @@ def resolution_study(model, data_path, device, factors=(1, 2), batch_size: int =
     return out
 
 
-def gradient_consistency(model, dataset, device, num_samples: int = 4) -> dict:
-    """Prueft, ob Gradienten *durch* das Modell brauchbar sind.
+def gradient_consistency(model, dataset, data_processor=None, num_samples: int = 4) -> dict:
+    """Checks whether gradients *through* the model are usable.
 
-    Genau darum geht es in dieser Arbeit: der Surrogat muss nicht nur richtig
-    rechnen, sondern auch richtig ableiten -- sonst taugt er nicht fuer
-    gradientenbasierte Optimierung von Strahlparametern.
+    That is exactly what this thesis is about: the surrogate must not only compute
+    correctly but also differentiate correctly -- otherwise it is useless for
+    gradient-based optimization of beam parameters.
 
-    Verglichen wird d(Zielgroesse)/d(rho) einmal durch das Netz und einmal
-    durch den exakten Solver. Berichtet wird die Kosinusaehnlichkeit der
-    beiden Gradientenfelder: 1.0 heisst gleiche Richtung, und die Richtung
-    ist das, was ein Optimierer tatsaechlich verwendet.
+    d(objective)/d(density) is compared once through the network and once through the
+    exact solver (``ExactOperator`` in hat units). The cosine similarity of the two
+    gradient fields is reported: 1.0 means the same direction, and the direction is
+    what an optimizer actually uses. For a raw model (``nondim=False``) the gradient is
+    taken w.r.t. rho instead of rho_hat; per sample the two differ only by a constant
+    factor, so the cosine stays comparable.
     """
-    from scno.utils.physics import solve_poisson
-    from scno.utils.normalization import potential_to_hat
-
     model.eval()
+    exact = ExactOperator().to(_device(model))
     similarities, magnitudes = [], []
 
     for i in range(min(num_samples, len(dataset))):
         item = dataset[i]
-        rho = item["rho_hat"][None].to(device).float().requires_grad_(True)
-        scaling = Scaling(
-            total_charge=item["total_charge"][None].to(device).float(),
-            reference_length=item["reference_length"][None].to(device).float(),
-            normalized_extent=item["normalized_extent"][None].to(device).float(),
-        )
+        x = item["x"][None].to(_device(model)).requires_grad_(True)
+        # Scalar objective: mean square of the potential -- a stand-in for any quantity
+        # one later optimizes for.
+        pred = predict(model, {"x": x, "y": item["y"][None]}, data_processor)
+        grad_model = torch.autograd.grad(pred.square().mean(), x)[0][:, 0]
 
-        # Skalare Zielgroesse: mittleres Quadrat des Potentials -- steht
-        # stellvertretend fuer jede Groesse, nach der man spaeter optimiert.
-        pred = model(build_input(rho, scaling))
-        objective_model = pred.square().mean()
-        grad_model = torch.autograd.grad(objective_model, rho)[0]
+        x_ref = input_channels(item["rho_hat"][None], item["normalized_extent"][None])
+        x_ref = x_ref.double().to(_device(exact)).requires_grad_(True)
+        grad_ref = torch.autograd.grad(exact(x_ref).square().mean(), x_ref)[0][:, 0]
 
-        rho_ref = item["rho_hat"][None].to(device).double().requires_grad_(True)
-        cell = item["cell_size"][None].to(device).double().clone()
-        # Die longitudinale Zelle ist im Datensatz bereits ohne gamma
-        # gespeichert; der Solver braucht sie gestreckt (modifizierte
-        # Poisson-Gleichung im Laborsystem).
-        cell[:, 2] = cell[:, 2] * item["gamma"].to(device).double()
-        # rho_hat ist die dimensionslose Dichte rho*L^3/Q -> zurueck auf C/m^3
-        ref_len = item["reference_length"].to(device).double()
-        density = rho_ref * item["total_charge"].to(device).double() / ref_len.pow(3)
-        phi_ref = solve_poisson(density, cell)
-        phi_hat_ref = potential_to_hat(phi_ref, scaling.to(device))
-        objective_ref = phi_hat_ref.square().mean()
-        grad_ref = torch.autograd.grad(objective_ref, rho_ref)[0].float()
-
-        a = grad_model.flatten()
-        b = grad_ref.flatten()
+        a = grad_model.flatten().double()
+        b = grad_ref.flatten().to(a.device)
         similarities.append(float(torch.nn.functional.cosine_similarity(a, b, dim=0)))
         magnitudes.append(float(a.norm() / (b.norm() + 1e-30)))
 
@@ -157,148 +170,207 @@ def gradient_consistency(model, dataset, device, num_samples: int = 4) -> dict:
         "n": len(similarities),
     }
 
-def plot_predictions(model, test_samples, data_processor, tag="", save_dir=None):
-    """Plot FNO-Predictions auf Cheetah-SC-Daten (3D, 32^3).
 
-    `test_samples` ist ein Roh-Batch-Dict aus einem test_loader:
-        {"x": (B,4,32,32,32), "y": (B,1,32,32,32)}
-    (oder eine Liste solcher Batches). Es werden die ersten 3 Proben des
-    ersten Batches geplottet.
+# Central cuts through the grid, in the style of the SciBeam plot:
+#   x-y at tau = cen,  x-tau at y = cen,  y-tau at x = cen
+CUTS = {
+    "xy": ("x-y  (tau = cen)", (0, 1)),
+    "xt": ("x-tau (y = cen)", (0, 2)),
+    "yt": ("y-tau (x = cen)", (1, 2)),
+}
+AXIS_NAMES = ["x / idx", "y / idx", "tau / idx"]
 
-    Daten sind ENT-DIMENSIONALISIERT (rho_hat, phi_hat); die Achsen sind
-    Gitter-Indizes (keine mm-Extent, kein grid_dimensions im Batch).
-    y und die Vorhersage werden NICHT rücktransformiert (direkt gerawht).
 
-    Für jede Probe werden drei Zentralschnitte durch das Gitter gezeigt,
-    im Stil des SciBeam-Plots:
-        x-y  bei tau = cen,  x-tau bei y = cen,  y-tau bei x = cen
+def _central_cut(field, cut: str):
+    nx, ny, nz = field.shape
+    return {
+        "xy": field[:, :, nz // 2],
+        "xt": field[:, ny // 2, :],
+        "yt": field[nx // 2, :, :],
+    }[cut]
 
-    Kanal 0 von x ist rho_hat (Eingabe); y/out zeigen phi_hat (GT/Pred).
-    """
-    if isinstance(test_samples, dict):
-        test_samples = [test_samples]
-    batch = test_samples[0]
 
-    # Vorverarbeitung (eval-Modus: x/y bleiben entdimensionalisiert,
-    # da encode_input=False und out_normalizer nur im training greift).
-    data = data_processor.preprocess(batch, batched=True)
-    x = data["x"]          # (B, 4, 32, 32, 32)
-    y = data["y"]          # (B, 1, 32, 32, 32)
-    with torch.no_grad():
-        out = model(x)     # (B, 1, 32, 32, 32)
+def _draw_cuts(fig, axes, field, label, cmap, cuts=tuple(CUTS), vlim=None):
+    """Draws one central cut (``cuts``) of a 3D field per axis in ``axes``."""
+    if torch.is_tensor(field):
+        field = field.detach().cpu().numpy()
+    vmin, vmax = vlim if vlim is not None else (None, None)
+    for ax, cut in zip(axes, cuts):
+        title, (ia, ib) = CUTS[cut]
+        image = ax.imshow(
+            _central_cut(field, cut).T,
+            origin="lower",
+            aspect="auto",
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+        )
+        fig.colorbar(image, ax=ax)
+        ax.set_title(f"{label}   {title}")
+        ax.set_xlabel(AXIS_NAMES[ia])
+        ax.set_ylabel(AXIS_NAMES[ib])
 
-    B = min(3, x.shape[0])  # hoechstens 3 Proben
 
-    rho = x[:, 0]            # Kanal 0 = rho_hat: (B, nx, ny, nz)
-    phi_gt = y[:, 0]         # (B, nx, ny, nz)
-    phi_pred = out[:, 0]     # (B, nx, ny, nz)
-
-    nx, ny, nz = rho.shape[1], rho.shape[2], rho.shape[3]
-    cx, cy, ct = nx // 2, ny // 2, nz // 2
-
-    cuts = [
-        ("x-y  (tau = cen)", (slice(None), slice(None), ct), (0, 1)),
-        ("x-tau (y = cen)", (slice(None), cy, slice(None)), (0, 2)),
-        ("y-tau (x = cen)", (cx, slice(None), slice(None)), (1, 2)),
-    ]
-    axis_names = ["x / idx", "y / idx", "tau / idx"]
-
-    rho_list = [rho[i].detach().cpu().numpy() for i in range(B)]
-    gt_list = [phi_gt[i].detach().cpu().numpy() for i in range(B)]
-    pred_list = [phi_pred[i].detach().cpu().numpy() for i in range(B)]
-
-    # ----- Abbildung 1: Eingabe (rho_hat), 3 Proben x 3 Zentralschnitte -----
-    fig1, axs1 = plt.subplots(B, 3, figsize=(11, 3.5 * B))
-    if B == 1:
-        axs1 = axs1[None, :]
-    for i in range(B):
-        field = rho_list[i]
-        for j, (title, index, (ia, ib)) in enumerate(cuts):
-            ax = axs1[i, j]
-            image = ax.imshow(field[index].T, origin="lower", aspect="auto", cmap="viridis")
-            fig1.colorbar(image, ax=ax)
-            ax.set_title(f"rho_hat   {title}" if i == 0 or True else title)
-            ax.set_xlabel(axis_names[ia])
-            ax.set_ylabel(axis_names[ib])
-    fig1.suptitle("Input rho_hat (entdimensionalisiert)", y=0.99)
-    fig1.tight_layout()
-
-    # ----- Abbildung 2: phi_hat, Ground-Truth vs. Prediction -----
-    # Layout: eine Zeile je Probe; je Probe [GT: 3 Cuts | Pred: 3 Cuts]
-    fig2, axs2 = plt.subplots(B, 6, figsize=(22, 3.5 * B))
-    if B == 1:
-        axs2 = axs2[None, :]
-    for i in range(B):
-        for j, (title, index, (ia, ib)) in enumerate(cuts):
-            # Ground-Truth (Spalten 0..2)
-            ax_gt = axs2[i, j]
-            image = ax_gt.imshow(gt_list[i][index].T, origin="lower", aspect="auto", cmap="magma")
-            fig2.colorbar(image, ax=ax_gt)
-            ax_gt.set_title(f"phi_hat GT   {title}")
-            ax_gt.set_xlabel(axis_names[ia])
-            ax_gt.set_ylabel(axis_names[ib])
-
-            # Prediction (Spalten 3..5)
-            ax_pr = axs2[i, j + 3]
-            image = ax_pr.imshow(pred_list[i][index].T, origin="lower", aspect="auto", cmap="magma")
-            fig2.colorbar(image, ax=ax_pr)
-            ax_pr.set_title(f"phi_hat Pred {title}")
-            ax_pr.set_xlabel(axis_names[ia])
-            ax_pr.set_ylabel(axis_names[ib])
-    fig2.suptitle("phi_hat (entdimensionalisiert): Ground-Truth vs. Prediction", y=0.99)
-    fig2.tight_layout()
-
-    # ----- Figuren speichern -----
-    if save_dir is None:
-        save_dir = ROOT / "figures"
-    save_dir = Path(save_dir)
+def _save_figures(figures: dict, save_dir=None, tag=""):
+    """Saves ``{file name: figure}`` under ``save_dir`` (default: figures/)."""
+    save_dir = Path(save_dir) if save_dir is not None else ROOT / "figures"
     save_dir.mkdir(parents=True, exist_ok=True)
     suffix = f"_{tag}" if tag else ""
-    fig1_path = save_dir / f"rho_hat{suffix}.png"
-    fig2_path = save_dir / f"phi_hat_gt_vs_pred{suffix}.png"
-    fig1.savefig(fig1_path, dpi=150, bbox_inches="tight")
-    fig2.savefig(fig2_path, dpi=150, bbox_inches="tight")
-    print(f"Figuren gespeichert: {fig1_path}, {fig2_path}")
+    paths = []
+    for name, fig in figures.items():
+        path = save_dir / f"{name}{suffix}.png"
+        fig.savefig(path, dpi=150, bbox_inches="tight")
+        paths.append(str(path))
+    print(f"Figures saved: {', '.join(paths)}")
 
+
+def plot_predictions(model, batch, data_processor, nondim: bool, tag="", save_dir=None):
+    """Plots FNO predictions on Cheetah SC data (3D).
+
+    ``batch`` is a raw batch dict from a test loader:
+        {"x": (B, 4, nx, ny, nz), "y": (B, 1, nx, ny, nz)}
+    The first 3 samples are plotted; the axes are grid indices. The prediction is in
+    the units of y (phi_hat for ``nondim=True``, otherwise phi in V). For the raw vs.
+    nondimensionalized comparison see ``plot_normalization_comparison``.
+    """
+    with torch.no_grad():
+        out = predict(model, batch, data_processor)
+    x, y = batch["x"], batch["y"]
+
+    B = min(3, x.shape[0])  # at most 3 samples
+    rho_name, phi_name = ("rho_hat", "phi_hat") if nondim else ("rho [C/m^3]", "phi [V]")
+    unit = "nondimensionalized" if nondim else "physical"
+
+    # ----- Figure 1: input, B samples x 3 central cuts -----
+    fig1, axs1 = plt.subplots(B, 3, figsize=(11, 3.5 * B), squeeze=False)
+    for i in range(B):
+        _draw_cuts(fig1, axs1[i], x[i, 0], rho_name, "viridis")
+    fig1.suptitle(f"Input {rho_name} ({unit})", y=0.99)
+    fig1.tight_layout()
+
+    # ----- Figure 2: ground truth vs. prediction, per sample [GT: 3 | Pred: 3] -----
+    fig2, axs2 = plt.subplots(B, 6, figsize=(22, 3.5 * B), squeeze=False)
+    for i in range(B):
+        _draw_cuts(fig2, axs2[i, :3], y[i, 0], f"{phi_name} GT", "magma")
+        _draw_cuts(fig2, axs2[i, 3:], out[i, 0], f"{phi_name} Pred", "magma")
+    fig2.suptitle(f"{phi_name} ({unit}): ground truth vs. prediction", y=0.99)
+    fig2.tight_layout()
+
+    _save_figures({"rho_hat": fig1, "phi_hat_gt_vs_pred": fig2}, save_dir, tag)
     plt.show()
     return fig1, fig2
 
 
+def plot_normalization_comparison(
+    model, dataset, data_processor=None, indices=(0, 1, 2), cut="xy", tag="", save_dir=None
+):
+    """Raw vs. nondimensionalized fields for input and output.
+
+    ``dataset`` is a ``CheetahDataset`` with ``return_meta=True`` (the training loaders
+    deliberately have it off, because the neuralop ``Trainer`` passes every key to the
+    model). Whether the model was trained on rho_hat -> phi_hat or on rho -> phi comes
+    from ``dataset.nondim``.
+
+    Figure 1 (input), per sample: rho [C/m^3] (3 cuts) | rho_hat (3 cuts)
+    Figure 2 (output), per sample, cut ``cut`` ("xy", "xt", "yt"):
+        phi GT [V] | phi Pred [V] | phi_hat GT | phi_hat Pred
+    GT and Pred share the colour scale (common range in the cut).
+    """
+    batch = torch.utils.data.default_collate([dataset[i] for i in indices])
+    scaling = Scaling(
+        total_charge=batch["total_charge"],
+        reference_length=batch["reference_length"],
+        normalized_extent=batch["normalized_extent"],
+    )
+    with torch.no_grad():
+        out = predict(model, batch, data_processor)
+    phi_hat_pred, phi_pred = decode_prediction(
+        out[:, 0].cpu().double(), scaling, nondim=dataset.nondim
+    )
+
+    B = len(indices)
+    trained_on = "rho_hat -> phi_hat" if dataset.nondim else "rho -> phi"
+
+    # ----- Figure 1: input raw vs. nondimensionalized -----
+    fig1, axs1 = plt.subplots(B, 6, figsize=(22, 3.5 * B), squeeze=False)
+    for i in range(B):
+        _draw_cuts(fig1, axs1[i, :3], batch["rho"][i], "rho [C/m^3]", "viridis")
+        _draw_cuts(fig1, axs1[i, 3:], batch["rho_hat"][i], "rho_hat", "viridis")
+    fig1.suptitle("Input: physical (left) vs. nondimensionalized (right)", y=0.99)
+    fig1.tight_layout()
+
+    # ----- Figure 2: output raw vs. nondimensionalized, GT vs. Pred -----
+    fig2, axs2 = plt.subplots(B, 4, figsize=(16, 3.5 * B), squeeze=False)
+    for i in range(B):
+        pairs = [
+            ("phi", "[V]", batch["phi"][i], phi_pred[i]),
+            ("phi_hat", "", batch["phi_hat"][i], phi_hat_pred[i]),
+        ]
+        for j, (name, unit, gt, pred) in enumerate(pairs):
+            # Common scale from GT and Pred in the shown cut: otherwise an overshooting
+            # prediction is clipped and the cut uses only a fraction of the scale.
+            gt_cut, pred_cut = (_central_cut(f.detach().cpu(), cut) for f in (gt, pred))
+            vlim = (
+                float(min(gt_cut.min(), pred_cut.min())),
+                float(max(gt_cut.max(), pred_cut.max())),
+            )
+            for k, (kind, field) in enumerate((("GT", gt), ("Pred", pred))):
+                label = f"{name} {kind} {unit}".strip()
+                _draw_cuts(
+                    fig2, [axs2[i, 2 * j + k]], field, label, "magma", cuts=(cut,), vlim=vlim
+                )
+    fig2.suptitle(
+        f"Output: physical vs. nondimensionalized (model: {trained_on})", y=0.99
+    )
+    fig2.tight_layout()
+
+    _save_figures({"norm_input": fig1, "norm_output": fig2}, save_dir, tag)
+    plt.show()
+    return fig1, fig2
+
 
 def plot_losses(history, save_dir=None, tag=""):
-    """Plottet Trainings- und Eval-Lossverlaeufe aus ``HistoryTrainer.history``.
+    """Plots training and evaluation loss curves from ``HistoryTrainer.history``.
 
-    Drei Panels:
-      1. Trainings-Loss (avg_loss, train_err) ueber die Epochen (log-y).
-      2. Eval-Loss je Test-Aufloesung (h1, l2) ueber die Epochen (log-y).
-      3. Lernrate ueber die Epochen (log-y).
+    Three panels:
+      1. Training loss (avg_loss, train_err) over the epochs (log y).
+      2. Evaluation loss per test resolution (h1, l2) over the epochs (log y).
+      3. Learning rate over the epochs (log y).
 
-    Die Eval-Kurven haben nur alle ``eval_interval`` Epochen Punkte.
+    The evaluation curves only have points every ``eval_interval`` epochs.
     """
     train_hist = history.get("train", {})
     eval_hist = history.get("eval", {})
 
     fig, axs = plt.subplots(1, 3, figsize=(18, 5))
 
-    # --- Panel 1: Trainings-Loss ---
+    # --- Panel 1: training loss ---
     ax = axs[0]
     if train_hist.get("epoch"):
-        ax.plot(train_hist["epoch"], train_hist["avg_loss"], label="avg_loss", color="tab:blue")
-        ax.plot(train_hist["epoch"], train_hist["train_err"], label="train_err", color="tab:orange", alpha=0.7)
+        ax.plot(
+            train_hist["epoch"], train_hist["avg_loss"], label="avg_loss", color="tab:blue"
+        )
+        ax.plot(
+            train_hist["epoch"],
+            train_hist["train_err"],
+            label="train_err",
+            color="tab:orange",
+            alpha=0.7,
+        )
         ax.set_yscale("log")
         ax.legend()
     else:
-        ax.text(0.5, 0.5, "keine Trainingsdaten", ha="center", va="center")
-    ax.set_title("Trainings-Loss")
-    ax.set_xlabel("Epoche")
+        ax.text(0.5, 0.5, "no training data", ha="center", va="center")
+    ax.set_title("Training loss")
+    ax.set_xlabel("Epoch")
     ax.set_ylabel("Loss (log)")
     ax.grid(True, which="both", alpha=0.3)
 
-    # --- Panel 2: Eval-Loss je Aufloesung ---
+    # --- Panel 2: evaluation loss per resolution ---
     ax = axs[1]
     eval_epochs = eval_hist.get("epoch", [])
     if eval_epochs:
-        # Metriknamen haben die Form "<res>_<loss>", z.B. "16_h1"
+        # Metric names have the form "<res>_<loss>", e.g. "16_h1"
         metric_names = [k for k in eval_hist if k != "epoch"]
         resolutions = sorted({int(k.split("_")[0]) for k in metric_names})
         cmap = plt.get_cmap("tab10")
@@ -316,63 +388,87 @@ def plot_losses(history, save_dir=None, tag=""):
         ax.set_yscale("log")
         ax.legend(fontsize=8, ncol=2)
     else:
-        ax.text(0.5, 0.5, "keine Eval-Daten", ha="center", va="center")
-    ax.set_title("Eval-Loss je Aufloesung")
-    ax.set_xlabel("Epoche")
+        ax.text(0.5, 0.5, "no evaluation data", ha="center", va="center")
+    ax.set_title("Evaluation loss per resolution")
+    ax.set_xlabel("Epoch")
     ax.set_ylabel("Loss (log)")
     ax.grid(True, which="both", alpha=0.3)
 
-    # --- Panel 3: Lernrate ---
+    # --- Panel 3: learning rate ---
     ax = axs[2]
     if train_hist.get("epoch") and train_hist.get("lr"):
         ax.plot(train_hist["epoch"], train_hist["lr"], color="tab:green")
         ax.set_yscale("log")
     else:
-        ax.text(0.5, 0.5, "keine LR-Daten", ha="center", va="center")
-    ax.set_title("Lernrate")
-    ax.set_xlabel("Epoche")
+        ax.text(0.5, 0.5, "no learning rate data", ha="center", va="center")
+    ax.set_title("Learning rate")
+    ax.set_xlabel("Epoch")
     ax.set_ylabel("lr (log)")
     ax.grid(True, which="both", alpha=0.3)
 
-    fig.suptitle("Trainingsverlauf (Smoke-Test)", y=1.0)
+    fig.suptitle("Training history", y=1.0)
     fig.tight_layout()
 
-    if save_dir is None:
-        save_dir = ROOT / "figures"
-    save_dir = Path(save_dir)
-    save_dir.mkdir(parents=True, exist_ok=True)
-    suffix = f"_{tag}" if tag else ""
-    path = save_dir / f"loss_curves{suffix}.png"
-    fig.savefig(path, dpi=150, bbox_inches="tight")
-    print(f"Figur gespeichert: {path}")
-
+    _save_figures({"loss_curves": fig}, save_dir, tag)
     plt.show()
     return fig
 
 
+def load_run(run_dir: str | Path, device: torch.device | None = None):
+    """Model and config of a training run written by ``scno.train``.
+
+    Prefers the best checkpoint (``best_model_*``), falls back to the final one
+    (``model_*``). Returns ``(model, cfg)``.
+    """
+    run_dir = Path(run_dir)
+    cfg = load_config(run_dir / "config.yaml")
+    name = "best_model" if (run_dir / "best_model_metadata.pkl").exists() else "model"
+    model = FNO.from_checkpoint(run_dir, name, map_location=device)
+    return model.to(device) if device is not None else model, cfg
+
+
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--checkpoint", default="outputs/best.pt")
-    p.add_argument("--data", default="data/val.h5")
-    p.add_argument("--out", default="outputs/evaluation.json")
+    p.add_argument("--run", default="outputs/run_default", help="output_dir of scno.train")
+    p.add_argument("--data", default=None, help="test file (default: train resolution)")
+    p.add_argument("--out", default=None, help="report (default: <run>/evaluation.json)")
     p.add_argument("--batch-size", type=int, default=4)
     p.add_argument("--skip-resolution", action="store_true")
+    p.add_argument("--plot", action="store_true", help="plot predictions per resolution")
     args = p.parse_args()
 
     device = pick_device("auto")
-    ckpt = torch.load(args.checkpoint, map_location=device, weights_only=False)
-    model = build_model(ckpt["config"]["model"]).to(device)
-    load_checkpoint(args.checkpoint, model, map_location=device)
+    model, cfg = load_run(args.run, device)
+    data_cfg = cfg["data"]
+    nondim = data_cfg["nondim"]
+    # The data processor is refitted on the training data, exactly as in training.
+    _, test_loaders, data_processor = load_cheetah_sc(**{**data_cfg, "generate": False})
+    data_processor = data_processor.to(device)
 
-    dataset = CheetahDataset(args.data)
-    report = {"accuracy": evaluate(model, dataset, device, args.batch_size)}
-    report["gradients"] = gradient_consistency(model, dataset, device)
+    data_path = args.data or dataset_path(
+        data_cfg["data_root"], "test", data_cfg["train_resolution"]
+    )
+    dataset = CheetahDataset(data_path, nondim=nondim)
+    report = {"accuracy": evaluate(model, dataset, data_processor, args.batch_size)}
+    report["gradients"] = gradient_consistency(model, dataset, data_processor)
     if not args.skip_resolution:
-        report["resolution"] = resolution_study(model, args.data, device)
+        report["resolution"] = resolution_study(model, data_path, nondim, data_processor)
 
-    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    Path(args.out).write_text(json.dumps(report, indent=2))
+    out = Path(args.out) if args.out else Path(args.run) / "evaluation.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(report, indent=2))
     print(json.dumps(report, indent=2))
+
+    if args.plot:
+        for res, loader in test_loaders.items():
+            tag = f"{Path(args.run).name}_res{res}"
+            plot_predictions(model, next(iter(loader)), data_processor, nondim, tag=tag)
+            plot_normalization_comparison(
+                model,
+                CheetahDataset(dataset_path(data_cfg["data_root"], "test", res), nondim=nondim),
+                data_processor,
+                tag=tag,
+            )
 
 
 if __name__ == "__main__":

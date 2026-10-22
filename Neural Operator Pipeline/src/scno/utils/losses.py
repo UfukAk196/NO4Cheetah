@@ -1,109 +1,108 @@
 """
-Verlustfunktionen.
+Loss functions, built on neuraloperator's ``LpLoss`` and ``FiniteDiff``.
 
-Wichtigster Punkt fuer dieses Projekt: der Kick haengt nicht vom Potential ab,
-sondern von dessen Gradienten. Ein Modell mit winzigem L2-Fehler auf phi kann
-trotzdem miserable Kraefte liefern, weil Ableiten hohe Frequenzen verstaerkt.
-Deshalb steht hier eine H1-artige Variante bereit, die den Gradientenfehler
-mitbestraft -- und in der Auswertung wird der Kraftfehler getrennt berichtet.
+The most important point for this project: the kick does not depend on the potential
+but on its gradient. A model with a tiny L2 error on phi can still produce miserable
+forces, because differentiation amplifies high frequencies. Hence the Sobolev loss
+here also penalizes the gradient error with its own weight (neuralop's ``H1Loss``
+has no such weight) -- and the evaluation reports the force error separately.
+
+All losses are summed over the batch, as the neuralop ``Trainer`` expects (it divides
+the accumulated evaluation losses by the number of samples).
 """
 
 from __future__ import annotations
 
 import torch
-import torch.nn.functional as F
+from neuralop.losses import LpLoss
+from neuralop.losses.differentiation import FiniteDiff
+
+# Open boundaries: one-sided differences at the edges instead of periodic wrapping.
+# Grid spacing 1: the physical spacing drops out of the relative error, and in
+# nondimensionalized coordinates it is constant per axis.
+_FINITE_DIFF = FiniteDiff(
+    dim=3, h=1.0, periodic_in_x=False, periodic_in_y=False, periodic_in_z=False
+)
+_FIELD_L2 = LpLoss(d=3, p=2, reduction="sum")  # per sample over (nx, ny, nz)
+_GRADIENT_L2 = LpLoss(d=4, p=2, reduction="sum")  # per sample over (3, nx, ny, nz)
 
 
-def relative_l2(pred: torch.Tensor, target: torch.Tensor, eps: float = 1e-12) -> torch.Tensor:
-    """Mittlerer relativer L2-Fehler pro Probe -- die uebliche Groesse in
-    Neural-Operator-Papern, damit Zahlen ueber Datensaetze hinweg vergleichbar sind."""
-    p = pred.flatten(1)
-    t = target.flatten(1)
-    return ((p - t).norm(dim=1) / (t.norm(dim=1) + eps)).mean()
+def field_error(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    """Relative L2 error of (B, 1, nx, ny, nz) fields, summed over the batch -- the
+    usual quantity in neural operator papers, so that numbers are comparable across
+    datasets."""
+    return _FIELD_L2.rel(pred, target)
 
 
-def central_gradient(field: torch.Tensor) -> torch.Tensor:
-    """Zentrale Differenzen auf (B, 1, nx, ny, nz), Gitterabstand 1.
-
-    Der physikalische Abstand faellt beim relativen Fehler ohnehin raus, und in
-    entdimensionalisierten Koordinaten ist er pro Achse konstant.
-    """
-    f = field
-    gx = torch.zeros_like(f)
-    gy = torch.zeros_like(f)
-    gz = torch.zeros_like(f)
-    gx[..., 1:-1, :, :] = 0.5 * (f[..., 2:, :, :] - f[..., :-2, :, :])
-    gy[..., :, 1:-1, :] = 0.5 * (f[..., :, 2:, :] - f[..., :, :-2, :])
-    gz[..., :, :, 1:-1] = 0.5 * (f[..., :, :, 2:] - f[..., :, :, :-2])
-    return torch.cat([gx, gy, gz], dim=1)
-
-
-def h1_loss(
-    pred: torch.Tensor, target: torch.Tensor, gradient_weight: float = 1.0
-) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-    """L2 auf dem Feld plus gewichteter L2 auf dem Gradienten."""
-    field = relative_l2(pred, target)
-    grad = relative_l2(central_gradient(pred), central_gradient(target))
-    total = field + gradient_weight * grad
-    return total, {"loss_field": field.detach(), "loss_grad": grad.detach()}
+def gradient_error(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    """Relative L2 error of the gradients of (B, 1, nx, ny, nz) fields, over all three
+    components together and summed over the batch -- the error of the forces."""
+    return _GRADIENT_L2.rel(_FINITE_DIFF.gradient(pred), _FINITE_DIFF.gradient(target))
 
 
 def poisson_residual(
-    potential_hat: torch.Tensor, rho_hat: torch.Tensor, aspect: torch.Tensor
+    potential_hat: torch.Tensor,  # (B, 1, nx, ny, nz)
+    rho_hat: torch.Tensor,  # (B, 1, nx, ny, nz)
+    normalized_extent: torch.Tensor,  # (B, 3)
 ) -> torch.Tensor:
-    """Residuum von laplace(phi_hat) = -4*pi*rho_hat.
+    """Residual of laplace(phi_hat) = -4*pi*rho_hat, mean over the interior points of
+    each sample, summed over the batch.
 
-    In entdimensionalisierter Form (Herleitung in utils/normalization.py) faellt
-    jede Materialkonstante raus, uebrig bleibt der Faktor 4*pi. Die
-    Gitterabstaende in diesen Einheiten sind h_i = E_i / (L * N_i), also
-    aspect_i / N_i. Nur Innenpunkte -- am offenen Rand gilt der
-    Differenzenstern nicht.
+    In nondimensionalized form (derivation in utils/normalization.py) every material
+    constant drops out, only the factor 4*pi remains. The grid spacings in these units
+    are h_i = E_i / (L * N_i), i.e. normalized_extent_i / N_i. Interior points only --
+    the difference stencil does not hold at the open boundary.
 
-    Das ist der optionale PiNN-Anteil: er zieht die Loesung dorthin, wo die
-    Physik sie haben will, auch an Stellen ohne Trainingsdaten. Als Zusatzterm
-    mit kleinem Gewicht gedacht, nicht als Ersatz fuer Daten.
+    This is the optional PINN part: it pulls the solution towards where the physics
+    wants it, also at places without training data. Meant as an additional term with a
+    small weight, not as a replacement for data.
 
-    Ehrliche Warnung: die Trainingsdaten kommen aus einem Greenschen-Funktions-
-    Solver, dieses Residuum misst gegen den 7-Punkt-Differenzenstern. Die
-    beiden Diskretisierungen stimmen nicht exakt ueberein, das Residuum geht
-    also nie ganz auf null. Der verbleibende Sockel ist Diskretisierungsfehler,
-    kein Modellfehler -- miss ihn einmal mit der exakten Loesung als Eingabe
-    und berichte ihn als Referenzwert.
+    Honest warning: the training data come from a Green's function solver, while this
+    residual measures against the 7-point difference stencil. The two discretizations
+    do not agree exactly, so the residual never reaches zero. The remaining floor is
+    discretization error, not model error -- measure it once with the exact solution
+    as input and report it as a reference value.
     """
-    p = potential_hat
-    n = torch.tensor(p.shape[2:], device=p.device, dtype=p.dtype)
-    h = aspect / n[None, :]  # (B, 3) Gitterabstand in Einheiten von L
-    hx, hy, hz = (h[:, i].view(-1, 1, 1, 1, 1) for i in range(3))
+    n = torch.tensor(potential_hat.shape[-3:], device=potential_hat.device)
+    h = normalized_extent.to(potential_hat.dtype) / n[None, :]  # (B, 3) in units of L
+    second_differences = (
+        _FINITE_DIFF.dx(potential_hat, order=2),
+        _FINITE_DIFF.dy(potential_hat, order=2),
+        _FINITE_DIFF.dz(potential_hat, order=2),
+    )
+    laplacian = sum(
+        d2 / h[:, i].square().view(-1, 1, 1, 1, 1)
+        for i, d2 in enumerate(second_differences)
+    )
+    residual = laplacian + 4 * torch.pi * rho_hat
+    return residual[..., 1:-1, 1:-1, 1:-1].abs().flatten(1).mean(dim=1).sum()
 
-    core = p[:, :, 1:-1, 1:-1, 1:-1]
-    d2x = p[:, :, 2:, 1:-1, 1:-1] - 2 * core + p[:, :, :-2, 1:-1, 1:-1]
-    d2y = p[:, :, 1:-1, 2:, 1:-1] - 2 * core + p[:, :, 1:-1, :-2, 1:-1]
-    d2z = p[:, :, 1:-1, 1:-1, 2:] - 2 * core + p[:, :, 1:-1, 1:-1, :-2]
 
-    lap = d2x / hx.square() + d2y / hy.square() + d2z / hz.square()
-    source = rho_hat[:, :, 1:-1, 1:-1, 1:-1]
-    return (lap + 4 * torch.pi * source).abs().mean()
+class SobolevLoss:
+    """Relative L2 of the field plus weighted relative L2 of its gradient.
 
+    Callable as a neuralop ``Trainer`` loss: ``loss(y_pred, y, x=x)``. With
+    ``gradient_weight=0`` this is the plain relative L2 loss.
 
-def build_loss(cfg: dict):
-    """Gibt eine Funktion (pred, batch_dict) -> (loss, metriken) zurueck."""
-    kind = cfg.get("kind", "h1")
-    gw = float(cfg.get("gradient_weight", 1.0))
-    pw = float(cfg.get("physics_weight", 0.0))
+    :param gradient_weight: Weight of the gradient error -- the kick is a gradient.
+    :param physics_weight: Weight of the Poisson residual (PINN part). Requires
+        nondimensionalized data without output normalizer, since rho_hat and
+        log(E_i/L) are read from the model input ``x``.
+    """
 
-    def fn(pred, target, rho_hat=None, aspect=None):
-        if kind == "l2":
-            loss = relative_l2(pred, target)
-            metrics = {"loss_field": loss.detach()}
-        elif kind == "h1":
-            loss, metrics = h1_loss(pred, target, gw)
-        else:
-            raise ValueError(f"Unbekannter Verlust: {kind}")
+    def __init__(self, gradient_weight: float = 1.0, physics_weight: float = 0.0):
+        self.gradient_weight = float(gradient_weight)
+        self.physics_weight = float(physics_weight)
 
-        if pw > 0.0 and rho_hat is not None and aspect is not None:
-            res = poisson_residual(pred, rho_hat, aspect)
-            loss = loss + pw * res
-            metrics["loss_physics"] = res.detach()
-        return loss, metrics
-
-    return fn
+    def __call__(
+        self, y_pred: torch.Tensor, y: torch.Tensor, x: torch.Tensor = None, **kwargs
+    ) -> torch.Tensor:
+        loss = field_error(y_pred, y)
+        if self.gradient_weight > 0.0:
+            loss = loss + self.gradient_weight * gradient_error(y_pred, y)
+        if self.physics_weight > 0.0:
+            normalized_extent = x[:, 1:4, 0, 0, 0].exp()
+            loss = loss + self.physics_weight * poisson_residual(
+                y_pred, x[:, :1], normalized_extent
+            )
+        return loss

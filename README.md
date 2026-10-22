@@ -1,244 +1,301 @@
-# Space Charge Neural Operator
+# NO4Cheetah — Neural Operator for Space Charge in Cheetah
 
-Skelett fuer eine Masterarbeit: ein differenzierbarer Neural Operator, der den
-FFT-Poisson-Solver in Cheetahs `SpaceChargeKick` ersetzt.
-
-Der Code laeuft. Er ist nicht fertig -- er ist ein Geruest mit einer
-funktionierenden Pipeline von der Datengenerierung bis zur Auswertung, damit du
-am ersten Tag Zahlen siehst statt Importfehler. Alles Interessante ist als
-offene Frage markiert.
+Master's thesis: a **differentiable neural operator (FNO)** that replaces the FFT
+Poisson solver in Cheetah's
+[`SpaceChargeKick`](https://github.com/desy-ml/cheetah), in such a way that not only
+the potential is right but the **gradients** through the tracking also stay usable.
 
 ```
-python scripts/verify_physics.py     # 30 Sekunden: stimmt der Solver?
-python scripts/smoke_test.py         # 2 Minuten: laeuft alles durch?
+          particles ──► CIC deposition ──► ρ on the grid
+                                              │
+               ┌──────────────────────────────┴──────────────────────┐
+               │  classical: IGF convolution via FFT (Hockney), O(N log N) │
+               │  here:      neural operator  ρ̂ ↦ φ̂                       │  ◄── replaced
+               └──────────────────────────────┬──────────────────────┘
+                                              │
+                    φ ──► central differences ──► E field ──► momentum kick
+```
+
+**Only the Poisson solve** is replaced. Deposition, gradient and interpolation stay
+Cheetah's classical torch code: cheap, exact and already differentiable. In code this
+is one overridden method: `NeuralSpaceChargeKick` subclasses `SpaceChargeKick` and
+replaces only its grid-level solve `_solve_poisson_on_grid`.
+
+> **Status:** work in progress. The pipeline from data generation through training to
+> evaluation runs, and the element tracks in the lattice. Hyperparameters and beam
+> parameter bounds are still open.
+
+---
+
+## Contents of the repo
+
+| Folder | Content |
+|---|---|
+| [`Neural Operator Pipeline/`](Neural%20Operator%20Pipeline/) | **The code**: Python package `scno`, scripts, configs, notebooks, figures |
+| [`Konzeptionierung/`](Konzeptionierung/) | Architecture and interface drafts, profiling of the SC kick, text drafts of the thesis |
+| [`Projektplanung/`](Projektplanung/) | Work plan, scheduling |
+| [`Quellen/`](Quellen/) | Literature |
+| [`bsc-msc-template/`](bsc-msc-template/) | LaTeX template of the thesis |
+
+The code depends on a Cheetah branch, `space-charge-grid-solve` in the fork
+`UfukAk196/cheetah`, which splits the `SpaceChargeKick` Poisson solve into
+`_grid_geometry`, `_array_rho` and the grid-level `_solve_poisson_on_grid`.
+
+### The code in detail
+
+```
+Neural Operator Pipeline/
+├── pyproject.toml            the only package list (package "scno")
+├── environment.yml           conda, CPU
+├── environment-gpu.yml       conda, CUDA (e.g. the Maxwell cluster)
+├── requirements.txt          pip only (Colab, venv)
+├── CHANGELOG.md              changes, in Cheetah's format
+├── configs/
+│   ├── default.yaml          data, model, loss, training (copy for experiments)
+│   └── smoke.yaml            the same in miniature
+├── src/scno/
+│   ├── accelerator/
+│   │   └── neural_space_charge_kick.py   NeuralSpaceChargeKick: the FNO in the lattice
+│   ├── utils/
+│   │   ├── normalization.py  nondimensionalization, please read first
+│   │   ├── losses.py         Sobolev loss (field + gradient), Poisson residual
+│   │   └── common.py         seed, device, config
+│   ├── data/
+│   │   ├── sampling.py       draw beam parameters (log-uniform / uniform)
+│   │   ├── fields.py         (ρ, φ) directly from Cheetah's SpaceChargeKick
+│   │   ├── generate.py       write HDF5 datasets (CLI)
+│   │   └── dataset.py        CheetahDataset, load_cheetah_sc
+│   ├── models/
+│   │   └── exact.py          the exact solver as a "model" (control)
+│   ├── train.py              training with the neuralop Trainer
+│   └── evaluate.py           accuracy, resolution study, gradient fidelity, plots
+├── tests/                    pytest
+├── scripts/                  verify_physics, inspect_scaling
+├── notebooks/                cheetah_test, neuralop_test, smoke_train
+├── figures/                  generated plots
+└── tables/                   profiling results
 ```
 
 ---
 
-## Was hier gelernt wird
+## Installation
 
-```
-                Ladungsdichte auf dem Gitter
-                          |
-                          v
-        [ FFT-Faltung mit Greenscher Funktion ]   <-- klassisch, O(N log N)
-        [        Neural Operator (FNO)        ]   <-- das hier
-                          |
-                          v
-                    Potential phi
-                          |
-                 zentrale Differenzen
-                          |
-                          v
-                 Kraefte -> Impuls-Kick
-```
+All commands run in the folder **`Neural Operator Pipeline/`**. Python 3.10–3.12.
 
-Ersetzt wird ausschliesslich der mittlere Kasten. Deposition, Gradient und
-Interpolation bleiben der klassische Code -- die sind billig, exakt und schon
-differenzierbar. Der teure Teil, und der einzige, bei dem ein Surrogat etwas
-gewinnen kann, ist der Poisson-Solve.
-
-**Warum das ueberhaupt eine Arbeit wert ist:** Cheetah ist gradientenfaehig,
-und Space Charge ist der Schritt, der das Tracking langsam macht. Ein
-Surrogat, der nicht nur richtig rechnet, sondern auch richtig *ableitet*,
-macht gradientenbasierte Optimierung von Strahlparametern ueber lange
-Strecken erst praktikabel. Das zweite "richtig" ist der eigentliche Kern der
-Arbeit -- und, so viel vorweg, der schwierige Teil (siehe unten).
-
----
-
-## Struktur
-
-```
-src/
-  utils/physics.py     klassischer Solver: CIC-Deposition, IGF, Hockney-FFT
-                       -> die Referenz, gegen die gemessen wird
-  utils/normalization.py  Entdimensionalisierung -- lies das zuerst
-  utils/losses.py      relativer L2, H1 (Gradient!), Poisson-Residuum
-  utils/common.py      Seed, Geraet, Config, Checkpoints
-  models/fno.py        FNO-3D, eigene Implementierung + Anbindung an neuraloperator
-  models/exact.py      der exakte Solver als "Modell" -- die Kontrolle
-  data/sampling.py     Strahlparameter aus der Config ziehen
-  data/fields.py       Feld-Paar (rho_hat, phi_hat) aus Cheetahs SpaceChargeKick
-  data/generate.py     write_hdf5: Proben + Skalierung als HDF5 (h5py) schreiben
-  data/dataset.py      CheetahDataset (HDF5), make_loaders, load_cheetah_sc
-  train.py             Trainingsschleife, eine Datei, keine Framework-Magie
-  evaluate.py          Genauigkeit, Aufloesung, Gradiententreue
-  cheetah_element.py   NeuralSpaceChargeKick -- der Einbau ins echte Lattice
-
-scripts/
-  verify_physics.py    Solver gegen die analytisch bekannte geladene Kugel
-  smoke_test.py        ganze Pipeline in Miniaturgroesse
-  inspect_scaling.py   Diagnose: streut phi_hat noch ueber Groessenordnungen?
-
-configs/default.yaml   alle Regler an einer Stelle
-```
-
----
-
-## Loslegen
+**Conda (recommended, local)**
 
 ```bash
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-export PYTHONPATH=src                               # Windows: set PYTHONPATH=src
+cd "Neural Operator Pipeline"
+conda env create -f environment.yml          # CPU
+# conda env create -f environment-gpu.yml    # GPU; match cuda-version to `nvidia-smi`
+conda activate no4cheetah                    # or no4cheetah-gpu
+```
 
-# 1. Solver pruefen -- immer zuerst
+The environment installs `scno` in editable mode (`pip install -e ".[dev]"`). After
+changes to `pyproject.toml`, simply run `pip install -e ".[dev]"` again. As long as
+the Cheetah branch is not pushed yet, install the local clone on top:
+`pip install -e "../../Cheetah repos/cheetah-accelerator"`.
+
+**Google Colab / plain pip**
+
+```bash
+git clone https://github.com/UfukAk196/NO4Cheetah.git
+cd "NO4Cheetah/Neural Operator Pipeline"
+pip install -r requirements.txt              # torch comes with Colab
+```
+
+Main dependencies: `torch>=2.2`, `cheetah-accelerator` (fork branch above),
+`neuraloperator==2.0.0`, `h5py`.
+
+---
+
+## Quick start
+
+```bash
+# 1. Is the reference solver right? (charged sphere, analytical)        ~30 s
 python scripts/verify_physics.py
 
-# 2. Daten erzeugen (klein anfangen)
-python -m data.generate --config configs/generate.yaml
+# 2. Unit tests, incl. the element against SpaceChargeKick
+pytest
 
-# 3. Trainieren
-python -m train --config configs/default.yaml
-
-# 4. Auswerten
-python -m evaluate --checkpoint outputs/run_default/best.pt --data data/train.h5
+# 3. Small end-to-end run with the neuralop Trainer, then evaluation + plots per resolution
+python -m scno.train --config configs/smoke.yaml
+python -m scno.evaluate --run outputs/smoke --plot
 ```
 
-Ueberschreiben ohne die Config anzufassen:
+The smoke run generates the data under `data/` if needed, writes checkpoints and loss
+curves to `outputs/smoke/` and plots to `figures/`.
+
+---
+
+## Pipeline step by step
+
+### 1. Generate data
 
 ```bash
-python -m train --config configs/default.yaml \
-    --override training.epochs=300 model.width=64 loss.gradient_weight=2.0
+python -m scno.data.generate --config configs/default.yaml
 ```
+
+Writes one HDF5 file per resolution to `data/`, i.e. `data/cheetah_sc_train_{res}.h5`
+and `data/cheetah_sc_test_{res}.h5` (folder set by `data.data_root` in the config). The
+files hold the physical fields ρ [C/m³] and φ [V]; the nondimensionalization happens on
+loading. Every sample has a unique seed, so train and test never overlap. Drawn are
+`sigma_x`, `sigma_y`, `sigma_tau`, `energy`, `total_charge` and `n_particles` within
+the bounds of `scno.data.sampling.DEFAULT_RANGES` (overridable with `data.ranges`).
+
+> The bounds are still **example values** (TODO in `sampling.py`).
+
+### 2. Train
+
+```bash
+python -m scno.train --config configs/default.yaml
+```
+
+Generates missing data and trains with the neuralop `Trainer`. Single values can be
+overridden without touching the config:
+
+```bash
+python -m scno.train --config configs/default.yaml \
+    --override training.epochs=300 model.hidden_channels=32 loss.gradient_weight=2.0
+```
+
+`output_dir` (default `outputs/run_default/`) receives the resolved `config.yaml`, the
+neuralop checkpoints `best_model_*` (best h1 loss on the first test resolution) and
+`model_*` (final), `history.json` and the loss curves. Load a model with
+`FNO.from_checkpoint(output_dir, "best_model")`.
+
+### 3. Evaluate
+
+```bash
+python -m scno.evaluate --run outputs/run_default                 # test file at the training resolution
+python -m scno.evaluate --run outputs/run_default --data data/cheetah_sc_test_64.h5 --plot
+```
+
+Reports to `<run>/evaluation.json`:
+
+- **Accuracy:** relative L2 error of φ̂ and of the field ∇φ̂
+- **Resolution study:** zero-shot on a different grid than in training
+- **Gradient fidelity:** cosine between the gradients through the model and through the exact solver
+
+### 4. Into the lattice
+
+```python
+import torch
+from neuralop.models import FNO
+from scno.accelerator import NeuralSpaceChargeKick
+
+operator = FNO.from_checkpoint("outputs/run_default", "best_model")
+kick = NeuralSpaceChargeKick(operator=operator, effect_length=torch.tensor(0.3))
+```
+
+The element is a drop-in replacement for `SpaceChargeKick` (also on vectorized beams)
+and takes models trained with `nondim: true`.
 
 ---
 
-## Die zwei Entscheidungen, an denen alles haengt
+## The two design decisions
 
-### 1. Entdimensionalisierung
+### Nondimensionalization
 
-Rohe Ladungen streuen ueber vier Dekaden, Zellgroessen ueber zwei, gamma ueber
-drei. Ein Netz, das das direkt frisst, lernt Groessenordnungen statt Physik.
-Also wird analytisch herausgezogen, was analytisch bekannt ist:
+Charges spread over decades, cell sizes over two, γ over three. So what is known
+analytically is removed analytically (details in
+[`normalization.py`](Neural%20Operator%20Pipeline/src/scno/utils/normalization.py)):
 
 ```
-rho_hat = rho * L^3 / Q          L = (Ex*Ey*Ez)^(1/3), Kanten der Gitterbox
-phi_hat = phi * 4*pi*eps0*L / Q  Q = Gesamtladung im Gitter
-
-     laplace(phi_hat) = -4*pi*rho_hat
+L       = (Ex · Ey · Ez)^(1/3)        box edges of the γ-stretched box (rest frame)
+rho_hat = rho · L³ / Q
+phi_hat = phi · 4π ε0 · L / Q         ⇒   Δ phi_hat = −4π · rho_hat
 ```
 
-Uebrig bleiben die Achsenverhaeltnisse `E_i/L` als drei konstante Kanaele. Ein
-einziges Modell deckt damit alle Strahlgroessen, Ladungen und Energien ab.
+The network gets 4 channels: `rho_hat` and the three constant aspect ratios
+`log(E_i / L)`. One model thus covers all beam sizes, charges and energies.
 
-**Der Stolperstein, der mich beim Bauen eine Runde gekostet hat:** L muss an
-der *Boxgroesse* haengen, nicht an der Zellgroesse. Mit Zellgroesse als Bezug
-bildet dieselbe physikalische Dichte je nach Aufloesung auf ein anderes
-`phi_hat` ab -- und die Zero-Shot-Super-Resolution bricht zusammen, obwohl am
-Netz nichts falsch ist. Gemessen: mit Zellbezug 142 % Fehler auf 32^3 nach
-Training auf 16^3, mit Boxbezug 3 %.
+**L depends on the box size, not on the cell size.** Otherwise the same physical
+density maps to a different `phi_hat` depending on the resolution, and zero-shot
+super-resolution collapses. Measured: 142 % error on 32³ (cell reference) versus 3 %
+(box reference).
 
-`scripts/inspect_scaling.py` misst, wie weit `phi_hat` danach noch streut. Bei
-den Beispieldaten bleiben 1,4 Dekaden uebrig -- getrieben von der
-gamma-Streckung. Das ist der erste Punkt auf der Liste unten.
+The nondimensionalization can be switched off for ablations (`data.nondim: false`):
+the model then learns ρ [C/m³] → φ [V], and only in that case a Gaussian normalizer is
+fitted on the output. How much `phi_hat` still spreads is measured by
+`scripts/inspect_scaling.py`.
 
-### 2. Der Verlust muss den Gradienten kennen
+### The loss must know the gradient
 
-Der Kick ist der Gradient des Potentials. Ein Modell mit hervorragendem L2 auf
-`phi` kann trotzdem schlechte Kraefte liefern, weil Ableiten hohe Frequenzen
-verstaerkt. Deshalb ist H1 (Feld plus Gradient) die Voreinstellung, und die
-Auswertung berichtet beide Fehler getrennt.
+The kick is the gradient of the potential. A good L2 on φ does not yet mean good
+forces, because differentiation amplifies high frequencies. The default is therefore a
+**Sobolev loss** (field + gradient, `loss.gradient_weight`). Optionally the Poisson
+residual is added (`loss.physics_weight > 0`).
 
 ---
 
-## Was beim Bauen herauskam
+## First results
 
-Mini-Lauf zum Kalibrieren der Erwartung, 96 Proben, Gitter 16^3, 60 Epochen,
-4,7 Mio. Parameter, CPU, gut sieben Minuten insgesamt:
+Prediction after training on 16³, evaluated zero-shot on 64³:
 
-| Groesse | Wert |
+<p align="center">
+  <img src="Neural%20Operator%20Pipeline/figures/phi_hat_gt_vs_pred_after_training_res64.png" width="80%">
+</p>
+
+Early calibration run from the skeleton phase (96 samples, 16³, 60 epochs, the former
+own FNO-3D, CPU):
+
+| Quantity | Value |
 |---|---|
-| Solver gegen analytische Kugel (64^3) | 0,5 % |
-| Potential, relativer L2 | 1,3 % |
-| Kraefte, relativer L2 | 2,7 % |
-| Potential, Zero-Shot auf 32^3 | 3,0 % |
-| Kraefte, Zero-Shot auf 32^3 | 23 % |
-| Gradiententreue (Kosinus zum exakten Solver) | **0,06** |
+| Reference solver vs. analytical sphere (64³) | 0.5 % |
+| Potential, rel. L2 | 1.3 % |
+| Forces, rel. L2 | 2.7 % |
+| Potential, zero-shot 32³ | 3.0 % |
+| Forces, zero-shot 32³ | 23 % |
+| Gradient fidelity (cosine to the exact solver) | **0.06** |
 
-Die ersten Zeilen sind fuer 96 Trainingsproben ordentlich und werden mit mehr
-Daten deutlich besser. Die letzte Zeile ist das eigentliche Ergebnis: ein
-Modell, das das Potential auf ein Prozent trifft, hat trotzdem eine praktisch
-unbrauchbare Jacobi-Matrix. Genau darum geht es in dieser Arbeit -- und genau
-das misst kein Standard-Benchmark, weil dort niemand nach Ableitungen fragt.
-
-Zur Absicherung laeuft `models/exact.py` durch dieselbe Auswertung: Fehler
-8e-8, Gradienten-Kosinus 1,000000. Der Messaufbau stimmt also, die 0,06 sind
-echt.
+The last row is the core of the thesis. A model that hits the potential to 1 % can
+still have a practically useless Jacobian. Cross-check: `models/exact.py` reaches an
+error of 8·10⁻⁸ and a cosine of 1.000000 in the same evaluation, so the measurement
+setup is right.
 
 ---
 
-## Offene Punkte, ungefaehr nach Ertrag sortiert
+## Open points
 
-1. **Gradiententreue anheben.** Das Hauptthema. Ansaetze: Sobolev-Training mit
-   hoeherem Gewicht auf dem Gradiententerm, direktes Lernen des Feldes statt
-   des Potentials (drei Ausgabekanaele), Jacobian-Matching auf zufaelligen
-   Richtungen, oder eine Architektur mit eingebauter Green-Struktur.
-2. **Restliche Skalenstreuung.** Ein zweiter Kopf, der `log|phi_hat|` getrennt
-   vorhersagt, waehrend der Hauptzweig nur die Form liefert. Sollte die 1,4
-   Dekaden erledigen.
-3. **Datenmenge und -vielfalt.** 96 Proben sind ein Spielzeug. Rechne mit
-   5 000 bis 50 000. Die Verteilungsfamilien in `generate.py` sind ein
-   Anfang; realistischer waeren Verteilungen aus echten Cheetah-Laeufen nach
-   einigen hundert Metern Strecke.
-4. **Ablation gegen ein CNN mit gleicher Parameterzahl.** Ohne diesen Vergleich
-   ist "wir haben einen Neural Operator verwendet" eine Behauptung, keine
-   Aussage. Das U-Net gewinnt bei fester Aufloesung oefter, als man denkt --
-   der Unterschied zeigt sich beim Aufloesungswechsel.
-5. **Laufzeit ehrlich messen.** Auf GPU ist der FFT-Solver sehr flott. Der
-   Gewinn liegt vermutlich weniger im Vorwaertslauf als im Rueckwaertslauf
-   und bei sehr grossen Gittern. Miss beides, bevor du Beschleunigung
-   behauptest.
-6. **`cheetah_element.py` fertig machen.** Die Vektor-/Broadcast-Logik des
-   Originals fehlt, und die Achsenreihenfolge in `grid_sample` gehoert einmal
-   gegen die Schleifenvariante gegengetestet -- dort baut man sich die
-   haesslichsten stillen Fehler ein.
-7. **Physik-Residuum ausprobieren.** `loss.physics_weight > 0` schaltet es an.
-   Erwartung: hilft bei wenig Daten, bringt bei viel Daten nichts. Beides ist
-   ein berichtenswertes Ergebnis.
+1. **Raise gradient fidelity:** Sobolev training with a higher gradient weight,
+   learning the field directly (3 output channels), Jacobian matching, Green structure
+   in the architecture
+2. **Remaining scale spread** of `phi_hat` (γ stretching), e.g. with a separate head
+   for `log|phi_hat|`
+3. **Real beam parameter bounds** and more data (order of 5k–50k samples), plus more
+   realistic distributions from Cheetah runs
+4. **Ablation against a CNN/U-Net** with the same parameter count, especially when
+   changing the resolution
+5. **Measure runtime honestly:** forward *and* backward pass, CPU vs. GPU, large grids
+6. **Long-range test in the lattice** with a trained operator (`NeuralSpaceChargeKick`)
+7. **Physics residual** (`loss.physics_weight`) with little vs. much data
 
 ---
 
-## Bibliothek statt Eigenbau
+## Working rules
 
-`models/fno.py` bringt eine eigene, rund 80 Zeilen kurze FNO-Implementierung
-mit -- zum Lesen, Debuggen und um das Projekt lauffaehig zu halten. Fuer die
-Ergebnisse in der Thesis nimm besser die offizielle:
-
-```bash
-pip install neuraloperator
-# in configs/default.yaml:  model.name: neuralop_fno
-```
-
-Das ist der Code der FNO-Autoren, inzwischen Teil des PyTorch-Ecosystems, mit
-Tensor-Faktorisierung und einigem Feinschliff. Ein Ergebnis, das auf einer
-gepflegten Referenzimplementierung steht, ist in der Verteidigung leichter zu
-halten als eines auf Eigenbau.
+- First `verify_physics.py`, then train. If the teacher computes wrongly, the student
+  reliably learns nonsense.
+- First run on tiny data (`configs/smoke.yaml`), then scale.
+- If an evaluation looks odd, first send `ExactOperator` through the same evaluation.
+  If that does not give an error ≈ 0, the network is not the problem.
+- Copy the config for experiments instead of editing it, so that numbers and settings
+  stay together.
 
 ---
 
-## Literatur
+## Literature
 
-- Li et al., *Fourier Neural Operator for Parametric PDEs* -- das Kernpaper.
-  Lies es parallel zu `models/fno.py`, der Sprung "Spektralfaltung" wird erst
-  am Code klar.
-- Kovachki et al., *Neural Operators: Learning Maps Between Function Spaces* --
-  der theoretische Rahmen, Diskretisierungsinvarianz.
-- Azizzadenesheli et al., *Neural Operators for Accelerating Scientific
-  Simulations and Design* -- Ueberblick, gut fuer die Einleitung.
-- [neuraloperator.github.io](https://neuraloperator.github.io) -- Doku,
-  Beispiel-Notebooks. Das Darcy-Flow-Beispiel ist mathematisch der Nachbar
-  dieses Problems (auch elliptisch).
-- Qiang et al., PRST-AB 9, 044204 -- die IGF-Methode, die `utils/physics.py` umsetzt.
-- Cheetah: [github.com/desy-ml/cheetah](https://github.com/desy-ml/cheetah)
+- Li et al., *Fourier Neural Operator for Parametric PDEs* (ICLR 2021)
+- Kovachki et al., *Neural Operator: Learning Maps Between Function Spaces* (JMLR 2023)
+- Azizzadenesheli et al., *Neural Operators for Accelerating Scientific Simulations and Design* (Nat. Rev. Phys. 2024)
+- Qiang et al., PRST-AB 9, 044204 (2006): IGF method, implemented in Cheetah's `SpaceChargeKick`
+- Kaiser et al., *Cheetah*: [github.com/desy-ml/cheetah](https://github.com/desy-ml/cheetah)
+- [neuraloperator.github.io](https://neuraloperator.github.io), in particular the Darcy flow example as an elliptic neighbour of this problem
 
 ---
 
-## Nachtrag zum Arbeiten damit
+## License
 
-Bau die Pipeline immer erst mit laecherlich kleinen Daten und einem winzigen
-Modell komplett durch, bis hinten eine Zahl herauskommt -- genau dafuer ist
-`smoke_test.py` da. Erst dann skalieren. Und wenn eine Auswertung seltsam
-aussieht: erst `models/exact.py` durch dieselbe Auswertung schicken. Kommt
-dort nicht Fehler null heraus, liegt es nicht am Netz.
+[GPL-3.0](LICENSE)
