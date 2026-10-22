@@ -85,10 +85,11 @@ sets itself apart from it: the NO replaces the *physics kernel* of an element on
    precision, then assert that both the outputs and the gradients w.r.t. beam and element
    parameters match to float tolerance.
 6. **neuraloperator is a full dependency.** The element takes the trained network as a
-   `neuralop.models.base_model.BaseModel` (e.g. `FNO.from_checkpoint(folder, name)`). Save and
-   load through neuralop's `save_checkpoint` / `from_checkpoint` (`*_state_dict.pt` +
-   `*_metadata.pkl`), not ad-hoc `torch.save`. So any model passed to the element (like
-   `ExactOperator`) subclasses `BaseModel`. Moving the element upstream then means adding
+   `neuralop.models.base_model.BaseModel`. Save **only the state dict** as `models/<name>.pth`
+   via neuralop's `state_dict()` (it embeds the init kwargs as `_metadata`) and load with
+   `scripts/evaluate_model.load_model` (rebuild from `_metadata`, then neuralop's
+   `load_state_dict`). No `save_checkpoint` (writes extra files). Any model passed to the
+   element (like `ExactOperator`) subclasses `BaseModel`. Moving the element upstream then means adding
    `neuraloperator` to Cheetah's dependencies.
 7. **No silent changes to the data contract.** Nondimensionalization, model input channels,
    grid geometry/extent and the HDF5 layout change only after the user agrees: such changes
@@ -106,17 +107,28 @@ conda activate no4cheetah            # CPU; GPU: no4cheetah-gpu (environment-gpu
 pip install -e ".[dev]"              # after changing pyproject.toml (the ONLY dependency list)
 python scripts/verify_physics.py     # Cheetah's solver vs analytic charged sphere (~30 s)
 pytest                               # testpaths = tests (incl. element vs SpaceChargeKick)
-python -m scno.train --config configs/smoke.yaml        # whole pipeline in miniature
-python -m scno.evaluate --run outputs/smoke --plot      # report + plots per resolution
-python -m scno.data.generate --config configs/default.yaml   # data only (reads `data:`)
-python -m scno.train --config configs/default.yaml --override training.epochs=50 data.nondim=false
+python scripts/train_model.py        # train; generates missing data
+python scripts/evaluate_model.py     # evaluation table + prediction plots
+python scripts/inspect_scaling.py    # spread of phi_hat in the training data
 ```
 
-`data/`, `outputs/`, `*.h5`, `*.pt` are git-ignored. Windows: keep `num_workers: 0`; set
+No config files: **all settings are the constants at the top of `scripts/train_model.py`**
+(`DATA`, `MODEL`, `LOSS`, `TRAINING`, `MODEL_NAME`, ...); the other scripts import them.
+Outputs go **only** to `models/<MODEL_NAME>.pth`, `figures/` (plots) and `tables/` (CSV:
+`<MODEL_NAME>_history.csv`, `<MODEL_NAME>_evaluation.csv`); never create other output
+folders or files. For a quick check run, patch the constants in memory instead of editing
+the file, and remove the produced files afterwards.
+
+`data/`, `*.h5`, `*.pt` are git-ignored. Windows: keep `num_workers: 0`; set
 `MPLBACKEND=Agg` for non-interactive runs (the plot functions call `plt.show()`).
-`scno` depends on the Cheetah fork branch `space-charge-grid-solve`
-(`pyproject.toml`); until it is pushed, install the local clone:
+`scno` installs Cheetah from the fork `UfukAk196/cheetah` (`pyproject.toml`), which is
+identical to upstream; locally the clone is installed editable:
 `pip install -e "../../Cheetah repos/cheetah-accelerator"`.
+
+**Never change Cheetah's code** (`../Cheetah repos/cheetah-accelerator`). The FNO element
+is meant to move into the *existing* Cheetah later, so everything lives on the pipeline side.
+Where the pipeline needs a piece of Cheetah that is not a method of its own, mirror it in a
+few lines marked `ponytail:` and guard it with a test that fails when Cheetah changes.
 
 ## Pipeline: what the code doesn't tell you (`src/scno`)
 
@@ -133,10 +145,13 @@ differences → field → kick.
   `CheetahDataset` nondimensionalizes on loading (`nondimensionalize_fields`, `nondim` flag).
   With `nondim=True` there is exactly one scaling layer: `load_cheetah_sc(encode_output=None)`
   fits the Gaussian output normalizer only for the raw ablation (`nondim=False`).
-- `data/fields.py` calls **Cheetah's own** methods `SpaceChargeKick._grid_geometry`,
-  `_array_rho` and `_solve_poisson_equation` (no copy). Labels are *exactly* Cheetah's solver.
-- `models/exact.py`: `ExactOperator(BaseModel)` wraps `SpaceChargeKick._solve_poisson_on_grid`
-  in hat units. It must give ~0 error and cosine 1.0 in every evaluation
+- `data/fields.py` calls **Cheetah's own** `SpaceChargeKick._array_rho` and
+  `_solve_poisson_equation`; labels are *exactly* Cheetah's solver. The grid geometry (inline
+  in `track`) is mirrored; `test_fields.py::test_grid_geometry_matches_track` guards it.
+- `models/exact.py`: `solve_poisson_on_grid` is the grid-level solve (Cheetah's
+  `_integrated_green_function` on a γ = 1 stand-in beam + the mirrored padding/FFT;
+  guarded by `test_fields.py::test_solve_poisson_on_grid_matches_cheetah`).
+  `ExactOperator(BaseModel)` uses it in hat units. It must give ~0 error and cosine 1.0 in every evaluation
   (`tests/test_exact_operator.py`). Odd result → run it through the same evaluation first;
   if it fails there, the bug is in the plumbing, not the network.
 - `evaluate.py`: `predict()` is the **only** path through the neuralop `DefaultDataProcessor`
@@ -147,27 +162,26 @@ differences → field → kick.
 - `utils/losses.py`: `SobolevLoss` (field + weighted gradient, neuralop `LpLoss`/`FiniteDiff`,
   summed over the batch as the `Trainer` expects). `poisson_residual` never reaches 0 against
   IGF labels; report its floor measured with exact inputs.
-- `train.py`: config → `load_cheetah_sc(**data)` → `FNO(**model)` → `HistoryTrainer` →
-  neuralop checkpoints in `output_dir` (+ the resolved `config.yaml`, which
-  `evaluate.load_run` reads). Config sections are the keyword arguments of these functions.
+- `train.py` only holds `HistoryTrainer`; `evaluate.py` only the evaluation and plot
+  functions. The runs are `scripts/train_model.py` (`load_cheetah_sc(**DATA)` →
+  `FNO(**MODEL)` → `HistoryTrainer` → `.pth` + loss curves + history CSV; the final model,
+  no best checkpoint) and `scripts/evaluate_model.py` (refits the data processor via
+  `load_cheetah_sc(**DATA, generate=False)`, needed only for `nondim=False`).
 
 ## Cheetah facts that matter here
 
-- `cheetah/accelerator/space_charge_kick.py` on branch `space-charge-grid-solve`. Call chain
-  (outside in): `track` (→ `_grid_geometry`) → `_compute_forces` → `_E_plus_vB_field` →
-  `_solve_poisson_equation` → {`_array_rho` → `cloud_in_cell_charge_deposition`,
-  `_solve_poisson_on_grid` → `_integrated_green_function`}.
+- `cheetah/accelerator/space_charge_kick.py`. Call chain (outside in): `track` →
+  `_compute_forces` → `_E_plus_vB_field` → `_solve_poisson_equation` → {`_array_rho` →
+  `cloud_in_cell_charge_deposition`, `_integrated_green_function`}.
 - `track` flattens all vector dims to one batch dim B; FFTs use `dim=[1, 2, 3]`, so the
   internal methods assume exactly `(B, nx, ny, nz)`.
 - Grid: half extents `grid_extent_* · sigma_*` (default 3σ), centred at 0,
-  `cell_size = 2·grid_dimensions/grid_shape` (no γ). `_solve_poisson_equation` stretches
-  `cell_size[..., 2]` by γ once before `_solve_poisson_on_grid`; `−1/γ²` is applied on the
-  gradients.
-- `_array_rho` returns the **unpadded** density `(B, nx, ny, nz)` in C/m³ (deposits
-  `particle_charges · survival_probabilities`); the Hockney 2× padding happens inside
-  `_solve_poisson_on_grid`, which returns the `(B, nx, ny, nz)` potential in V.
-- The branch is bit-identical to `master` in tracking; its change is listed in Cheetah's
-  `CHANGELOG.md`. It is not committed or pushed until the user says so.
+  `cell_size = 2·grid_dimensions/grid_shape` (no γ), computed inline in `track`. γ enters
+  only as `dtau·γ` inside `_integrated_green_function(beam, cell_size)` and as `−1/γ²` on
+  the gradients.
+- `_array_rho` returns the **2×-padded** density (deposits
+  `particle_charges · survival_probabilities`); the physical density is the first octant.
+  `_solve_poisson_equation` returns the unpadded `(B, nx, ny, nz)` potential in V.
 - `Element` base: `register_buffer_or_parameter`, abstract `is_skippable` and `plot`,
   `defining_features`, `clone`. Tests: `tests/test_space_charge_kick.py`. An element moved
   into Cheetah needs an entry in its `tests/conftest.py` (`for_every_element` marker) or
@@ -178,8 +192,9 @@ differences → field → kick.
 ## Integrating the FNO into Cheetah (where this is heading)
 
 `scno.accelerator.NeuralSpaceChargeKick(SpaceChargeKick)` (cut A) takes the trained operator
-as a neuralop `BaseModel` and overrides only `_solve_poisson_on_grid`: `nondimensionalize` →
-`input_channels` → operator → `potential_from_hat`. Broadcasting, deposition, gradients and
+as a neuralop `BaseModel` and overrides only `_solve_poisson_equation`: first octant of
+`_array_rho`, γ-stretched `cell_size` → `nondimensionalize` → `input_channels` → operator →
+`potential_from_hat`. Broadcasting, deposition, gradients and
 force interpolation stay Cheetah's code, and inputs match `data/fields.py` exactly.
 `tests/test_neural_space_charge_kick.py` checks it with `ExactOperator` against
 `SpaceChargeKick` (tracking and gradients, vectorized beam). It accepts only models trained
@@ -190,5 +205,5 @@ Cheetah's dependencies and an entry in Cheetah's `tests/conftest.py`.
 ## Working rules (from the author)
 
 1. `verify_physics.py` before training: if the teacher is wrong, the student learns nonsense.
-2. Run on tiny data first (`configs/smoke.yaml`), then scale.
-3. Copy configs for experiments instead of editing `default.yaml`.
+2. Run on tiny data first (few samples and epochs), then scale.
+3. Give every experiment its own `MODEL_NAME`, so that model, figures and tables belong together.

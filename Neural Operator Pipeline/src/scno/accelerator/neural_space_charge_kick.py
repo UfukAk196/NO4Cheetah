@@ -6,18 +6,19 @@ from scno.utils.normalization import (
     input_channels,
     nondimensionalize,
     potential_from_hat,
+    stretched_cell_size,
 )
 
 
-class NeuralSpaceChargeKick(SpaceChargeKick):
+class NeuralSpaceChargeKick(cheetah.SpaceChargeKick):
     """
     Applies the effect of space charge like `SpaceChargeKick`, but solves the Poisson
     equation on the grid with a trained neural operator instead of the integrated
     Green function convolution.
 
-    Only the grid-level solve (`_solve_poisson_on_grid`) changes owner: charge
+    Only the Poisson solve (`_solve_poisson_equation`, blocks 6+7) changes owner: charge
     deposition, the field from the potential and the interpolation of the forces to
-    the particles stay Cheetah's code. Everything consists of torch operations, so the
+    the particles stay Cheetah's unchanged code. Everything consists of torch operations, so the
     gradient survives from the beam parameters to the end of the lattice -- which is
     what this element is for.
 
@@ -26,7 +27,7 @@ class NeuralSpaceChargeKick(SpaceChargeKick):
     channels rho_hat and log(E_i/L), output `(B, 1, nx, ny, nz)` with phi_hat. It must
     therefore have been trained with `nondim=True` and without output normalizer.
 
-    :param operator: Trained neural operator, e.g. `FNO.from_checkpoint(folder, name)`.
+    :param operator: Trained neural operator, e.g. from `scripts/evaluate_model.load_model`.
     :param effect_length: Length over which the effect is applied in meters.
     :param grid_shape: Number of grid points in (x, y, tau) directions. May differ from
         the training resolution -- that is the point of neural operators.
@@ -75,19 +76,35 @@ class NeuralSpaceChargeKick(SpaceChargeKick):
         )
         self.operator = operator
 
-    def _solve_poisson_on_grid(
-        self, charge_density: torch.Tensor, cell_size: torch.Tensor
+    def _solve_poisson_equation(
+        self,
+        beam: cheetah.ParticleBeam,
+        xp_coordinates: torch.Tensor,
+        cell_size: torch.Tensor,
+        grid_dimensions: torch.Tensor,
     ) -> torch.Tensor:
         """
         Predicts the potential on the grid with the neural operator.
 
-        :param charge_density: Charge density on the grid in C/m^3 of shape
-            `(num_vector, nx, ny, nz)`.
+        :param beam: Flattened beam of shape `(num_vector, num_particles, 7)`.
+        :param xp_coordinates: Particle coordinates in the t fixed point of shape
+            `(num_vector, num_particles, 7)`.
         :param cell_size: Cell size of the grid in meters of shape `(num_vector, 3)`,
-            with the longitudinal component already scaled by the Lorentz factor.
+            without the Lorentz factor.
+        :param grid_dimensions: Half extents of the grid in meters of shape
+            `(num_vector, 3)`.
         :return: Potential on the grid in V of shape `(num_vector, nx, ny, nz)`.
         """
-        rho_hat, scaling = nondimensionalize(charge_density, cell_size)
+        # ponytail: mirrors the start of `SpaceChargeKick._solve_poisson_equation`
+        # (cheetah 0.8.x): `_array_rho` zero pads to 2x, the physical density is the
+        # first octant; the IGF stretches the longitudinal cell by gamma.
+        nx, ny, nz = self.grid_shape
+        charge_density = self._array_rho(
+            beam, xp_coordinates, cell_size, grid_dimensions
+        )[..., :nx, :ny, :nz]
+        stretched = stretched_cell_size(cell_size, beam.relativistic_gamma)
+
+        rho_hat, scaling = nondimensionalize(charge_density, stretched)
         # Feed the operator in the dtype of its weights; an operator without weights
         # (e.g. `ExactOperator`) gets the full precision of the charge density.
         weight = next(self.operator.parameters(), None)

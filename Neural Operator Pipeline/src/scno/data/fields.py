@@ -3,9 +3,11 @@
 Builds a ``ParticleBeam`` from a set of beam parameters and calls the methods of
 ``cheetah.accelerator.SpaceChargeKick`` directly (instead of copying them):
 
-- ``_grid_geometry``          (block 2: grid half extents and cell size)
-- ``_array_rho``              (blocks 4+5: deposition + density on the grid)
-- ``_solve_poisson_equation`` (blocks 6+7: IGF convolution -> potential)
+- ``_array_rho``              (blocks 4+5: deposition + density, zero padded to 2x)
+- ``_solve_poisson_equation`` (blocks 6+7: IGF convolution -> potential, cropped)
+
+Only the grid geometry (block 2) is not a method but written inline in
+``SpaceChargeKick.track``; ``_compute_quantities`` mirrors those lines.
 
 The *physical* fields are returned (rho in C/m^3, phi in V). Nondimensionalization
 happens only on loading, with ``normalization.nondimensionalize_fields`` -- exactly
@@ -70,7 +72,24 @@ def _compute_quantities(
         xp_coordinates  (1, N, 7)   = to_xyz_pxpypz()
     """
     beam = _build_beam(params)
-    grid_dimensions, cell_size = sck._grid_geometry(beam)
+    # ponytail: mirrors block 2 of `SpaceChargeKick.track` (cheetah 0.8.x), which has no
+    # method of its own; `tests/test_fields.py::test_grid_geometry_matches_track` fails
+    # if they drift apart.
+    grid_dimensions = torch.stack(
+        [
+            sck.grid_extent_x * beam.sigma_x,
+            sck.grid_extent_y * beam.sigma_y,
+            sck.grid_extent_tau * beam.sigma_tau,
+        ],
+        dim=-1,
+    )
+    cell_size = (
+        2
+        * grid_dimensions
+        / torch.tensor(
+            sck.grid_shape, device=grid_dimensions.device, dtype=grid_dimensions.dtype
+        )
+    )
     return beam, grid_dimensions, cell_size, beam.to_xyz_pxpypz()
 
 
@@ -116,8 +135,12 @@ def make_sample(params: dict, grid_shape: int | tuple[int, int, int]) -> dict:
     sck = make_space_charge_kick(grid_shape)
     beam, grid_dimensions, cell_size, xp_coordinates = _compute_quantities(params, sck)
 
-    # Blocks 4+5: deposition (cloud in cell) + density, (1, nx, ny, nz) in C/m^3.
-    rho = sck._array_rho(beam, xp_coordinates, cell_size, grid_dimensions)
+    # Blocks 4+5: deposition (cloud in cell) + density, zero padded to 2x; the physical
+    # density is the first octant, (1, nx, ny, nz) in C/m^3.
+    nx, ny, nz = sck.grid_shape
+    rho = sck._array_rho(beam, xp_coordinates, cell_size, grid_dimensions)[
+        ..., :nx, :ny, :nz
+    ]
     # Blocks 6+7: potential on the original grid, (1, nx, ny, nz) in V.
     phi = sck._solve_poisson_equation(beam, xp_coordinates, cell_size, grid_dimensions)
 

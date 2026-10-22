@@ -13,12 +13,10 @@ dependencies = [
     "numpy>=1.26",
     "scipy>=1.11",
     "h5py>=3.10",
-    "pyyaml>=6.0",
     "matplotlib>=3.8",
     "tqdm",
-    # Fork branch with the grid-level SpaceChargeKick solve (`_solve_poisson_on_grid`).
-    # Until it is pushed, install the local clone: pip install -e "../../Cheetah repos/cheetah-accelerator"
-    "cheetah-accelerator @ git+https://github.com/UfukAk196/cheetah.git@space-charge-grid-solve",
+    # Own fork, unchanged Cheetah; locally: pip install -e "../../Cheetah repos/cheetah-accelerator"
+    "cheetah-accelerator @ git+https://github.com/UfukAk196/cheetah.git",
     "neuraloperator==2.0.0",
 ]
 

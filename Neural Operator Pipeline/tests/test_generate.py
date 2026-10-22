@@ -91,7 +91,7 @@ def test_train_test_seeds_disjoint(tmp_path, small_ranges):
 
 def test_write_hdf5_single_file(tmp_path, small_ranges):
     path = write_hdf5(
-        tmp_path / "smoke.h5",
+        tmp_path / "single.h5",
         num_samples=3,
         grid_shape=(16, 12, 8),
         seed=1,

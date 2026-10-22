@@ -22,13 +22,10 @@ and the scaling changed without regenerating.
 Seeds: each sample gets the unique, consecutive seed ``seed + g`` (g = global index,
 ``first_index`` + local index). Train AND test samples therefore never overlap (not
 even between different test resolutions); every sample is reproducible.
-
-CLI: ``python -m scno.data.generate --config configs/default.yaml`` (reads ``data:``).
 """
 
 from __future__ import annotations
 
-import argparse
 import os
 from datetime import date
 from pathlib import Path
@@ -37,8 +34,6 @@ import cheetah
 import h5py
 import numpy as np
 from tqdm import tqdm
-
-from scno.utils.common import load_config
 
 from .fields import _as_grid_shape, make_sample, make_space_charge_kick
 from .sampling import LOG_UNIFORM_KEYS, UNIFORM_KEYS, sample_beam_params
@@ -249,31 +244,3 @@ def generate_cheetah_sc(
 
     return written
 
-
-def main(argv: list[str] | None = None) -> None:
-    """CLI: python -m scno.data.generate --config configs/default.yaml"""
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--config",
-        default="configs/default.yaml",
-        help="Path to the YAML config; its `data:` section describes the dataset.",
-    )
-    args = parser.parse_args(argv)
-
-    data = load_config(args.config)["data"]
-    written = generate_cheetah_sc(
-        root=data["data_root"],
-        n_train=data["n_train"],
-        n_tests=data["n_tests"],
-        train_resolution=data["train_resolution"],
-        test_resolutions=data["test_resolutions"],
-        seed=data["seed"],
-        ranges=data.get("ranges"),
-    )
-    print(f"Written files ({len(written)}):")
-    for path in written:
-        print(f"  {path}")
-
-
-if __name__ == "__main__":
-    main()

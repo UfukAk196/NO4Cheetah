@@ -18,8 +18,8 @@ the potential is right but the **gradients** through the tracking also stay usab
 
 **Only the Poisson solve** is replaced. Deposition, gradient and interpolation stay
 Cheetah's classical torch code: cheap, exact and already differentiable. In code this
-is one overridden method: `NeuralSpaceChargeKick` subclasses `SpaceChargeKick` and
-replaces only its grid-level solve `_solve_poisson_on_grid`.
+is one overridden method: `NeuralSpaceChargeKick` subclasses Cheetah's unchanged
+`SpaceChargeKick` and replaces only its `_solve_poisson_equation`.
 
 > **Status:** work in progress. The pipeline from data generation through training to
 > evaluation runs, and the element tracks in the lattice. Hyperparameters and beam
@@ -31,15 +31,14 @@ replaces only its grid-level solve `_solve_poisson_on_grid`.
 
 | Folder | Content |
 |---|---|
-| [`Neural Operator Pipeline/`](Neural%20Operator%20Pipeline/) | **The code**: Python package `scno`, scripts, configs, notebooks, figures |
+| [`Neural Operator Pipeline/`](Neural%20Operator%20Pipeline/) | **The code**: Python package `scno`, scripts, notebooks, models, figures, tables |
 | [`Konzeptionierung/`](Konzeptionierung/) | Architecture and interface drafts, profiling of the SC kick, text drafts of the thesis |
 | [`Projektplanung/`](Projektplanung/) | Work plan, scheduling |
 | [`Quellen/`](Quellen/) | Literature |
 | [`bsc-msc-template/`](bsc-msc-template/) | LaTeX template of the thesis |
 
-The code depends on a Cheetah branch, `space-charge-grid-solve` in the fork
-`UfukAk196/cheetah`, which splits the `SpaceChargeKick` Poisson solve into
-`_grid_geometry`, `_array_rho` and the grid-level `_solve_poisson_on_grid`.
+Cheetah itself stays unchanged (installed from the fork `UfukAk196/cheetah`, identical
+to upstream), so the element can later move into Cheetah as it is.
 
 ### The code in detail
 
@@ -50,30 +49,33 @@ Neural Operator Pipeline/
 ├── environment-gpu.yml       conda, CUDA (e.g. the Maxwell cluster)
 ├── requirements.txt          pip only (Colab, venv)
 ├── CHANGELOG.md              changes, in Cheetah's format
-├── configs/
-│   ├── default.yaml          data, model, loss, training (copy for experiments)
-│   └── smoke.yaml            the same in miniature
 ├── src/scno/
 │   ├── accelerator/
 │   │   └── neural_space_charge_kick.py   NeuralSpaceChargeKick: the FNO in the lattice
 │   ├── utils/
 │   │   ├── normalization.py  nondimensionalization, please read first
 │   │   ├── losses.py         Sobolev loss (field + gradient), Poisson residual
-│   │   └── common.py         seed, device, config
+│   │   └── common.py         seed, device, CSV tables
 │   ├── data/
 │   │   ├── sampling.py       draw beam parameters (log-uniform / uniform)
 │   │   ├── fields.py         (ρ, φ) directly from Cheetah's SpaceChargeKick
-│   │   ├── generate.py       write HDF5 datasets (CLI)
+│   │   ├── generate.py       write HDF5 datasets
 │   │   └── dataset.py        CheetahDataset, load_cheetah_sc
 │   ├── models/
 │   │   └── exact.py          the exact solver as a "model" (control)
-│   ├── train.py              training with the neuralop Trainer
+│   ├── train.py              HistoryTrainer (neuralop Trainer with loss history)
 │   └── evaluate.py           accuracy, resolution study, gradient fidelity, plots
+├── scripts/
+│   ├── train_model.py        ALL settings + training run
+│   ├── evaluate_model.py     evaluation run of the saved model
+│   ├── verify_physics.py     Cheetah's solver vs. charged sphere
+│   └── inspect_scaling.py    spread of phi_hat in the training data
 ├── tests/                    pytest
-├── scripts/                  verify_physics, inspect_scaling
-├── notebooks/                cheetah_test, neuralop_test, smoke_train
-├── figures/                  generated plots
-└── tables/                   profiling results
+├── notebooks/                cheetah_test, neuralop_test, train_model (Colab launcher)
+├── data/                     generated HDF5 datasets (git-ignored)
+├── models/                   trained model state dicts (.pth)
+├── figures/                  plots (loss curves, predictions)
+└── tables/                   CSV tables (history, evaluation) and profiling results
 ```
 
 ---
@@ -92,8 +94,8 @@ conda activate no4cheetah                    # or no4cheetah-gpu
 ```
 
 The environment installs `scno` in editable mode (`pip install -e ".[dev]"`). After
-changes to `pyproject.toml`, simply run `pip install -e ".[dev]"` again. As long as
-the Cheetah branch is not pushed yet, install the local clone on top:
+changes to `pyproject.toml`, simply run `pip install -e ".[dev]"` again. To work
+against a local Cheetah clone instead, install it on top:
 `pip install -e "../../Cheetah repos/cheetah-accelerator"`.
 
 **Google Colab / plain pip**
@@ -104,7 +106,7 @@ cd "NO4Cheetah/Neural Operator Pipeline"
 pip install -r requirements.txt              # torch comes with Colab
 ```
 
-Main dependencies: `torch>=2.2`, `cheetah-accelerator` (fork branch above),
+Main dependencies: `torch>=2.2`, `cheetah-accelerator` (unchanged, from the fork),
 `neuraloperator==2.0.0`, `h5py`.
 
 ---
@@ -118,60 +120,53 @@ python scripts/verify_physics.py
 # 2. Unit tests, incl. the element against SpaceChargeKick
 pytest
 
-# 3. Small end-to-end run with the neuralop Trainer, then evaluation + plots per resolution
-python -m scno.train --config configs/smoke.yaml
-python -m scno.evaluate --run outputs/smoke --plot
+# 3. Train, then evaluate
+python scripts/train_model.py
+python scripts/evaluate_model.py
 ```
-
-The smoke run generates the data under `data/` if needed, writes checkpoints and loss
-curves to `outputs/smoke/` and plots to `figures/`.
 
 ---
 
 ## Pipeline step by step
 
-### 1. Generate data
+All settings (data, model, loss, training) are the constants at the top of
+[`scripts/train_model.py`](Neural%20Operator%20Pipeline/scripts/train_model.py);
+`evaluate_model.py` and `inspect_scaling.py` import them. For an experiment, change them
+there and give the run its own `MODEL_NAME`, so that numbers and settings stay together.
 
-```bash
-python -m scno.data.generate --config configs/default.yaml
-```
+### 1. Data
 
-Writes one HDF5 file per resolution to `data/`, i.e. `data/cheetah_sc_train_{res}.h5`
-and `data/cheetah_sc_test_{res}.h5` (folder set by `data.data_root` in the config). The
-files hold the physical fields ρ [C/m³] and φ [V]; the nondimensionalization happens on
-loading. Every sample has a unique seed, so train and test never overlap. Drawn are
-`sigma_x`, `sigma_y`, `sigma_tau`, `energy`, `total_charge` and `n_particles` within
-the bounds of `scno.data.sampling.DEFAULT_RANGES` (overridable with `data.ranges`).
+Generated automatically on the first training run if files are missing. One HDF5 file per
+resolution in `data/`, i.e. `data/cheetah_sc_train_{res}.h5` and
+`data/cheetah_sc_test_{res}.h5`. The files hold the physical fields ρ [C/m³] and φ [V];
+the nondimensionalization happens on loading. Every sample has a unique seed, so train
+and test never overlap. Drawn are `sigma_x`, `sigma_y`, `sigma_tau`, `energy`,
+`total_charge` and `n_particles` within the bounds of
+`scno.data.sampling.DEFAULT_RANGES` (overridable with `DATA["ranges"]`).
 
 > The bounds are still **example values** (TODO in `sampling.py`).
 
 ### 2. Train
 
 ```bash
-python -m scno.train --config configs/default.yaml
+python scripts/train_model.py
 ```
 
-Generates missing data and trains with the neuralop `Trainer`. Single values can be
-overridden without touching the config:
+Trains with the neuralop `Trainer` and writes only:
 
-```bash
-python -m scno.train --config configs/default.yaml \
-    --override training.epochs=300 model.hidden_channels=32 loss.gradient_weight=2.0
-```
-
-`output_dir` (default `outputs/run_default/`) receives the resolved `config.yaml`, the
-neuralop checkpoints `best_model_*` (best h1 loss on the first test resolution) and
-`model_*` (final), `history.json` and the loss curves. Load a model with
-`FNO.from_checkpoint(output_dir, "best_model")`.
+- `models/<MODEL_NAME>.pth`: state dict of the final model. neuralop's `state_dict()`
+  carries the init kwargs as `_metadata`, so this one file is enough to rebuild the model.
+- `figures/loss_curves_<MODEL_NAME>.png`
+- `tables/<MODEL_NAME>_history.csv`: losses per epoch (eval columns every `EVAL_INTERVAL` epochs)
 
 ### 3. Evaluate
 
 ```bash
-python -m scno.evaluate --run outputs/run_default                 # test file at the training resolution
-python -m scno.evaluate --run outputs/run_default --data data/cheetah_sc_test_64.h5 --plot
+python scripts/evaluate_model.py
 ```
 
-Reports to `<run>/evaluation.json`:
+Writes `tables/<MODEL_NAME>_evaluation.csv` and the prediction plots per test resolution
+to `figures/`:
 
 - **Accuracy:** relative L2 error of φ̂ and of the field ∇φ̂
 - **Resolution study:** zero-shot on a different grid than in training
@@ -181,15 +176,15 @@ Reports to `<run>/evaluation.json`:
 
 ```python
 import torch
-from neuralop.models import FNO
+from evaluate_model import load_model   # run from scripts/, or copy the 4 lines
 from scno.accelerator import NeuralSpaceChargeKick
 
-operator = FNO.from_checkpoint("outputs/run_default", "best_model")
+operator = load_model("models/fno_cheetah_space_charge.pth", torch.device("cpu"))
 kick = NeuralSpaceChargeKick(operator=operator, effect_length=torch.tensor(0.3))
 ```
 
 The element is a drop-in replacement for `SpaceChargeKick` (also on vectorized beams)
-and takes models trained with `nondim: true`.
+and takes models trained with `DATA["nondim"] = True`.
 
 ---
 
@@ -215,7 +210,7 @@ density maps to a different `phi_hat` depending on the resolution, and zero-shot
 super-resolution collapses. Measured: 142 % error on 32³ (cell reference) versus 3 %
 (box reference).
 
-The nondimensionalization can be switched off for ablations (`data.nondim: false`):
+The nondimensionalization can be switched off for ablations (`DATA["nondim"] = False`):
 the model then learns ρ [C/m³] → φ [V], and only in that case a Gaussian normalizer is
 fitted on the output. How much `phi_hat` still spreads is measured by
 `scripts/inspect_scaling.py`.
@@ -224,8 +219,8 @@ fitted on the output. How much `phi_hat` still spreads is measured by
 
 The kick is the gradient of the potential. A good L2 on φ does not yet mean good
 forces, because differentiation amplifies high frequencies. The default is therefore a
-**Sobolev loss** (field + gradient, `loss.gradient_weight`). Optionally the Poisson
-residual is added (`loss.physics_weight > 0`).
+**Sobolev loss** (field + gradient, `LOSS["gradient_weight"]`). Optionally the Poisson
+residual is added (`LOSS["physics_weight"] > 0`).
 
 ---
 
@@ -269,7 +264,7 @@ setup is right.
    changing the resolution
 5. **Measure runtime honestly:** forward *and* backward pass, CPU vs. GPU, large grids
 6. **Long-range test in the lattice** with a trained operator (`NeuralSpaceChargeKick`)
-7. **Physics residual** (`loss.physics_weight`) with little vs. much data
+7. **Physics residual** (`LOSS["physics_weight"]`) with little vs. much data
 
 ---
 
@@ -277,11 +272,11 @@ setup is right.
 
 - First `verify_physics.py`, then train. If the teacher computes wrongly, the student
   reliably learns nonsense.
-- First run on tiny data (`configs/smoke.yaml`), then scale.
+- First run on tiny data (few samples and epochs in `train_model.py`), then scale.
 - If an evaluation looks odd, first send `ExactOperator` through the same evaluation.
   If that does not give an error ≈ 0, the network is not the problem.
-- Copy the config for experiments instead of editing it, so that numbers and settings
-  stay together.
+- Give every experiment its own `MODEL_NAME` in `train_model.py`, so that numbers and
+  settings stay together.
 
 ---
 

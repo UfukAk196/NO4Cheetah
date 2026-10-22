@@ -8,8 +8,9 @@ Run this test first, before any network is trained. If the teacher computes wron
 the student reliably learns nonsense -- and one searches for the bug in the network
 for days.
 
-The solver checked is Cheetah's own grid-level solve
-(``SpaceChargeKick._solve_poisson_on_grid``), i.e. exactly what produces the labels.
+The solver checked is ``scno.models.exact.solve_poisson_on_grid``, i.e. Cheetah's
+integrated Green function with the FFT convolution of ``SpaceChargeKick`` -- the solve
+that produces the labels and that ``ExactOperator`` uses.
 
 Call: python scripts/verify_physics.py
 """
@@ -17,8 +18,10 @@ Call: python scripts/verify_physics.py
 import math
 
 import torch
-from cheetah.accelerator import SpaceChargeKick
 from scipy.constants import epsilon_0
+
+from scno.models.exact import solve_poisson_on_grid
+from scno.utils.losses import field_error
 
 
 def main(n: int = 64, radius: float = 1.0, total_charge: float = 1.0) -> int:
@@ -35,8 +38,7 @@ def main(n: int = 64, radius: float = 1.0, total_charge: float = 1.0) -> int:
         torch.float64
     )
 
-    solver = SpaceChargeKick(effect_length=torch.tensor(0.0))
-    phi_num = solver._solve_poisson_on_grid(density[None], cell)[0]
+    phi_num = solve_poisson_on_grid(density[None], cell)[0]
 
     k = 1.0 / (4 * math.pi * epsilon_0)
     phi_exact = torch.where(
@@ -49,7 +51,7 @@ def main(n: int = 64, radius: float = 1.0, total_charge: float = 1.0) -> int:
     sl = slice(4, -4)
     a = phi_num[sl, sl, sl]
     b = phi_exact[sl, sl, sl]
-    rel = ((a - b).norm() / b.norm()).item()
+    rel = float(field_error(a[None, None], b[None, None]))  # same metric as the evaluation
     max_rel = ((a - b).abs() / b.abs()).max().item()
 
     print(f"Grid {n}^3, sphere radius {radius}, charge {total_charge} C")

@@ -236,8 +236,7 @@ def load_cheetah_sc(
     Returns three objects like ``load_darcy_flow_small``:
         (train_loader, test_loaders, data_processor)
 
-    The keyword names match the ``data:`` section of the configs, so
-    ``load_cheetah_sc(**cfg["data"])`` works.
+    ``scripts/train_model.py`` passes its ``DATA`` settings as keyword arguments.
 
     Parameters
     ----------

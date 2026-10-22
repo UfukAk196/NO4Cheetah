@@ -12,10 +12,15 @@ Additionally: shapes, dtype float32, finite, deterministic.
 from __future__ import annotations
 
 import torch
+from cheetah.accelerator import SpaceChargeKick
 
 from scno.data.fields import _compute_quantities, make_sample, make_space_charge_kick
-from scno.models.exact import ExactOperator
-from scno.utils.normalization import input_channels, nondimensionalize_fields
+from scno.models.exact import ExactOperator, solve_poisson_on_grid
+from scno.utils.normalization import (
+    input_channels,
+    nondimensionalize_fields,
+    stretched_cell_size,
+)
 
 
 def _sample_params(seed: int = 0) -> dict:
@@ -58,6 +63,38 @@ def test_phi_matches_spacechargekick_reference():
 
     rel_err = _rel_err(sample["phi"][None].double(), phi_ref.double())
     assert rel_err < 1e-6, f"relative phi error too large: {rel_err:.2e}"
+
+
+def test_grid_geometry_matches_track():
+    """The grid geometry mirrored in `_compute_quantities` equals the one `track` uses."""
+
+    class Recording(SpaceChargeKick):
+        def _solve_poisson_equation(self, beam, xp, cell_size, grid_dimensions):
+            self.seen = (cell_size, grid_dimensions)
+            return super()._solve_poisson_equation(beam, xp, cell_size, grid_dimensions)
+
+    params = _sample_params(seed=7)
+    sck = Recording(effect_length=torch.tensor(0.0), grid_shape=(16, 12, 8))
+    beam, grid_dimensions, cell_size, _ = _compute_quantities(params, sck)
+    sck.track(beam)
+
+    assert torch.equal(cell_size, sck.seen[0])
+    assert torch.equal(grid_dimensions, sck.seen[1])
+
+
+def test_solve_poisson_on_grid_matches_cheetah():
+    """The grid-level solve (padding + FFT mirrored from Cheetah) equals Cheetah's."""
+    params = _sample_params(seed=8)
+    sck = make_space_charge_kick((16, 12, 8))
+    beam, grid_dimensions, cell_size, xp = _compute_quantities(params, sck)
+
+    expected = sck._solve_poisson_equation(beam, xp, cell_size, grid_dimensions)
+    rho = sck._array_rho(beam, xp, cell_size, grid_dimensions)[..., :16, :12, :8]
+    actual = solve_poisson_on_grid(
+        rho, stretched_cell_size(cell_size, beam.relativistic_gamma)
+    )
+
+    assert torch.allclose(actual, expected, rtol=1e-6, atol=0.0)
 
 
 def test_exact_operator_reproduces_phi_hat():

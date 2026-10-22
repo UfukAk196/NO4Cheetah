@@ -11,27 +11,22 @@ Four questions are answered here:
      That is the unique selling point of neural operators compared to CNNs -- so
      measure and show it instead of just claiming it.
 
-Call:
-    python -m scno.evaluate --run outputs/run_default
-    python -m scno.evaluate --run outputs/smoke --data data/cheetah_sc_test_64.h5 --plot
+The evaluation run itself (loading the model, writing the table) is
+``scripts/evaluate_model.py``.
 """
 
 from __future__ import annotations
 
-import argparse
 import itertools
-import json
 from collections import defaultdict
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import torch
-from neuralop.models import FNO
 
-from scno.data.dataset import CheetahDataset, load_cheetah_sc
-from scno.data.generate import DISTRIBUTIONS, dataset_path
+from scno.data.dataset import CheetahDataset
+from scno.data.generate import DISTRIBUTIONS
 from scno.models.exact import ExactOperator
-from scno.utils.common import load_config, pick_device
 from scno.utils.losses import field_error, gradient_error
 from scno.utils.normalization import Scaling, decode_prediction, input_channels
 
@@ -39,8 +34,9 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def _device(model: torch.nn.Module) -> torch.device:
-    """Device of a model; ``ExactOperator`` has buffers but no parameters."""
-    return next(itertools.chain(model.parameters(), model.buffers())).device
+    """Device of a model; CPU for one without tensors (``ExactOperator``)."""
+    tensor = next(itertools.chain(model.parameters(), model.buffers()), None)
+    return tensor.device if tensor is not None else torch.device("cpu")
 
 
 def predict(model, batch: dict, data_processor=None) -> torch.Tensor:
@@ -413,63 +409,3 @@ def plot_losses(history, save_dir=None, tag=""):
     plt.show()
     return fig
 
-
-def load_run(run_dir: str | Path, device: torch.device | None = None):
-    """Model and config of a training run written by ``scno.train``.
-
-    Prefers the best checkpoint (``best_model_*``), falls back to the final one
-    (``model_*``). Returns ``(model, cfg)``.
-    """
-    run_dir = Path(run_dir)
-    cfg = load_config(run_dir / "config.yaml")
-    name = "best_model" if (run_dir / "best_model_metadata.pkl").exists() else "model"
-    model = FNO.from_checkpoint(run_dir, name, map_location=device)
-    return model.to(device) if device is not None else model, cfg
-
-
-def main():
-    p = argparse.ArgumentParser()
-    p.add_argument("--run", default="outputs/run_default", help="output_dir of scno.train")
-    p.add_argument("--data", default=None, help="test file (default: train resolution)")
-    p.add_argument("--out", default=None, help="report (default: <run>/evaluation.json)")
-    p.add_argument("--batch-size", type=int, default=4)
-    p.add_argument("--skip-resolution", action="store_true")
-    p.add_argument("--plot", action="store_true", help="plot predictions per resolution")
-    args = p.parse_args()
-
-    device = pick_device("auto")
-    model, cfg = load_run(args.run, device)
-    data_cfg = cfg["data"]
-    nondim = data_cfg["nondim"]
-    # The data processor is refitted on the training data, exactly as in training.
-    _, test_loaders, data_processor = load_cheetah_sc(**{**data_cfg, "generate": False})
-    data_processor = data_processor.to(device)
-
-    data_path = args.data or dataset_path(
-        data_cfg["data_root"], "test", data_cfg["train_resolution"]
-    )
-    dataset = CheetahDataset(data_path, nondim=nondim)
-    report = {"accuracy": evaluate(model, dataset, data_processor, args.batch_size)}
-    report["gradients"] = gradient_consistency(model, dataset, data_processor)
-    if not args.skip_resolution:
-        report["resolution"] = resolution_study(model, data_path, nondim, data_processor)
-
-    out = Path(args.out) if args.out else Path(args.run) / "evaluation.json"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(report, indent=2))
-    print(json.dumps(report, indent=2))
-
-    if args.plot:
-        for res, loader in test_loaders.items():
-            tag = f"{Path(args.run).name}_res{res}"
-            plot_predictions(model, next(iter(loader)), data_processor, nondim, tag=tag)
-            plot_normalization_comparison(
-                model,
-                CheetahDataset(dataset_path(data_cfg["data_root"], "test", res), nondim=nondim),
-                data_processor,
-                tag=tag,
-            )
-
-
-if __name__ == "__main__":
-    main()

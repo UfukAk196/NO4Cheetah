@@ -111,12 +111,10 @@ def potential_from_hat(potential_hat: torch.Tensor, scaling: Scaling) -> torch.T
 def stretched_cell_size(cell_size: torch.Tensor, gamma: torch.Tensor) -> torch.Tensor:
     """Cell size in the rest frame, (B, 3) in m: tau axis stretched by gamma.
 
-    Only needed for cell sizes stored without gamma (the datasets). Inside the lattice,
-    ``SpaceChargeKick._solve_poisson_equation`` stretches before the grid-level solve.
+    Without in-place writes, so that gradients w.r.t. gamma (i.e. the beam energy)
+    survive -- the lattice element differentiates through it.
     """
-    stretched = cell_size.clone()
-    stretched[:, 2] = stretched[:, 2] * gamma
-    return stretched
+    return torch.cat([cell_size[:, :2], (cell_size[:, 2] * gamma)[:, None]], dim=1)
 
 
 def nondimensionalize_fields(

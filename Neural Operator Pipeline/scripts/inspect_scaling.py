@@ -9,14 +9,16 @@ spread and compares the two reference lengths against each other.
 A result of this kind belongs in the thesis, because it backs a design decision with
 numbers instead of gut feeling.
 
-Call: python scripts/inspect_scaling.py --data data/cheetah_sc_train_16.h5
+It analyses the training file of the settings in ``train_model.py``.
+
+Call: python scripts/inspect_scaling.py
 """
 
-import argparse
-
 import numpy as np
+from train_model import DATA
 
 from scno.data.dataset import CheetahDataset
+from scno.data.generate import dataset_path
 
 
 def spread(values: np.ndarray) -> float:
@@ -26,12 +28,10 @@ def spread(values: np.ndarray) -> float:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser()
-    p.add_argument("--data", default="data/cheetah_sc_train_16.h5")
-    a = p.parse_args()
+    data_path = dataset_path(DATA["data_root"], "train", DATA["train_resolution"])
 
     # The file holds raw fields; phi_hat and the scaling are derived on loading.
-    fields = CheetahDataset(a.data).read_fields(slice(None))
+    fields = CheetahDataset(data_path).read_fields(slice(None))
     phi = fields["phi_hat"].numpy()
     normalized_extent = fields["scaling"].normalized_extent.numpy()
     cell = fields["cell_size"].numpy()
@@ -44,7 +44,7 @@ def main() -> int:
     # length instead of the geometric mean of all three edges.
     scaled_ex = std_hat * normalized_extent[:, 0]
 
-    print(f"Dataset: {a.data}, {len(phi)} samples, grid {phi.shape[1:]}")
+    print(f"Dataset: {data_path}, {len(phi)} samples, grid {phi.shape[1:]}")
     print()
     print("Raw quantities (what would enter the network without nondimensionalization):")
     print(f"  total charge    : {spread(charge):5.2f} decades")

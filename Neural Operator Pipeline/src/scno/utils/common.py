@@ -1,17 +1,16 @@
-"""Small helpers: seeds, device, config loading.
+"""Small helpers: seeds, device, CSV tables.
 
-Checkpoints and parameter counts come from neuraloperator
-(``BaseModel.save_checkpoint`` / ``from_checkpoint``, ``neuralop.utils.count_model_params``).
+Parameter counts come from neuraloperator (``neuralop.utils.count_model_params``).
 """
 
 from __future__ import annotations
 
+import csv
 import random
 from pathlib import Path
 
 import numpy as np
 import torch
-import yaml
 
 
 def set_seed(seed: int) -> None:
@@ -31,7 +30,12 @@ def pick_device(preference: str = "auto") -> torch.device:
     return torch.device("cpu")
 
 
-def load_config(path: str | Path) -> dict:
-    """Reads a YAML config with ``yaml.safe_load``."""
-    with open(path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+def save_csv(rows: list[dict], path: str | Path) -> Path:
+    """Writes ``rows`` (dicts with the same keys) as a CSV table with a header."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=list(rows[0]) if rows else [])
+        writer.writeheader()
+        writer.writerows(rows)
+    return path

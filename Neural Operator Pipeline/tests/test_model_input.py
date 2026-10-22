@@ -1,22 +1,21 @@
 """Input format: dataset, training, evaluation and the Cheetah element feed the same model.
 
 The input format is defined once (``input_channels``); these tests keep the model
-config, the decoding of predictions and the loss interface consistent with it.
+settings of ``scripts/train_model.py``, saving/loading, the decoding of predictions and
+the loss interface consistent with it.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import torch
-from cheetah.accelerator import SpaceChargeKick
+from evaluate_model import load_model
 from neuralop.data.transforms.data_processors import DefaultDataProcessor
 from neuralop.data.transforms.normalizers import UnitGaussianNormalizer
 from neuralop.models import FNO
+from train_model import MODEL
 
 from scno.evaluate import predict
-from scno.models.exact import ExactOperator
-from scno.utils.common import load_config
+from scno.models.exact import ExactOperator, solve_poisson_on_grid
 from scno.utils.losses import SobolevLoss
 from scno.utils.normalization import (
     INPUT_CHANNELS,
@@ -25,8 +24,6 @@ from scno.utils.normalization import (
     nondimensionalize_fields,
     stretched_cell_size,
 )
-
-CONFIGS = Path(__file__).resolve().parents[1] / "configs"
 
 
 def _physical_fields(batch: int = 2, grid=(8, 8, 8)):
@@ -39,21 +36,29 @@ def _physical_fields(batch: int = 2, grid=(8, 8, 8)):
         [[1e-4, 2e-4, 3e-5], [2e-4, 1e-4, 5e-5]], dtype=torch.float64
     )[:batch]
     gamma = torch.tensor([100.0, 250.0], dtype=torch.float64)[:batch]
-    solver = SpaceChargeKick(effect_length=torch.tensor(0.0))
-    phi = solver._solve_poisson_on_grid(rho, stretched_cell_size(cell_size, gamma))
+    phi = solve_poisson_on_grid(rho, stretched_cell_size(cell_size, gamma))
     return rho, phi, cell_size, gamma
 
 
-def test_config_models_accept_input_channels():
+def test_model_settings_accept_input_channels():
     rho_hat = torch.rand(2, 8, 8, 8)
     extent = torch.tensor([[0.5, 1.0, 2.0]]).expand(2, -1)  # product = 1
     x = input_channels(rho_hat, extent)
     assert x.shape[1] == INPUT_CHANNELS
 
-    for name in ("default.yaml", "smoke.yaml"):
-        cfg = load_config(CONFIGS / name)["model"]
-        assert cfg["in_channels"] == INPUT_CHANNELS
-        assert FNO(**cfg)(x).shape == (2, 1, 8, 8, 8)
+    assert MODEL["in_channels"] == INPUT_CHANNELS
+    assert FNO(**MODEL)(x).shape == (2, 1, 8, 8, 8)
+
+
+def test_state_dict_round_trip(tmp_path):
+    """The .pth holds only the state dict; neuralop's `_metadata` rebuilds the model."""
+    model = FNO(**MODEL).eval()
+    path = tmp_path / "model.pth"
+    torch.save(model.state_dict(), path)
+
+    loaded = load_model(path, torch.device("cpu")).eval()
+    x = torch.rand(1, INPUT_CHANNELS, 8, 8, 8)
+    assert torch.equal(loaded(x), model(x))
 
 
 def test_decode_prediction_exact_operator_gives_volts():
