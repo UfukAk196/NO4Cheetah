@@ -1,0 +1,15 @@
+# GPU-Umgebung (Maxwell, Linux). Identisch zu environment.yml, nur torch mit CUDA.
+# cuda-version an den Treiber der GPU-Knoten anpassen: `nvidia-smi` -> "CUDA Version".
+#
+#   conda env create -f environment-gpu.yml
+#   python -c "import torch; print(torch.cuda.is_available())"   # auf einem GPU-Knoten -> True
+name: no4cheetah-gpu
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pytorch-gpu>=2.2
+  - cuda-version=12.6
+  - pip
+  - pip:
+      - -e .[dev]

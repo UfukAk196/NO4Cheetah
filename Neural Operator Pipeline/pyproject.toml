@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scno"
+version = "0.1.0"
+description = "Neural operator replacing the space-charge Poisson solver in Cheetah"
+requires-python = ">=3.10,<3.13"
+# The ONLY package list of the project. New package? -> add it here, then `pip install -e ".[dev]"`.
+dependencies = [
+    "torch>=2.2",                    # comes via conda (pytorch / pytorch-gpu) or from Colab; pip then leaves it alone
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "h5py>=3.10",
+    "matplotlib>=3.8",
+    "tqdm",
+    # Own fork, unchanged Cheetah; locally: pip install -e "../../Cheetah repos/cheetah-accelerator"
+    "cheetah-accelerator @ git+https://github.com/UfukAk196/cheetah.git",
+    "neuraloperator==2.0.0",
+]
+
+[project.optional-dependencies]
+notebooks = ["ipykernel", "pandas"]
+logging = ["wandb>=0.16"]
+tune = ["optuna>=4.0"]
+test = ["pytest", "pytest-mock"]
+dev = ["scno[notebooks,logging,test,tune]"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

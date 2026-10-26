@@ -1,0 +1,11 @@
+# Install list for pip-only environments (Google Colab, venv without conda).
+# The actual package list is in pyproject.toml -- don't maintain anything twice here.
+#
+# Colab:   !git clone https://github.com/UfukAk196/NO4Cheetah.git
+#          %cd "NO4Cheetah/Neural Operator Pipeline"
+#          !pip install -r requirements.txt
+#
+# torch is NOT reinstalled: Colab brings a matching CUDA version, and torch>=2.2 from
+# pyproject.toml is thereby already satisfied.
+
+-e .[logging]

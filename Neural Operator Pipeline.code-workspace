@@ -1,0 +1,21 @@
+{
+	"folders": [
+		{ "path": "Neural Operator Pipeline" },
+		{ "path": "../Cheetah repos/cheetah-accelerator" },
+		{ "path": "../Cheetah repos/cheetah-demos/neural_network_space_charge_quad" },
+		{ "path": "../pytorch-deep-learning" }
+	],
+	"settings": {
+		"python-envs.defaultEnvManager": "ms-python.python:conda",
+		"python-envs.defaultPackageManager": "ms-python.python:conda",
+		"python.terminal.activateEnvironment": true,
+		"files.exclude": { "**/__pycache__": true, "**/*.egg-info": true }
+	},
+	"extensions": {
+		"recommendations": [
+			"ms-python.python",
+			"ms-toolsai.jupyter",
+			"ms-vscode-remote.remote-ssh"
+		]
+	}
+}

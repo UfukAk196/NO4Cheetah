@@ -1,0 +1,15 @@
+# Lokale CPU-Umgebung (Laptop + Arbeits-PC).
+# Conda liefert nur Python und torch -- alle anderen Pakete stehen in pyproject.toml.
+#
+#   conda env create -f environment.yml      # einmalig
+#   conda env update -f environment.yml      # nach Aenderungen an dieser Datei
+#   pip install -e ".[dev]"                  # nach Aenderungen an pyproject.toml
+name: no4cheetah
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pytorch>=2.2          # CPU-Build
+  - pip
+  - pip:
+      - -e .[dev]       # scno + alle Abhaengigkeiten aus pyproject.toml

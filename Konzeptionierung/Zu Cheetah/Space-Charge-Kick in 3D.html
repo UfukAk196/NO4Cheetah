@@ -1,0 +1,733 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Space-Charge-Kick in 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: 3D-Bühne links, Erklär-Panel rechts, Schrittleiste unten; auf dem Handy untereinander */
+:root{
+  --bg:#EDF0F5; --surface:#FFFFFF; --fg:#142033; --muted:#5A6679; --line:#D2D9E3;
+  --accent:#2A54C9; --ref:#C2760E; --force:#C23D29; --field:#15857A; --grid:#7D8BA1;
+  --code-bg:#F2F4F8; --hud-bg:rgba(255,255,255,.86);
+  --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"IBM Plex Sans","Segoe UI",Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D1118; --surface:#141A24; --fg:#E1E7F0; --muted:#94A1B5; --line:#253042;
+  --accent:#7E9DFF; --ref:#F2AE45; --force:#FF7D63; --field:#4CC5AF; --grid:#5A6880;
+  --code-bg:#0F141C; --hud-bg:rgba(13,17,24,.84); color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0D1118; --surface:#141A24; --fg:#E1E7F0; --muted:#94A1B5; --line:#253042;
+  --accent:#7E9DFF; --ref:#F2AE45; --force:#FF7D63; --field:#4CC5AF; --grid:#5A6880;
+  --code-bg:#0F141C; --hud-bg:rgba(13,17,24,.84); color-scheme:dark }
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.55}
+.app{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:12px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px}
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 20px}
+.brand h1{margin:0;font:700 22px/1.15 var(--f-display);letter-spacing:-.01em;text-wrap:balance}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.brand code,.panel code{font-family:var(--f-mono);font-size:.92em}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+.gctl{display:flex;align-items:center;gap:8px;font-family:var(--f-mono);font-size:13px}
+.gctl input{width:170px;accent-color:var(--accent)}
+.gctl output{min-width:9.5em;font-variant-numeric:tabular-nums;color:var(--muted)}
+.gctl output b{color:var(--fg);font-weight:500}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:var(--surface)}
+.seg button{font:500 13px var(--f-body);color:var(--muted);background:transparent;border:0;padding:6px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--surface)}
+.seg button:disabled{cursor:not-allowed;opacity:.45}
+.btn{font:500 13px var(--f-body);color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:6px 12px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 410px;gap:12px;min-height:0}
+.stage{position:relative;min-height:0;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lbl{position:absolute;left:0;top:0;font:500 11.5px/1.3 var(--f-mono);padding:2px 6px;border-radius:4px;background:var(--hud-bg);border:1px solid var(--line);white-space:nowrap;color:var(--fg)}
+.lbl.ref{color:var(--ref)} .lbl.acc{color:var(--accent)} .lbl.fld{color:var(--field)} .lbl.frc{color:var(--force)} .lbl.ax{color:var(--muted);border-color:transparent;background:transparent}
+.hud{position:absolute;top:10px;left:10px;background:var(--hud-bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:12px/1.45 var(--f-mono);font-variant-numeric:tabular-nums}
+.hud table{border-collapse:collapse}
+.hud td{padding:0 0 0 0}
+.hud td:first-child{color:var(--muted);padding-right:12px}
+.hud tr.hl td:last-child{color:var(--accent)}
+.legend{position:absolute;left:10px;bottom:10px;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;background:var(--hud-bg);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;max-width:calc(100% - 20px)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.legend label{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+.legend input{accent-color:var(--accent)}
+.fly{position:absolute;right:10px;bottom:10px;font:600 13px var(--f-body);color:var(--surface);background:var(--ref);border:0;border-radius:7px;padding:8px 14px;cursor:pointer}
+.panel{min-height:0;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 22px 22px}
+.eyebrow{margin:0;font:500 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.eyebrow code{text-transform:none;letter-spacing:0;color:var(--accent)}
+.panel h2{margin:6px 0 12px;font:700 25px/1.15 var(--f-display);letter-spacing:-.01em;text-wrap:balance}
+.panel p{margin:0 0 12px;max-width:62ch}
+pre.code{margin:0 0 14px;background:var(--code-bg);border:1px solid var(--line);border-radius:7px;padding:10px 12px;overflow-x:auto;font:12.5px/1.5 var(--f-mono)}
+.f{font-family:var(--f-mono);font-size:.9em;background:var(--code-bg);border:1px solid var(--line);border-radius:4px;padding:0 4px;white-space:nowrap}
+.note{color:var(--muted);font-size:13.5px;border-top:1px dashed var(--line);padding-top:10px}
+.box{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:4px 0 14px;font-size:13.5px}
+.box b{font-family:var(--f-mono);font-weight:500;color:var(--accent)}
+.shape{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font:12.5px var(--f-mono)}
+.shape span{border:1px solid var(--line);border-radius:5px;padding:2px 6px;background:var(--code-bg)}
+.meter{height:10px;background:var(--line);border-radius:5px;overflow:hidden;margin:6px 0 8px}
+.meter i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+.gloss{margin-top:18px;border-top:1px solid var(--line);padding-top:12px}
+.gloss summary{cursor:pointer;font:600 14px var(--f-body)}
+.gloss dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;margin:12px 0 6px;font-size:13.5px}
+.gloss dt{font-family:var(--f-mono);color:var(--accent);white-space:nowrap}
+.gloss dd{margin:0}
+.stepper{display:flex;align-items:center;gap:10px;min-width:0}
+.stepper ol{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:5px;flex:1;min-width:0}
+.stepper ol button{width:32px;height:30px;font:500 12px var(--f-mono);color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:6px;cursor:pointer;font-variant-numeric:tabular-nums}
+.stepper ol button[aria-current="step"]{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.stepper ol button.done{color:var(--fg)}
+.stepper .now{font:600 13px var(--f-body);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:32ch}
+@media (max-width:900px){
+  html,body{height:auto}
+  .app{height:auto}
+  .main{grid-template-columns:minmax(0,1fr)}
+  .stage{height:58vh;min-height:340px}
+  .panel{overflow:visible}
+  .gctl input{width:130px}
+  .hud{font-size:10.5px;padding:6px 8px}
+  .stepper .now{display:none}
+}
+@media (prefers-reduced-motion: reduce){.meter i{transition:none}}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>Space-Charge-Kick in 3D</h1>
+      <p>Cheetah · <code>SpaceChargeKick.track()</code> Schritt für Schritt, Labor- und Ruhesystem</p>
+    </div>
+    <div class="controls">
+      <label class="gctl" for="gammaRange"><span>γ</span>
+        <input type="range" id="gammaRange" min="0" max="1000" step="1">
+        <output id="gammaOut"></output>
+      </label>
+      <div class="seg" role="group" aria-label="Bezugssystem">
+        <button id="btnLab" aria-pressed="true">Labor</button>
+        <button id="btnRest" aria-pressed="false">Ruhesystem</button>
+      </div>
+      <button id="btnReset" class="btn">Ansicht zurücksetzen</button>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="stage" id="stage">
+      <canvas id="cv" aria-label="3D-Ansicht von Strahl und Gitter"></canvas>
+      <div class="labels" id="labels"></div>
+      <div class="hud" id="hud"></div>
+      <div class="legend">
+        <span><i style="background:var(--accent)"></i>Teilchen</span>
+        <span><i style="background:var(--ref)"></i>Referenzteilchen</span>
+        <span><i style="background:var(--field)"></i>Feld / φ</span>
+        <span><i style="background:var(--force)"></i>Kraft</span>
+        <label for="chkCells"><input type="checkbox" id="chkCells">Alle Zellen</label>
+      </div>
+      <button id="btnFly" class="fly" hidden>Durchflug abspielen</button>
+    </section>
+
+    <aside class="panel" id="panel">
+      <div id="stepContent"></div>
+      <details class="gloss" id="gloss">
+        <summary>Symbole und Größen</summary>
+        <dl>
+          <dt>x, y</dt><dd>Querposition im Labor</dd>
+          <dt>Δt</dt><dd>wie viel später ein Teilchen die Ebene s passiert als das Referenzteilchen</dd>
+          <dt>τ</dt><dd>Ankunfts-Zeitabstand an fester Stelle s, als Länge: τ = c·Δt</dd>
+          <dt>z</dt><dd>Ortsabstand zum Referenzteilchen bei fester Zeit: z = −βτ</dd>
+          <dt>z̃</dt><dd>Länge im Ruhesystem des Bunches: z̃ = γz</dd>
+          <dt>β, γ</dt><dd>β = v/c, γ = 1/√(1−β²)</dd>
+          <dt>σ</dt><dd>Standardabweichung der Teilchenwolke je Achse</dd>
+          <dt>Δx, Δy, Δτ</dt><dd>Zellgröße = 2·3σ/N, die Längsachse wird über σ<sub>τ</sub> bestimmt</dd>
+          <dt>γ·Δτ</dt><dd>Längszelle, so wie der Kern sie sieht</dd>
+          <dt>b</dt><dd>γΔτ/Δx, das Seitenverhältnis, das dein FNO kennen muss</dd>
+          <dt>L, dt</dt><dd>effect_length und dt = L/(βc)</dd>
+          <dt>ρ, φ, F</dt><dd>Ladungsdichte, Potential, Kraft</dd>
+        </dl>
+        <p class="note">Beispielwerte: σ<sub>x</sub> = σ<sub>y</sub> = 1 mm, σ<sub>τ</sub> = 2,5 mm, 1400 Makroteilchen, N = 12 Gitterpunkte je Achse (Cheetah-Standard: 32). Die Rechnung im Browser läuft echt: CIC-Ablage, IGF wie im Code, Faltung, zentrale Differenzen, trilineare Interpolation.</p>
+      </details>
+    </aside>
+  </main>
+
+  <footer class="stepper">
+    <button id="prev" class="btn" aria-label="Vorheriger Schritt">←</button>
+    <ol id="dots"></ol>
+    <span class="now" id="nowTitle"></span>
+    <button id="next" class="btn" aria-label="Nächster Schritt">→</button>
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+"use strict";
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const $ = s => document.querySelector(s);
+const fmt = (v,d=2) => Number(v).toLocaleString("de-DE",{minimumFractionDigits:d,maximumFractionDigits:d});
+
+/* ---------------- Physik in Miniatur ---------------- */
+const N = 12, NP = 1400, EXT = 3, SIG = [1.0, 1.0, 2.5];
+const G_MIN = 1.02, G_MAX = 6, ME = 0.51099895, C = 299792458, L_M = 0.1;
+
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const rnd = mulberry32(20261021);
+function gauss(){let u=0;while(u===0)u=rnd();const v=rnd();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+
+const P = {x:new Float64Array(NP), y:new Float64Array(NP), tau:new Float64Array(NP)};
+for(let i=1;i<NP;i++){P.x[i]=gauss()*SIG[0];P.y[i]=gauss()*SIG[1];P.tau[i]=gauss()*SIG[2];}
+// Teilchen 0 ist das Referenzteilchen: x = y = tau = 0
+function std(a){let m=0;for(const v of a)m+=v;m/=a.length;let s=0;for(const v of a)s+=(v-m)*(v-m);return Math.sqrt(s/a.length);}
+const sig = [std(P.x), std(P.y), std(P.tau)];
+const gd = sig.map(s => EXT*s);            // grid_dimensions
+const cell = gd.map(g => 2*g/N);           // cell_size (Längsachse in tau-Einheiten!)
+const nid = (i,j,k) => (i*N+j)*N+k;
+const nodePos = (a,i) => -gd[a] + i*cell[a];
+
+function Ip(x,y,t){
+  const r = Math.sqrt(x*x+y*y+t*t);
+  return -0.5*t*t*Math.atan(x*y/(t*r)) - 0.5*y*y*Math.atan(x*t/(y*r)) - 0.5*x*x*Math.atan(y*t/(x*r))
+    + y*t*Math.asinh(x/Math.sqrt(y*y+t*t)) + x*t*Math.asinh(y/Math.sqrt(x*x+t*t)) + x*y*Math.asinh(t/Math.sqrt(x*x+y*y));
+}
+
+function compute(gamma){
+  const beta = Math.sqrt(1 - 1/(gamma*gamma));
+  const M = N*N*N;
+  const Z = new Float64Array(NP);
+  for(let i=0;i<NP;i++) Z[i] = -beta*P.tau[i];               // to_xyz_pxpypz: z = -beta * tau
+  // _array_rho: Cloud-in-Cell
+  const rho = new Float64Array(M);
+  const U = new Float64Array(3);
+  const norm = (p) => { U[0]=(P.x[p]+gd[0])/cell[0]; U[1]=(P.y[p]+gd[1])/cell[1]; U[2]=(Z[p]+gd[2])/cell[2]; };
+  for(let p=0;p<NP;p++){
+    norm(p); const i0=Math.floor(U[0]), j0=Math.floor(U[1]), k0=Math.floor(U[2]);
+    for(let a=0;a<2;a++)for(let b=0;b<2;b++)for(let c=0;c<2;c++){
+      const i=i0+a,j=j0+b,k=k0+c; if(i<0||j<0||k<0||i>=N||j>=N||k>=N) continue;
+      rho[nid(i,j,k)] += (1-Math.abs(U[0]-i))*(1-Math.abs(U[1]-j))*(1-Math.abs(U[2]-k));
+    }
+  }
+  const vol = cell[0]*cell[1]*cell[2];
+  for(let m=0;m<M;m++) rho[m] /= vol;
+  // _integrated_green_function: Längszelle um gamma gestreckt
+  const dx=cell[0], dy=cell[1], dz=cell[2]*gamma, hx=dx/2, hy=dy/2, hz=dz/2;
+  const G = new Float64Array(M);
+  for(let i=0;i<N;i++)for(let j=0;j<N;j++)for(let k=0;k<N;k++){
+    const x=i*dx, y=j*dy, z=k*dz;
+    G[nid(i,j,k)] = Ip(x+hx,y+hy,z+hz) - Ip(x-hx,y+hy,z+hz) - Ip(x+hx,y-hy,z+hz) - Ip(x+hx,y+hy,z-hz)
+                  + Ip(x+hx,y-hy,z-hz) + Ip(x-hx,y+hy,z-hz) + Ip(x-hx,y-hy,z+hz) - Ip(x-hx,y-hy,z-hz);
+  }
+  // _solve_poisson_equation: freie Faltung (identisch zur Hockney-FFT)
+  const nzI=[],nzJ=[],nzK=[],nzV=[];
+  for(let i=0;i<N;i++)for(let j=0;j<N;j++)for(let k=0;k<N;k++){const v=rho[nid(i,j,k)]; if(v>0){nzI.push(i);nzJ.push(j);nzK.push(k);nzV.push(v);}}
+  const phi = new Float64Array(M), nnz = nzV.length;
+  for(let i=0;i<N;i++)for(let j=0;j<N;j++)for(let k=0;k<N;k++){
+    let s=0;
+    for(let q=0;q<nnz;q++) s += nzV[q]*G[nid(Math.abs(i-nzI[q]),Math.abs(j-nzJ[q]),Math.abs(k-nzK[q]))];
+    phi[nid(i,j,k)] = s;
+  }
+  // _E_plus_vB_field: zentrale Differenzen, Rand = 0, mal -1/gamma^2
+  const g2 = 1/(gamma*gamma);
+  const gx=new Float64Array(M), gy=new Float64Array(M), gz=new Float64Array(M);
+  for(let i=0;i<N;i++)for(let j=0;j<N;j++)for(let k=0;k<N;k++){
+    const id=nid(i,j,k);
+    if(i>0&&i<N-1) gx[id] = -g2*(phi[nid(i+1,j,k)]-phi[nid(i-1,j,k)])/(2*cell[0]);
+    if(j>0&&j<N-1) gy[id] = -g2*(phi[nid(i,j+1,k)]-phi[nid(i,j-1,k)])/(2*cell[1]);
+    if(k>0&&k<N-1) gz[id] = -g2*(phi[nid(i,j,k+1)]-phi[nid(i,j,k-1)])/(2*cell[2]);
+  }
+  // _compute_forces: trilineare Interpolation zurück auf die Teilchen
+  const Fx=new Float64Array(NP), Fy=new Float64Array(NP), Fz=new Float64Array(NP);
+  let Fmax=0, Fperp=0;
+  for(let p=0;p<NP;p++){
+    norm(p); const i0=Math.floor(U[0]), j0=Math.floor(U[1]), k0=Math.floor(U[2]);
+    let fx=0,fy=0,fz=0;
+    for(let a=0;a<2;a++)for(let b=0;b<2;b++)for(let c=0;c<2;c++){
+      const i=i0+a,j=j0+b,k=k0+c; if(i<0||j<0||k<0||i>=N||j>=N||k>=N) continue;
+      const w=(1-Math.abs(U[0]-i))*(1-Math.abs(U[1]-j))*(1-Math.abs(U[2]-k)); const id=nid(i,j,k);
+      fx+=w*gx[id]; fy+=w*gy[id]; fz+=w*gz[id];
+    }
+    Fx[p]=fx; Fy[p]=fy; Fz[p]=fz;
+    const fp=Math.hypot(fx,fy), fa=Math.hypot(fx,fy,fz);
+    if(fp>Fperp)Fperp=fp; if(fa>Fmax)Fmax=fa;
+  }
+  const colSum=[]; for(let k=0;k<N;k++){let s=0;for(let i=0;i<N;i++)for(let j=0;j<N;j++)s+=rho[nid(i,j,k)];colSum.push(s);}
+  const cmax=Math.max(...colSum); let occ=0; for(const s of colSum) if(s>.03*cmax) occ++;
+  // Delta p / p0  ~  F * dt / p0  ~  F / (beta * beta * gamma)
+  return {gamma,beta,Z,rho,phi,gx,gy,gz,Fx,Fy,Fz,Fmax,Fperp,occ,K:Fperp/(beta*beta*gamma)};
+}
+
+const state = {step:0, gamma:1.6, rest:false, res:null, Kref:compute(G_MIN).K};
+
+/* ---------------- Szene ---------------- */
+const stage=$("#stage"), cv=$("#cv"), labelsEl=$("#labels");
+const renderer = new THREE.WebGLRenderer({canvas:cv, antialias:true, alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio||1, 2));
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(36, 1, 0.05, 8000);
+camera.position.set(16,8,10);
+const controls = new THREE.OrbitControls(camera, cv);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+scene.add(new THREE.AmbientLight(0xffffff, 0.78));
+const sun = new THREE.DirectionalLight(0xffffff, 0.55); sun.position.set(6,12,8); scene.add(sun);
+
+const col = {};
+function readTheme(){
+  const cs = getComputedStyle(document.documentElement);
+  for(const k of ["fg","muted","line","accent","ref","force","field","grid","surface"]) col[k] = new THREE.Color(cs.getPropertyValue("--"+k).trim());
+}
+readTheme();
+
+// Gittergruppe: wird im Ruhesystem längs um gamma gestreckt
+const gridGroup = new THREE.Group(); scene.add(gridGroup);
+function segs(pts, color, opacity){
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pts,3));
+  return new THREE.LineSegments(g, new THREE.LineBasicMaterial({color, transparent:true, opacity, depthWrite:false}));
+}
+const outline = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(2*gd[0],2*gd[1],2*gd[2])),
+  new THREE.LineBasicMaterial({color:col.grid, transparent:true, opacity:.85}));
+gridGroup.add(outline);
+// Gitterlinien auf drei Rückwänden
+(function(){
+  const p=[];
+  for(let i=0;i<=N;i++){
+    const a=-gd[0]+i*cell[0], b=-gd[1]+i*cell[1], c=-gd[2]+i*cell[2];
+    p.push(a,-gd[1],-gd[2], a,-gd[1],gd[2]);   p.push(-gd[0],-gd[1],c, gd[0],-gd[1],c);      // Boden
+    p.push(-gd[0],b,-gd[2], -gd[0],b,gd[2]);   p.push(-gd[0],-gd[1],c, -gd[0],gd[1],c);      // Rückwand x
+    p.push(a,-gd[1],-gd[2], a,gd[1],-gd[2]);   p.push(-gd[0],b,-gd[2], gd[0],b,-gd[2]);      // Stirnwand
+  }
+  gridGroup.add(window.__faces = segs(p, col.grid, .35));
+})();
+const faces = window.__faces;
+// komplettes Innengitter (optional)
+const allCells = (function(){
+  const p=[];
+  for(let i=0;i<=N;i++)for(let j=0;j<=N;j++){
+    const x=-gd[0]+i*cell[0], y=-gd[1]+j*cell[1], z=-gd[2]+j*cell[2], y2=-gd[1]+i*cell[1], z2=-gd[2]+i*cell[2];
+    p.push(x,y,-gd[2], x,y,gd[2]);
+    p.push(x,-gd[1],z, x,gd[1],z);
+    p.push(-gd[0],y2,z, gd[0],y2,z);
+  }
+  return segs(p, col.grid, .13);
+})();
+gridGroup.add(allCells); allCells.visible=false;
+// eine hervorgehobene Zelle [0,Δ]
+const hlCell = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(cell[0],cell[1],cell[2])),
+  new THREE.LineBasicMaterial({color:col.accent}));
+hlCell.position.set(cell[0]/2, cell[1]/2, cell[2]/2); gridGroup.add(hlCell);
+// Achsen
+const axes = segs([-gd[0]*1.3,0,0, gd[0]*1.3,0,0, 0,-gd[1]*1.3,0, 0,gd[1]*1.3,0, 0,0,-gd[2]*1.25, 0,0,gd[2]*1.25], col.muted, .55);
+gridGroup.add(axes);
+// Zone, in der der Strahl nach tau -> z liegt
+const slab = new THREE.Mesh(new THREE.BoxGeometry(2*gd[0],2*gd[1],1), new THREE.MeshBasicMaterial({color:col.accent, transparent:true, opacity:.09, depthWrite:false}));
+gridGroup.add(slab);
+// Hockney-Kiste (2N)
+const hock = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(4*gd[0],4*gd[1],4*gd[2])),
+  new THREE.LineDashedMaterial({color:col.field, dashSize:.35, gapSize:.25}));
+hock.position.set(gd[0],gd[1],gd[2]); hock.computeLineDistances(); gridGroup.add(hock);
+// Kern: Äquipotentialfläche einer Punktladung
+const kernel = new THREE.Group();
+const KR = 2.6;
+kernel.add(new THREE.Mesh(new THREE.SphereGeometry(KR,40,20), new THREE.MeshBasicMaterial({color:col.field, transparent:true, opacity:.13, depthWrite:false})));
+kernel.add(new THREE.Mesh(new THREE.SphereGeometry(KR,20,10), new THREE.MeshBasicMaterial({color:col.field, wireframe:true, transparent:true, opacity:.4})));
+gridGroup.add(kernel);
+// Voxel für rho und phi
+const M3 = N*N*N;
+function voxels(opacity){
+  const m = new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshLambertMaterial({transparent:true, opacity, depthWrite:opacity>.8}), M3);
+  m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  for(let i=0;i<M3;i++) m.setColorAt(i, new THREE.Color(1,1,1));
+  gridGroup.add(m); return m;
+}
+const rhoMesh = voxels(.9), phiMesh = voxels(.55);
+
+// Ebene s (Schritt 1)
+const plane = new THREE.Group();
+plane.add(new THREE.Mesh(new THREE.PlaneGeometry(2.8*gd[0],2.8*gd[1]), new THREE.MeshBasicMaterial({color:col.ref, transparent:true, opacity:.12, side:THREE.DoubleSide, depthWrite:false})));
+plane.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(2.8*gd[0],2.8*gd[1])), new THREE.LineBasicMaterial({color:col.ref})));
+scene.add(plane);
+
+// Teilchen
+function dotTexture(){const c=document.createElement("canvas");c.width=c.height=64;const g=c.getContext("2d");g.beginPath();g.arc(32,32,28,0,Math.PI*2);g.fillStyle="#fff";g.fill();return new THREE.CanvasTexture(c);}
+const dotTex = dotTexture();
+const cur = new Float64Array(NP);
+for(let i=0;i<NP;i++) cur[i] = -P.tau[i];
+const pGeo = new THREE.BufferGeometry();
+const pPos = new Float32Array(NP*3), pCol = new Float32Array(NP*3);
+pGeo.setAttribute("position", new THREE.BufferAttribute(pPos,3));
+pGeo.setAttribute("color", new THREE.BufferAttribute(pCol,3));
+const pMat = new THREE.PointsMaterial({size:3.4*renderer.getPixelRatio(), sizeAttenuation:false, vertexColors:true, map:dotTex, transparent:true, alphaTest:.4, depthWrite:false});
+const points = new THREE.Points(pGeo, pMat); scene.add(points);
+const ghGeo = new THREE.BufferGeometry(); const ghPos = new Float32Array(NP*3);
+ghGeo.setAttribute("position", new THREE.BufferAttribute(ghPos,3));
+const ghMat = new THREE.PointsMaterial({size:2.6*renderer.getPixelRatio(), sizeAttenuation:false, color:col.accent, map:dotTex, transparent:true, opacity:.3, alphaTest:.1, depthWrite:false});
+const ghost = new THREE.Points(ghGeo, ghMat); scene.add(ghost);
+const refSprite = new THREE.Sprite(new THREE.SpriteMaterial({map:dotTex, color:col.ref, sizeAttenuation:false, depthTest:false}));
+refSprite.scale.set(.026,.026,1); refSprite.renderOrder = 10; scene.add(refSprite);
+
+function paintParticles(crossFn){
+  for(let i=0;i<NP;i++){
+    const c = i===0 ? col.ref : (crossFn && crossFn(i) ? col.field : col.accent);
+    pCol[3*i]=c.r; pCol[3*i+1]=c.g; pCol[3*i+2]=c.b;
+  }
+  pGeo.attributes.color.needsUpdate = true;
+}
+paintParticles();
+
+// Pfeile
+function arrowPool(n, color){const a=[];for(let i=0;i<n;i++){const h=new THREE.ArrowHelper(new THREE.Vector3(1,0,0),new THREE.Vector3(),1,color,.2,.12);h.visible=false;scene.add(h);a.push(h);}return a;}
+const fieldArrows = arrowPool(N*N, col.field);
+const FSTEP = 10, forceIdx = []; for(let i=1;i<NP;i+=FSTEP) forceIdx.push(i);
+const forceArrows = arrowPool(forceIdx.length, col.force);
+const Lvis = 1.7*gd[2];
+const Larrow = new THREE.ArrowHelper(new THREE.Vector3(0,0,1), new THREE.Vector3(0,gd[1]*1.18,0), Lvis, col.ref, .6, .3); scene.add(Larrow);
+const p0arrow = new THREE.ArrowHelper(new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,0), 1, col.ref, .6, .3); scene.add(p0arrow);
+
+/* ---------------- Schritte ---------------- */
+const STEPS = [
+ {t:"Strahl kommt rein", fn:"track(incoming)", mode:"tau", plane:1, fly:1,
+  code:"# Pro Teilchen speichert Cheetah\n(x, px, y, py, tau, p, 1)",
+  body:`<p>Cheetah schiebt den Strahl Element für Element durch die Maschine. Die Laufvariable ist also der Ort s und nicht die Zeit. Deshalb merkt sich Cheetah pro Teilchen nicht, wo es zu einem bestimmten Zeitpunkt rumhängt, sondern wann es an der Ebene s vorbeizischt: <span class="f">τ = c·Δt</span>. Das ist der Zeitabstand zum Referenzteilchen, umgerechnet in eine Länge.</p>
+  <p>Wer später ankommt, kriegt ein positives τ. Das goldene Teilchen ist das Referenzteilchen mit τ = 0. Drück auf „Durchflug abspielen“: Die Wolke rauscht mit β durch die Ebene, und jedes Teilchen holt sich beim Durchgang seinen τ-Wert ab (es färbt sich dabei um). In der Ruhestellung zeigt die Längsachse −τ, damit vorne auch vorne bleibt.</p>
+  <p class="note">Kleine Korrektur zu vorhin: In Cheetah gilt τ = +c·Δt. Darum steht im Code z = −βτ.</p>`},
+ {t:"Batch plattklopfen", fn:"track()", mode:"tau",
+  code:"flattened_incoming = ParticleBeam(\n    particles=vectorized.particles.flatten(end_dim=-3), ...)",
+  body:`<p>Cheetah kann ganze Stapel von Strahlen oder Parametersätzen auf einmal durchrechnen, zum Beispiel fünf Ladungen mal zehn Energien. Die Kick-Routine kommt aber nur mit einer einzigen Batch-Achse klar. Deshalb werden alle Vektor-Dimensionen zu einer einzigen Achse zusammengeklatscht und ganz am Ende wieder auseinandergefaltet.</p>
+  <div class="box shape"><span>(5, 10, 1400, 7)</span>→<span>(50, 1400, 7)</span>→ Kick →<span>(5, 10, 1400, 7)</span></div>
+  <p>Physikalisch tut sich dabei rein gar nichts, deshalb bleibt die 3D-Ansicht hier stehen.</p>`},
+ {t:"Gitter aufspannen", fn:"track()", mode:"tau", grid:1, cell:1,
+  code:"grid_dimensions = grid_extent * (sigma_x, sigma_y, sigma_tau)\ncell_size = 2 * grid_dimensions / grid_shape",
+  body:`<p>Um den Strahl wird eine Kiste gezogen, die in jede Richtung grid_extent = 3 Standardabweichungen weit reicht. Diese Kiste wird in N Zellen pro Achse zerhackt. Cheetah nimmt standardmäßig 32³ Zellen, hier sind es 12³, damit man im Gewusel noch was erkennt.</p>
+  <p>Der Knackpunkt: Die Längsachse wird mit σ<sub>τ</sub> vermessen, also in τ-Einheiten, obwohl gleich die Teilchen in z draufgepackt werden. Δx, Δy und Δτ hängen nur von der Strahlgeometrie ab, γ hat hier noch nichts zu melden. Die blau umrandete Box ist eine einzelne Gitterzelle. Mit „Alle Zellen“ unten links blendest du das komplette Innengitter ein.</p>`},
+ {t:"Zeitschritt dt", fn:"track()", mode:"tau", grid:1, L:1,
+  code:"dt = effect_length / (speed_of_light * beta)",
+  body:`<p>Der Kick fasst die Raumladung über eine Strecke L zusammen, die das Drift-Element drumherum zurücklegt. Dafür braucht der Strahl die Zeit <span class="f">dt = L / (βc)</span>, und genau so lange darf die Kraft an den Teilchen zerren.</p>
+  <p>Der Geisterstrahl läuft die Strecke L ab. Bei kleinem β trödelt der Strahl länger durch dieselbe Strecke, die Kraft drückt also länger, und der Kick fällt kräftiger aus. Im Kasten oben links steht dt für L = 10 cm.</p>`},
+ {t:"τ wird zu z", fn:"to_xyz_pxpypz()", mode:"z", grid:1, slab:1, cell:1, rest:1,
+  code:"zs = tau * -beta      # Ort statt Ankunftszeit\npx = px * p0          # Impulse in SI\npy = py * p0",
+  body:`<p>Jetzt wird vom Zeit-Schnappschuss auf den Orts-Schnappschuss umgeschaltet: <span class="f">z = −βτ</span>. Ein Teilchen, das um Δt später an s vorbeikommt, hängt zur festen Zeit um βc·Δt hinterher. Die Wolke schrumpft dadurch längs um den Faktor β zusammen.</p>
+  <p>Das Gitter bleibt aber so groß, wie es mit σ<sub>τ</sub> gebaut wurde. Die blaue Scheibe zeigt, wo der Strahl jetzt tatsächlich steckt (±3βσ<sub>τ</sub>). Zieh γ runter, dann siehst du, wie bei niedriger Energie die Zellen vorne und hinten leer bleiben.</p>
+  <div class="box">Merklich besetzte Längszellen: <b data-live="occ"></b> von 12, erwartet etwa β·N = <b data-live="betaN"></b></div>
+  <p>Ab hier gibt es echte Ortskoordinaten. Deshalb kannst du oben jetzt aufs Ruhesystem umschalten.</p>`},
+ {t:"Ladung aufs Gitter", fn:"_array_rho()", mode:"z", grid:1, rho:1, rest:1,
+  code:"charge_grid = cloud_in_cell_charge_deposition(\n    positions=xp_coordinates[..., [0, 2, 4]], ...)\ncharge_density = charge_grid / cell_volume",
+  body:`<p>Jedes Teilchen verschmiert seine Ladung trilinear auf die acht Gitterpunkte seiner Zelle (Cloud in Cell): Je näher ein Knoten liegt, desto größer sein Stück vom Kuchen. Danach wird durch das Zellvolumen geteilt, und raus kommt die Ladungsdichte ρ.</p>
+  <p>Die Würfel sind so groß wie ρ an ihrem Knoten. Genau dieses ρ-Feld auf dem Laborgitter wäre der Input für deinen FNO.</p>`},
+ {t:"Hockney-Padding", fn:"_array_rho()", mode:"z", grid:1, rho:1, hock:1, rest:1,
+  code:"new_dims = tuple(2 * dim for dim in self.grid_shape)\nnew_charge_density[:N, :N, :N] = charge_density",
+  body:`<p>Eine FFT-Faltung tut immer so, als wäre die Welt periodisch. Ohne Gegenmittel würde der Bunch die Felder seiner eigenen Kopien von nebenan abkriegen. Hockneys Kniff: Das Gitter wird in jeder Richtung verdoppelt, ρ landet in einer Ecke, und der ganze Rest wird mit Nullen aufgefüllt.</p>
+  <p>Die Green-Funktion wird gespiegelt in die übrigen Ecken kopiert. Damit ist die zyklische Faltung auf dem Original-Achtel exakt eine Faltung im freien Raum, und am Schluss wird alles außer diesem Achtel weggeschmissen. Das kostet achtmal so viele Zellen. Die gestrichelte Kiste zeigt die Dimension.</p>`},
+ {t:"Integrierte Green-Funktion", fn:"_integrated_green_function()", mode:"z", grid:1, kernel:1, cell:1, rest:1,
+  code:"dtau = cell_size[..., 2] * beam.relativistic_gamma\n# G = 1 / sqrt(x² + y² + (γz)²),\n# analytisch über jede gestreckte Zelle integriert",
+  body:`<p>Hier mischt γ zum ersten Mal mit, und zwar an genau einer Stelle: Die Längsabmessung der Zellen wird für den Kern um γ gestreckt, <span class="f">dtau = Δτ · γ</span>.</p>
+  <p>Die grüne Fläche am Referenzteilchen ist eine Äquipotentialfläche einer Punktladung im Labor, <span class="f">x² + y² + γ²z² = konst.</span> Das Ding ist ein Pfannkuchen, um 1/γ plattgedrückt. Schalt oben aufs Ruhesystem: Dann wird alles längs um γ auseinandergezogen (z̃ = γz), der Pfannkuchen wird zur Kugel, und die Zellen werden γ-mal länger. Genau das erledigt die eine Codezeile oben.</p>
+  <div class="box">Laborzelle Δτ/Δx = <b data-live="aLab"></b> · Kernzelle b = γΔτ/Δx = <b data-live="b"></b></div>
+  <p>Die IGF integriert G analytisch über eine solche gestreckte Zelle. Deshalb steckt sie auch krasse Seitenverhältnisse weg, bei denen eine Punktauswertung in der Zellmitte danebenläge.</p>`},
+ {t:"Potential φ", fn:"_solve_poisson_equation()", mode:"z", grid:1, phi:1, rest:1,
+  code:"potential = irfftn(rfftn(rho) * rfftn(G)) / (4 * pi * epsilon_0)\npotential = potential[:N, :N, :N]",
+  body:`<p>Die Faltung von ρ mit dem Kern liefert das Potential φ. Im Code läuft das per FFT auf dem verdoppelten Gitter. Hier im Browser rechne ich die Faltung direkt aus, das Ergebnis ist dasselbe.</p>
+  <p>φ ist viel glatter als ρ und reicht weit über den Strahl hinaus. Dreh γ hoch: Der Kern wird platter, deshalb bricht φ längs ein und konzentriert sich auf die Querebene. Das hier ist das Mapping ρ → φ, das dein Surrogat lernen soll.</p>`},
+ {t:"Felder E + v×B", fn:"_E_plus_vB_field()", mode:"z", grid:1, field:1, rest:1,
+  code:"grad_x = (phi[2:] - phi[:-2]) / (2 * dx)   # ebenso y, tau\ngrad_x = -grad_x / gamma**2",
+  body:`<p>Aus φ werden per zentraler Differenz die Gradienten gebildet, mit null am Rand. Danach wird alles mit <span class="f">1/γ²</span> multipliziert. Das ist die Verrechnung von elektrischer Abstoßung und magnetischer Anziehung zweier parallel fliegender Ladungen.</p>
+  <p>Die Pfeile zeigen E + v×B in der Mittelebene y = 0. Achtung: Der Gradient wird mit der ungestreckten Laborzelle Δτ gebildet, weil φ auf dem Laborgitter liegt. Das γ steckt da schon im Kern drin.</p>`},
+ {t:"Kraft an die Teilchen", fn:"_compute_forces()", mode:"z", grid:1, force:1, rest:1,
+  code:"weights = 1 - |normalized_pos - node|   # trilinear\nforce = sum(weights * e * grad)         # 8 Nachbarknoten",
+  body:`<p>Jetzt geht es rückwärts: Die Kraft wird mit denselben trilinearen Gewichten wie bei der Ladungsablage vom Gitter auf jedes Teilchen zurückinterpoliert. Wer außerhalb der Kiste liegt, kriegt null ab.</p>
+  <p>Am Rand des Strahls drückt es am kräftigsten nach außen. Längs wird der Kopf nach vorne geschubst und der Schwanz nach hinten. Gezeigt ist jedes zehnte Teilchen.</p>`},
+ {t:"Der Kick", fn:"track()", mode:"z", grid:1, force:1, kick:1, rest:1,
+  code:"xp[..., 1] += F_x * dt   # p_x\nxp[..., 3] += F_y * dt   # p_y\nxp[..., 5] += F_z * dt   # p_z",
+  body:`<p>Die Impulse werden um <span class="f">F · dt</span> geschubst, die Orte bleiben dabei unangetastet. Das Verschieben übernimmt das Drift-Element, das den Kick einrahmt (Split-Operator). Der goldene Pfeil steht für p₀, er ist in Wahrheit um Größenordnungen länger.</p>
+  <div class="box">Δp/p₀ relativ zu γ = 1,02: <b data-live="kr"></b>
+    <div class="meter" aria-hidden="true"><i id="meterBar"></i></div>
+    Faustregel 1/(β²γ³): <b data-live="kth"></b></div>
+  <p>Der Abfall folgt grob <span class="f">1/(β²γ³)</span>: 1/γ² aus der Kraft, 1/β aus dt und 1/(βγ) aus dem Referenzimpuls. Die Faustregel gilt streng nur für lange Bunche, darum weichen die beiden Zahlen etwas voneinander ab. Die Pfeile sind für die Darstellung automatisch hochverstärkt.</p>`},
+ {t:"Zurück in Cheetah-Koordinaten", fn:"from_xyz_pxpypz()", mode:"tau", grid:1,
+  code:"tau = -z / beta\npx = p_x / p0\np = (gamma_i - gamma_0) / (beta_0 * gamma_0)",
+  body:`<p>Zum Schluss wird alles wieder in Cheetah-Koordinaten eingepackt: <span class="f">τ = −z/β</span>. Die Wolke zieht sich längs wieder auf ihre alte τ-Länge auseinander, und die geschubsten Impulse werden auf p₀ normiert.</p>
+  <p>Danach werden die Batch-Achsen wieder aufgeklappt, und der Strahl rollt weiter zum nächsten Element.</p>`}
+];
+
+/* ---------------- Labels ---------------- */
+const LBL = [];
+function addLabel(cls, textFn, posFn, showFn){
+  const el = document.createElement("div"); el.className = "lbl "+cls; labelsEl.appendChild(el);
+  LBL.push({el, textFn, posFn, showFn, last:""});
+}
+let fs = 1;                // aktueller Längs-Streckfaktor (1 = Labor, gamma = Ruhesystem)
+const S = () => STEPS[state.step];
+const restOn = () => !!(S().rest && state.rest);
+const fly = {active:false, t0:0, dur:4600, ct:0};
+const V = (x,y,z) => new THREE.Vector3(x,y,z);
+addLabel("ref", () => "Referenzteilchen", () => V(0, .45, cur[0]), () => true);
+addLabel("ax", () => "x", () => V(gd[0]*1.38,0,0), () => true);
+addLabel("ax", () => "y", () => V(0,gd[1]*1.38,0), () => true);
+addLabel("ax", () => S().mode==="tau" ? "−τ = −c·Δt  (Flugrichtung →)" : (restOn() ? "z̃ = γz  (Ruhesystem)" : "z = −βτ  (Flugrichtung →)"),
+  () => V(0,0,gd[2]*1.32*(S().mode==="tau"?1:fs)), () => true);
+addLabel("ref", () => fly.active ? "Ebene s · c·t = "+fmt(fly.ct,1)+" mm" : "Ebene s (feste Position)", () => V(gd[0]*1.4, gd[1]*1.4, 0), () => !!S().plane);
+addLabel("acc", () => "Δx = "+fmt(cell[0],2)+" mm", () => V(cell[0]/2, -.12, 0), () => !!S().cell);
+addLabel("acc", () => restOn() ? "γ·Δτ = "+fmt(cell[2]*state.gamma,2)+" mm" : "Δτ = "+fmt(cell[2],2)+" mm", () => V(cell[0]+.15, -.1, cell[2]*fs/2), () => !!S().cell);
+addLabel("ax", () => "±3σ-Kiste, 12 Zellen je Achse", () => V(-gd[0], gd[1]*1.08, -gd[2]*fs), () => S().step===2);
+addLabel("ref", () => "L → dt = L/(βc) = "+fmt(L_M/(state.res.beta*C)*1e9,2)+" ns", () => V(0, gd[1]*1.18+.4, Lvis*.55), () => !!S().L);
+addLabel("acc", () => "Strahl: ±3βσ_τ", () => V(gd[0], gd[1], 3*state.res.beta*sig[2]*fs), () => !!S().slab);
+addLabel("fld", () => "2N Zellen je Achse (Nullen)", () => V(3*gd[0], 3*gd[1], 3*gd[2]*fs), () => !!S().hock);
+addLabel("fld", () => "Original-Achtel mit ρ", () => V(-gd[0], gd[1]*1.1, gd[2]*fs), () => !!S().hock);
+addLabel("fld", () => restOn() ? "Kugel: x²+y²+z̃² = konst." : "Pfannkuchen: x²+y²+γ²z² = konst.", () => V(0, KR*1.12, 0), () => !!S().kernel);
+addLabel("fld", () => "E + v×B in y = 0", () => V(-gd[0], 0, -gd[2]*fs*1.08), () => !!S().field);
+addLabel("frc", () => S().kick ? "Δp = F·dt" : "F am Teilchen", () => V(gd[0]*.9, gd[1]*.9, gd[2]*fs*.6), () => !!S().force);
+addLabel("ref", () => "p₀ (nicht maßstäblich)", () => V(0, .45, gd[2]*1.15*fs), () => !!S().kick);
+for(const l of LBL) l.el.dataset.step = "";
+LBL.forEach(l => { const f=l.showFn; l.showFn = () => f(); });
+// Schritt-Index für das Label der Kiste
+STEPS.forEach((s,i) => s.step = i);
+
+/* ---------------- Updates aus der Rechnung ---------------- */
+const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpC = new THREE.Color();
+function updateVoxels(){
+  const r = state.res;
+  let rmax=0; for(const v of r.rho) if(v>rmax) rmax=v;
+  let pmin=Infinity,pmax=-Infinity; for(const v of r.phi){ if(v<pmin)pmin=v; if(v>pmax)pmax=v; }
+  for(let i=0;i<N;i++)for(let j=0;j<N;j++)for(let k=0;k<N;k++){
+    const id=nid(i,j,k), pos=V(nodePos(0,i),nodePos(1,j),nodePos(2,k));
+    let v=r.rho[id]/rmax, s = v<.015 ? 0 : Math.cbrt(v)*.82;
+    tmpM.compose(pos, tmpQ, V(Math.max(s*cell[0],1e-6), Math.max(s*cell[1],1e-6), Math.max(s*cell[2],1e-6)));
+    rhoMesh.setMatrixAt(id, tmpM); rhoMesh.setColorAt(id, tmpC.copy(col.grid).lerp(col.accent, Math.sqrt(v)));
+    v=(r.phi[id]-pmin)/(pmax-pmin); s = .08 + .74*Math.pow(v,1.5);
+    tmpM.compose(pos, tmpQ, V(s*cell[0], s*cell[1], s*cell[2]));
+    phiMesh.setMatrixAt(id, tmpM); phiMesh.setColorAt(id, tmpC.copy(col.line).lerp(col.field, Math.pow(v,.8)));
+  }
+  rhoMesh.instanceMatrix.needsUpdate = phiMesh.instanceMatrix.needsUpdate = true;
+  rhoMesh.instanceColor.needsUpdate = phiMesh.instanceColor.needsUpdate = true;
+}
+
+function updateLive(){
+  const r = state.res, g = state.gamma, b = r.beta;
+  const ek = (g-1)*ME;
+  $("#gammaOut").innerHTML = `<b>${fmt(g,2)}</b> · β ${fmt(b,3)}`;
+  const hudRows = [
+    ["E_kin (e⁻)", ek<1 ? fmt(ek*1000,0)+" keV" : fmt(ek,2)+" MeV"],
+    ["γ / β", fmt(g,2)+" / "+fmt(b,3)],
+    ["Δx = Δy", fmt(cell[0],2)+" mm"],
+    ["Δτ (Gitter)", fmt(cell[2],2)+" mm"],
+    ["γ·Δτ (Kern)", fmt(cell[2]*g,2)+" mm", 1],
+    ["b = γΔτ/Δx", fmt(cell[2]*g/cell[0],2), 1],
+    ["σ_z = β·σ_τ", fmt(b*sig[2],2)+" mm"],
+    ["dt (L = 10 cm)", fmt(L_M/(b*C)*1e9,3)+" ns"]
+  ];
+  $("#hud").innerHTML = "<table>"+hudRows.map(r=>`<tr${r[2]?' class="hl"':''}><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")+"</table>";
+  const live = {
+    occ: String(r.occ), betaN: fmt(b*N,1),
+    aLab: fmt(cell[2]/cell[0],2), b: fmt(cell[2]*g/cell[0],2),
+    kr: "≈ 1/"+fmt(state.Kref/r.K, state.Kref/r.K<10?1:0),
+    kth: "≈ 1/"+fmt((b*b*g*g*g)/(Math.pow(1-1/(G_MIN*G_MIN),1)*G_MIN*G_MIN*G_MIN), 0)
+  };
+  document.querySelectorAll("[data-live]").forEach(el => { el.textContent = live[el.dataset.live] ?? ""; });
+  const bar = $("#meterBar");
+  if(bar){ const ratio = r.K/state.Kref; bar.style.width = Math.max(1.5, 100*(1 + Math.log10(ratio)/4))+"%"; }
+}
+
+/* ---------------- Schrittwechsel ---------------- */
+const dotsEl = $("#dots");
+STEPS.forEach((s,i) => {
+  const li = document.createElement("li"), b = document.createElement("button");
+  b.textContent = i+1; b.title = s.t; b.setAttribute("aria-label", "Schritt "+(i+1)+": "+s.t);
+  b.addEventListener("click", () => goStep(i)); li.appendChild(b); dotsEl.appendChild(li);
+});
+const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;");
+function renderStep(){
+  const s = S(), i = state.step;
+  $("#stepContent").innerHTML = `<p class="eyebrow">Schritt ${i+1} von ${STEPS.length} · <code>${s.fn}</code></p><h2>${s.t}</h2><pre class="code"><code>${esc(s.code)}</code></pre>${s.body}`;
+  $("#nowTitle").textContent = (i+1)+". "+s.t;
+  dotsEl.querySelectorAll("button").forEach((b,j) => { b.toggleAttribute("aria-current", j===i); if(j===i)b.setAttribute("aria-current","step"); b.classList.toggle("done", j<i); });
+  const ok = !!s.rest;
+  $("#btnRest").disabled = !ok; $("#btnRest").title = ok ? "" : "Ab Schritt 5, vorher gibt es noch kein z";
+  setPressed();
+  $("#btnFly").hidden = !s.fly;
+  $("#prev").disabled = i===0; $("#next").disabled = i===STEPS.length-1;
+  if(!s.fly && fly.active){ fly.active=false; paintParticles(); }
+  applyVisibility(); updateLive(); fitCamera();
+}
+function goStep(i){ state.step = Math.max(0, Math.min(STEPS.length-1, i)); renderStep(); }
+function setPressed(){ const r = restOn(); $("#btnLab").setAttribute("aria-pressed", String(!r)); $("#btnRest").setAttribute("aria-pressed", String(r)); }
+function applyVisibility(){
+  const s = S();
+  plane.visible = !!s.plane;
+  outline.visible = faces.visible = axes.visible = !!s.grid;
+  allCells.visible = !!s.grid && $("#chkCells").checked;
+  hlCell.visible = !!s.cell; slab.visible = !!s.slab;
+  rhoMesh.visible = !!s.rho; phiMesh.visible = !!s.phi;
+  kernel.visible = !!s.kernel; hock.visible = !!s.hock;
+  Larrow.visible = ghost.visible = !!s.L;
+  p0arrow.visible = !!s.kick;
+  fieldArrows.forEach(a => a.visible = false);
+  forceArrows.forEach(a => { a.visible = false; a.setColor(s.kick ? col.accent : col.force); });
+}
+
+/* ---------------- Kamera ---------------- */
+const tw = {active:false};
+function fitCamera(instant){
+  const s = S(), fsT = restOn() ? state.gamma : 1;
+  const c = V(0,0,0); let h = [gd[0]*1.25, gd[1]*1.25, gd[2]*1.2*fsT];
+  if(s.plane) h[2] = gd[2]*1.5;
+  if(s.L){ c.z = Lvis*.45; h[2] = gd[2]*1.9; }
+  if(s.hock){ c.set(gd[0], gd[1], gd[2]*fsT); h = [gd[0]*2.15, gd[1]*2.15, gd[2]*2.15*fsT]; }
+  const r = Math.hypot(h[0],h[1],h[2]);
+  let dist = r / Math.sin(THREE.MathUtils.degToRad(camera.fov/2)) * .82;
+  if(camera.aspect < 1) dist /= Math.max(.55, camera.aspect);
+  const to = c.clone().add(V(1,.55,.4).normalize().multiplyScalar(dist));
+  if(instant || reduce){ camera.position.copy(to); controls.target.copy(c); tw.active=false; return; }
+  Object.assign(tw, {active:true, t0:performance.now(), from:camera.position.clone(), to, fromT:controls.target.clone(), toT:c});
+}
+controls.addEventListener("start", () => { tw.active = false; });
+
+/* ---------------- Steuerung ---------------- */
+const range = $("#gammaRange");
+const toSlider = g => Math.round(1000*Math.log(g/G_MIN)/Math.log(G_MAX/G_MIN));
+const fromSlider = v => G_MIN*Math.pow(G_MAX/G_MIN, v/1000);
+range.value = toSlider(state.gamma);
+let pending = false;
+range.addEventListener("input", () => {
+  state.gamma = fromSlider(+range.value);
+  if(!pending){ pending = true; requestAnimationFrame(() => { pending=false; state.res = compute(state.gamma); updateVoxels(); updateLive(); }); }
+});
+range.addEventListener("change", () => { if(restOn()) fitCamera(); });
+$("#btnLab").addEventListener("click", () => { state.rest=false; setPressed(); updateLive(); fitCamera(); });
+$("#btnRest").addEventListener("click", () => { if(!S().rest) return; state.rest=true; setPressed(); updateLive(); fitCamera(); });
+$("#btnReset").addEventListener("click", () => fitCamera());
+$("#prev").addEventListener("click", () => goStep(state.step-1));
+$("#next").addEventListener("click", () => goStep(state.step+1));
+$("#chkCells").addEventListener("change", applyVisibility);
+$("#btnFly").addEventListener("click", () => { fly.active = true; fly.t0 = performance.now(); });
+addEventListener("keydown", e => {
+  if(e.target && (e.target.tagName==="INPUT" || e.target.tagName==="TEXTAREA")) return;
+  if(e.key==="ArrowRight") goStep(state.step+1);
+  if(e.key==="ArrowLeft") goStep(state.step-1);
+});
+
+function retheme(){
+  readTheme();
+  outline.material.color.copy(col.grid); faces.material.color.copy(col.grid); allCells.material.color.copy(col.grid);
+  hlCell.material.color.copy(col.accent); axes.material.color.copy(col.muted); slab.material.color.copy(col.accent);
+  hock.material.color.copy(col.field); kernel.children.forEach(m => m.material.color.copy(col.field));
+  plane.children.forEach(m => m.material.color.copy(col.ref)); ghMat.color.copy(col.accent); refSprite.material.color.copy(col.ref);
+  fieldArrows.forEach(a => a.setColor(col.field)); Larrow.setColor(col.ref); p0arrow.setColor(col.ref);
+  applyVisibility(); paintParticles(); updateVoxels();
+}
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retheme);
+new MutationObserver(retheme).observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
+
+function resize(){
+  const w = stage.clientWidth, h = stage.clientHeight; if(!w || !h) return;
+  renderer.setSize(w, h, false); camera.aspect = w/h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage);
+
+/* ---------------- Loop ---------------- */
+const tmpV = new THREE.Vector3(), dirV = new THREE.Vector3();
+let last = performance.now();
+function frame(now){
+  const dts = Math.min(.05, (now-last)/1000); last = now;
+  const k = reduce ? 1 : 1 - Math.exp(-dts*5);
+  const s = S(), r = state.res;
+  const fsT = restOn() ? state.gamma : 1;
+  fs += (fsT - fs)*k; gridGroup.scale.z = fs;
+  slab.scale.z = 2*3*r.beta*sig[2];
+  kernel.scale.set(1,1,1/state.gamma);
+
+  // Teilchen
+  if(fly.active){
+    const p = (now - fly.t0)/fly.dur, T = 3.4*sig[2];
+    if(p >= 1){ fly.active = false; paintParticles(); }
+    else {
+      fly.ct = -T + 2*T*p;
+      for(let i=0;i<NP;i++) cur[i] = r.Z[i] + r.beta*fly.ct;
+      paintParticles(i => fly.ct >= P.tau[i]);
+    }
+  }
+  if(!fly.active){
+    for(let i=0;i<NP;i++){
+      const tgt = s.mode==="tau" ? -P.tau[i] : r.Z[i]*fs;
+      cur[i] += (tgt - cur[i])*k;
+    }
+  }
+  for(let i=0;i<NP;i++){ pPos[3*i]=P.x[i]; pPos[3*i+1]=P.y[i]; pPos[3*i+2]=cur[i]; }
+  pGeo.attributes.position.needsUpdate = true;
+  refSprite.position.set(0,0,cur[0]);
+
+  if(s.L){
+    const ph = reduce ? .6 : ((now/2600) % 1), sh = ph*Lvis;
+    for(let i=0;i<NP;i++){ ghPos[3*i]=P.x[i]; ghPos[3*i+1]=P.y[i]; ghPos[3*i+2]=cur[i]+sh; }
+    ghGeo.attributes.position.needsUpdate = true; ghMat.opacity = .38*(1-.6*ph);
+  }
+
+  // Feldpfeile in der Mittelebene
+  if(s.field){
+    const j = N/2; let gmax = 0;
+    for(let i=0;i<N;i++)for(let q=0;q<N;q++){ const id=nid(i,j,q); gmax = Math.max(gmax, Math.hypot(r.gx[id], r.gz[id])); }
+    const base = .95*Math.min(cell[0], cell[2]*fs);
+    let a = 0;
+    for(let i=0;i<N;i++)for(let q=0;q<N;q++,a++){
+      const id=nid(i,j,q), ar=fieldArrows[a], m=Math.hypot(r.gx[id], r.gz[id]);
+      if(m < gmax*.02){ ar.visible=false; continue; }
+      const len = base*Math.sqrt(m/gmax)*1.6;
+      ar.position.set(nodePos(0,i), nodePos(1,j), nodePos(2,q)*fs);
+      ar.setDirection(dirV.set(r.gx[id], 0, r.gz[id]).normalize());
+      ar.setLength(len, Math.min(.35*len,.3), Math.min(.22*len,.18)); ar.visible = true;
+    }
+  }
+  // Kraft- bzw. Kickpfeile an Teilchen
+  if(s.force){
+    const sc = s.kick ? 1/(r.beta) : 1;   // Delta p ~ F * dt ~ F / beta
+    let fm = 0; for(const i of forceIdx) fm = Math.max(fm, Math.hypot(r.Fx[i],r.Fy[i],r.Fz[i])*sc);
+    forceIdx.forEach((i,q) => {
+      const ar = forceArrows[q], m = Math.hypot(r.Fx[i],r.Fy[i],r.Fz[i])*sc;
+      const inBox = Math.abs(P.x[i])<gd[0] && Math.abs(P.y[i])<gd[1] && Math.abs(r.Z[i])<gd[2];
+      if(!inBox || m < fm*.04){ ar.visible=false; return; }
+      const len = 1.5*Math.sqrt(m/fm);
+      ar.position.set(P.x[i], P.y[i], cur[i]);
+      ar.setDirection(dirV.set(r.Fx[i], r.Fy[i], r.Fz[i]).normalize());
+      ar.setLength(len, Math.min(.35*len,.3), Math.min(.22*len,.17)); ar.visible = true;
+    });
+  }
+  if(s.kick){ const L = gd[2]*1.05*fs; p0arrow.setLength(L, Math.min(.6, L*.15), Math.min(.3, L*.08)); }
+
+  // Kamerafahrt
+  if(tw.active){
+    const p = Math.min(1, (now - tw.t0)/750), e = 1 - Math.pow(1-p, 3);
+    camera.position.lerpVectors(tw.from, tw.to, e); controls.target.lerpVectors(tw.fromT, tw.toT, e);
+    if(p >= 1) tw.active = false;
+  }
+  controls.update();
+  renderer.render(scene, camera);
+
+  // Labels
+  const w = stage.clientWidth, h = stage.clientHeight;
+  for(const l of LBL){
+    let show = l.showFn();
+    if(show){
+      tmpV.copy(l.posFn()).project(camera);
+      if(tmpV.z > 1 || tmpV.z < -1) show = false;
+      else {
+        const x = (tmpV.x+1)/2*w, y = (1-tmpV.y)/2*h;
+        l.el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translate(-50%,-50%)`;
+        const t = l.textFn(); if(t !== l.last){ l.el.textContent = t; l.last = t; }
+      }
+    }
+    l.el.hidden = !show;
+  }
+  requestAnimationFrame(frame);
+}
+
+state.res = compute(state.gamma);
+updateVoxels();
+resize();
+renderStep();
+fitCamera(true);
+requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>
