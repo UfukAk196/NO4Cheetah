@@ -8,6 +8,7 @@
 - Train only with the neuralop `Trainer` in `scripts/train_model.py` and evaluate with `scripts/evaluate_model.py`; remove the own training loop, `make_loaders`, `scripts/smoke_train.py`, `scripts/load_model.py`, `scripts/smoke_test.py` and the `main` functions of `scno.train` and `scno.evaluate`
 - Remove all YAML configs (`configs/`) and the `scno.data.generate` CLI; all settings are the constants at the top of `scripts/train_model.py`, which the other scripts import, and missing data is generated on the first training run
 - Write results only to `models/<MODEL_NAME>.pth` (neuralop `state_dict()` with its `_metadata`), `figures/` and `tables/` (history and evaluation as CSV) instead of `outputs/`
+- Give every training run a run ID `<YYYY-MM-DD>_<NN>`: the model goes to `models/<MODEL_NAME>_<RUN>.pth`, plots and tables to `figures/<RUN>/` and `tables/<RUN>/`; `evaluate_model.py [RUN]` evaluates the latest run by default
 - Use neuralop's `FNO` argument names for the model settings and remove the own `FNO3d`
 - Rename `notebooks/smoke_train.ipynb` to `notebooks/train_model.ipynb`
 - Fit the Gaussian output normalizer only for `nondim=False` by default (`encode_output=None`), so nondimensionalized training has a single scaling layer
@@ -15,6 +16,7 @@
 
 ### 🚀 Features
 
+- Add a distributed Optuna hyperparameter search (`scripts/tune_model.py`, TPE + Hyperband pruning on the Sobolev test loss, journal-file storage) and the Slurm script `maxwell-script.sh` for Maxwell; `scno.train.fit` holds the training shared by both
 - Add tests for `NeuralSpaceChargeKick` against `SpaceChargeKick` with the exact operator (tracking and gradients) and for the `ExactOperator` control
 
 ### 🐛 Bug fixes
@@ -26,6 +28,7 @@
 
 ### 🐆 Other
 
+- Move all run settings and `model_path` from `scripts/train_model.py` to `scno.config` and `history_rows` to `scno.train`; `scno.evaluate` takes its default figure folder from there
 - Add project guidelines for AI agents (`AGENTS.md`)
 - Remove `utils/physics.py` in favour of Cheetah's `SpaceChargeKick` methods; `ExactOperator` and `scripts/verify_physics.py` use `models.exact.solve_poisson_on_grid` (Cheetah's integrated Green function with the padding and FFT mirrored, guarded by a test against `SpaceChargeKick`)
 - Remove the unused `dimensionalize_fields`, `density_from_hat`, `coordinate_channels`, `build_input`, `space_charge_field`, `load_config`, the `format` file attribute and the `pyyaml` dependency

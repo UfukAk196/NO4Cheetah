@@ -63,11 +63,13 @@ Neural Operator Pipeline/
 │   │   └── dataset.py        CheetahDataset, load_cheetah_sc
 │   ├── models/
 │   │   └── exact.py          the exact solver as a "model" (control)
-│   ├── train.py              HistoryTrainer (neuralop Trainer with loss history)
+│   ├── config.py             ALL settings (paths, data, model, loss, training, tuning)
+│   ├── train.py              fit + HistoryTrainer (neuralop Trainer with loss history)
 │   └── evaluate.py           accuracy, resolution study, gradient fidelity, plots
 ├── scripts/
-│   ├── train_model.py        ALL settings + training run
+│   ├── train_model.py        training run
 │   ├── evaluate_model.py     evaluation run of the saved model
+│   ├── tune_model.py         distributed Optuna search (maxwell-script.sh submits it)
 │   ├── verify_physics.py     Cheetah's solver vs. charged sphere
 │   └── inspect_scaling.py    spread of phi_hat in the training data
 ├── tests/                    pytest
@@ -129,9 +131,9 @@ python scripts/evaluate_model.py
 
 ## Pipeline step by step
 
-All settings (data, model, loss, training) are the constants at the top of
-[`scripts/train_model.py`](Neural%20Operator%20Pipeline/scripts/train_model.py);
-`evaluate_model.py` and `inspect_scaling.py` import them. For an experiment, change them
+All settings (data, model, loss, training, tuning) are the constants in
+[`src/scno/config.py`](Neural%20Operator%20Pipeline/src/scno/config.py); all scripts
+import them. For an experiment, change them
 there and give the run its own `MODEL_NAME`, so that numbers and settings stay together.
 
 ### 1. Data
@@ -158,6 +160,17 @@ Trains with the neuralop `Trainer` and writes only:
   carries the init kwargs as `_metadata`, so this one file is enough to rebuild the model.
 - `figures/loss_curves_<MODEL_NAME>.png`
 - `tables/<MODEL_NAME>_history.csv`: losses per epoch (eval columns every `EVAL_INTERVAL` epochs)
+
+### Tune hyperparameters (optional, Maxwell)
+
+```bash
+bash maxwell-script.sh 4                   # on a Maxwell login node: study + data job + 4 workers
+python scripts/tune_model.py report <RUN>  # trials.csv + Optuna plots of the study
+```
+
+`scripts/tune_model.py` minimizes the Sobolev (H1) test loss at the training resolution
+with TPE + Hyperband pruning; the workers share the study via a journal file
+(`tables/<RUN>/optuna_journal.log`). Copy the best parameters into `scno/config.py`.
 
 ### 3. Evaluate
 
@@ -272,10 +285,10 @@ setup is right.
 
 - First `verify_physics.py`, then train. If the teacher computes wrongly, the student
   reliably learns nonsense.
-- First run on tiny data (few samples and epochs in `train_model.py`), then scale.
+- First run on tiny data (few samples and epochs in `scno/config.py`), then scale.
 - If an evaluation looks odd, first send `ExactOperator` through the same evaluation.
   If that does not give an error ≈ 0, the network is not the problem.
-- Give every experiment its own `MODEL_NAME` in `train_model.py`, so that numbers and
+- Give every experiment its own `MODEL_NAME` in `scno/config.py`, so that numbers and
   settings stay together.
 
 ---

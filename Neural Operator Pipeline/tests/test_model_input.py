@@ -1,7 +1,7 @@
 """Input format: dataset, training, evaluation and the Cheetah element feed the same model.
 
 The input format is defined once (``input_channels``); these tests keep the model
-settings of ``scripts/train_model.py``, saving/loading, the decoding of predictions and
+settings of ``scno.config``, saving/loading, the decoding of predictions and
 the loss interface consistent with it.
 """
 
@@ -12,8 +12,8 @@ from evaluate_model import load_model
 from neuralop.data.transforms.data_processors import DefaultDataProcessor
 from neuralop.data.transforms.normalizers import UnitGaussianNormalizer
 from neuralop.models import FNO
-from train_model import MODEL
 
+from scno.config import MODEL
 from scno.evaluate import predict
 from scno.models.exact import ExactOperator, solve_poisson_on_grid
 from scno.utils.losses import SobolevLoss

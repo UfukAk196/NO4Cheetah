@@ -11,3 +11,4 @@ wandb/
 *.h5
 *.pt
 *.pth
+/Neural Operator Pipeline/fno-*.out

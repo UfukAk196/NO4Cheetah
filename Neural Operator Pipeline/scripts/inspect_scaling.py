@@ -9,14 +9,14 @@ spread and compares the two reference lengths against each other.
 A result of this kind belongs in the thesis, because it backs a design decision with
 numbers instead of gut feeling.
 
-It analyses the training file of the settings in ``train_model.py``.
+It analyses the training file of the settings in ``scno.config``.
 
 Call: python scripts/inspect_scaling.py
 """
 
 import numpy as np
-from train_model import DATA
 
+from scno.config import DATA
 from scno.data.dataset import CheetahDataset
 from scno.data.generate import dataset_path
 

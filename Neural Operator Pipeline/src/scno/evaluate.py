@@ -22,15 +22,18 @@ from collections import defaultdict
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
+from cheetah.particles import ParticleBeam
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import Normalize
 
+from scno.config import FIGURES_DIR
 from scno.data.dataset import CheetahDataset
 from scno.data.generate import DISTRIBUTIONS
 from scno.models.exact import ExactOperator
 from scno.utils.losses import field_error, gradient_error
-from scno.utils.normalization import Scaling, decode_prediction, input_channels
-
-ROOT = Path(__file__).resolve().parents[2]
+from scno.utils.normalization import input_channels
 
 
 def _device(model: torch.nn.Module) -> torch.device:
@@ -167,49 +170,9 @@ def gradient_consistency(model, dataset, data_processor=None, num_samples: int =
     }
 
 
-# Central cuts through the grid, in the style of the SciBeam plot:
-#   x-y at tau = cen,  x-tau at y = cen,  y-tau at x = cen
-CUTS = {
-    "xy": ("x-y  (tau = cen)", (0, 1)),
-    "xt": ("x-tau (y = cen)", (0, 2)),
-    "yt": ("y-tau (x = cen)", (1, 2)),
-}
-AXIS_NAMES = ["x / idx", "y / idx", "tau / idx"]
-
-
-def _central_cut(field, cut: str):
-    nx, ny, nz = field.shape
-    return {
-        "xy": field[:, :, nz // 2],
-        "xt": field[:, ny // 2, :],
-        "yt": field[nx // 2, :, :],
-    }[cut]
-
-
-def _draw_cuts(fig, axes, field, label, cmap, cuts=tuple(CUTS), vlim=None):
-    """Draws one central cut (``cuts``) of a 3D field per axis in ``axes``."""
-    if torch.is_tensor(field):
-        field = field.detach().cpu().numpy()
-    vmin, vmax = vlim if vlim is not None else (None, None)
-    for ax, cut in zip(axes, cuts):
-        title, (ia, ib) = CUTS[cut]
-        image = ax.imshow(
-            _central_cut(field, cut).T,
-            origin="lower",
-            aspect="auto",
-            cmap=cmap,
-            vmin=vmin,
-            vmax=vmax,
-        )
-        fig.colorbar(image, ax=ax)
-        ax.set_title(f"{label}   {title}")
-        ax.set_xlabel(AXIS_NAMES[ia])
-        ax.set_ylabel(AXIS_NAMES[ib])
-
-
 def _save_figures(figures: dict, save_dir=None, tag=""):
     """Saves ``{file name: figure}`` under ``save_dir`` (default: figures/)."""
-    save_dir = Path(save_dir) if save_dir is not None else ROOT / "figures"
+    save_dir = Path(save_dir) if save_dir is not None else FIGURES_DIR
     save_dir.mkdir(parents=True, exist_ok=True)
     suffix = f"_{tag}" if tag else ""
     paths = []
@@ -220,109 +183,122 @@ def _save_figures(figures: dict, save_dir=None, tag=""):
     print(f"Figures saved: {', '.join(paths)}")
 
 
-def plot_predictions(model, batch, data_processor, nondim: bool, tag="", save_dir=None):
-    """Plots FNO predictions on Cheetah SC data (3D).
+def field_to_beam(field, cell_size, k: float) -> ParticleBeam | None:
+    """Grid field -> ``ParticleBeam`` whose histogram is the field, for Cheetah's plots.
 
-    ``batch`` is a raw batch dict from a test loader:
-        {"x": (B, 4, nx, ny, nz), "y": (B, 1, nx, ny, nz)}
-    The first 3 samples are plotted; the axes are grid indices. The prediction is in
-    the units of y (phi_hat for ``nondim=True``, otherwise phi in V). For the raw vs.
-    nondimensionalized comparison see ``plot_normalization_comparison``.
+    ``field`` (nx, ny, nz) must be >= 0 (one sign part of a field), ``cell_size`` (3,)
+    in m. Each cell gets ``round(k * field)`` particles, all exactly at the cell centre
+    (x, y, tau; momenta 0). Histogrammed with one bin per cell (``bins = n``,
+    ``bin_ranges = +-n * cell_size / 2``) this reproduces the projected field up to the
+    rounding. Returns ``None`` if no particle remains.
     """
-    with torch.no_grad():
-        out = predict(model, batch, data_processor)
-    x, y = batch["x"], batch["y"]
-
-    B = min(3, x.shape[0])  # at most 3 samples
-    rho_name, phi_name = ("rho_hat", "phi_hat") if nondim else ("rho [C/m^3]", "phi [V]")
-    unit = "nondimensionalized" if nondim else "physical"
-
-    # ----- Figure 1: input, B samples x 3 central cuts -----
-    fig1, axs1 = plt.subplots(B, 3, figsize=(11, 3.5 * B), squeeze=False)
-    for i in range(B):
-        _draw_cuts(fig1, axs1[i], x[i, 0], rho_name, "viridis")
-    fig1.suptitle(f"Input {rho_name} ({unit})", y=0.99)
-    fig1.tight_layout()
-
-    # ----- Figure 2: ground truth vs. prediction, per sample [GT: 3 | Pred: 3] -----
-    fig2, axs2 = plt.subplots(B, 6, figsize=(22, 3.5 * B), squeeze=False)
-    for i in range(B):
-        _draw_cuts(fig2, axs2[i, :3], y[i, 0], f"{phi_name} GT", "magma")
-        _draw_cuts(fig2, axs2[i, 3:], out[i, 0], f"{phi_name} Pred", "magma")
-    fig2.suptitle(f"{phi_name} ({unit}): ground truth vs. prediction", y=0.99)
-    fig2.tight_layout()
-
-    _save_figures({"rho_hat": fig1, "phi_hat_gt_vs_pred": fig2}, save_dir, tag)
-    plt.show()
-    return fig1, fig2
+    counts = torch.round(k * field).long()
+    if counts.sum() == 0:
+        return None
+    shape = torch.tensor(field.shape, dtype=torch.float64)
+    cells = counts.nonzero()
+    centres = (cells + 0.5) * cell_size - shape * cell_size / 2
+    centres = centres.repeat_interleave(counts[tuple(cells.T)], dim=0)
+    particles = torch.zeros(len(centres), 7)
+    particles[:, [0, 2, 4]] = centres.float()
+    particles[:, 6] = 1.0
+    return ParticleBeam(particles, energy=torch.tensor(1e9))
 
 
-def plot_normalization_comparison(
-    model, dataset, data_processor=None, indices=(0, 1, 2), cut="xy", tag="", save_dir=None
+def plot_field_comparison(
+    fields: dict, cell_size, title="", name="fields", tag="", save_dir=None,
+    max_particles: int = 2_000_000,
 ):
-    """Raw vs. nondimensionalized fields for input and output.
+    """Grid fields (e.g. ``{"phi GT": gt, "phi Pred": pred}``) side by side through
+    Cheetah's ``ParticleBeam.plot_distribution``, one 3x3 block (x, y, tau) per field.
 
-    ``dataset`` is a ``CheetahDataset`` with ``return_meta=True`` (the training loaders
-    deliberately have it off, because the neuralop ``Trainer`` passes every key to the
-    model). Whether the model was trained on rho_hat -> phi_hat or on rho -> phi comes
-    from ``dataset.nondim``.
+    ``plot_distribution`` only shows particle counts, each panel scaled to its own
+    maximum. To compare the fields, every field is split into its positive and negative
+    part, each part becomes a beam (``field_to_beam``, same particle density ``k`` for
+    all fields) and the drawn curves/meshes are rescaled afterwards: every panel is in
+    units of the largest |projection| of the *first* field in that panel, negative parts
+    count negative. So the first field peaks at +-1 and the others are directly
+    comparable to it (shared colour scale and y-range).
 
-    Figure 1 (input), per sample: rho [C/m^3] (3 cuts) | rho_hat (3 cuts)
-    Figure 2 (output), per sample, cut ``cut`` ("xy", "xt", "yt"):
-        phi GT [V] | phi Pred [V] | phi_hat GT | phi_hat Pred
-    GT and Pred share the colour scale (common range in the cut).
+    The panels are projections (sums along the hidden axis), not central cuts. Where
+    both signs project onto the same pixel, the negative part (drawn last) covers the
+    positive one. Needs a cubic grid, since ``plot_distribution`` takes one ``bins``.
     """
-    batch = torch.utils.data.default_collate([dataset[i] for i in indices])
-    scaling = Scaling(
-        total_charge=batch["total_charge"],
-        reference_length=batch["reference_length"],
-        normalized_extent=batch["normalized_extent"],
+    fields = {k: f.detach().cpu().double() for k, f in fields.items()}
+    ref_name, ref = next(iter(fields.items()))
+    n = ref.shape[0]
+    assert ref.shape == (n, n, n), f"cubic grid needed, got {tuple(ref.shape)}"
+    cell_size = torch.as_tensor(cell_size, dtype=torch.float64).cpu()
+    bin_ranges = [(-h, h) for h in (n * cell_size / 2).tolist()]
+    # One particle density for all fields, so the counts share units; capped so that a
+    # large grid (or a strongly overshooting prediction) stays in memory.
+    k = min(
+        500 / float(ref.abs().max()),
+        max_particles / max(float(f.abs().sum()) for f in fields.values()),
     )
-    with torch.no_grad():
-        out = predict(model, batch, data_processor)
-    phi_hat_pred, phi_pred = decode_prediction(
-        out[:, 0].cpu().double(), scaling, nondim=dataset.nondim
+
+    def summed(field, *keep):
+        """Projection of ``field`` onto the axes ``keep``."""
+        return field.sum(tuple(a for a in range(3) if a not in keep))
+
+    pairs = list(itertools.combinations(range(3), 2))
+    ref_1d = [float(summed(ref, i).abs().max()) for i in range(3)]
+    ref_2d = {(i, j): float(summed(ref, i, j).abs().max()) for i, j in pairs}
+
+    cmap = "RdBu_r"
+    fig, axs = plt.subplots(
+        3, 3 * len(fields), figsize=(7 * len(fields) + 1, 6), gridspec_kw={"wspace": 0.45}
     )
-
-    B = len(indices)
-    trained_on = "rho_hat -> phi_hat" if dataset.nondim else "rho -> phi"
-
-    # ----- Figure 1: input raw vs. nondimensionalized -----
-    fig1, axs1 = plt.subplots(B, 6, figsize=(22, 3.5 * B), squeeze=False)
-    for i in range(B):
-        _draw_cuts(fig1, axs1[i, :3], batch["rho"][i], "rho [C/m^3]", "viridis")
-        _draw_cuts(fig1, axs1[i, 3:], batch["rho_hat"][i], "rho_hat", "viridis")
-    fig1.suptitle("Input: physical (left) vs. nondimensionalized (right)", y=0.99)
-    fig1.tight_layout()
-
-    # ----- Figure 2: output raw vs. nondimensionalized, GT vs. Pred -----
-    fig2, axs2 = plt.subplots(B, 4, figsize=(16, 3.5 * B), squeeze=False)
-    for i in range(B):
-        pairs = [
-            ("phi", "[V]", batch["phi"][i], phi_pred[i]),
-            ("phi_hat", "", batch["phi_hat"][i], phi_hat_pred[i]),
-        ]
-        for j, (name, unit, gt, pred) in enumerate(pairs):
-            # Common scale from GT and Pred in the shown cut: otherwise an overshooting
-            # prediction is clipped and the cut uses only a fraction of the scale.
-            gt_cut, pred_cut = (_central_cut(f.detach().cpu(), cut) for f in (gt, pred))
-            vlim = (
-                float(min(gt_cut.min(), pred_cut.min())),
-                float(max(gt_cut.max(), pred_cut.max())),
+    meshes, lines = [], []
+    for b, (label, field) in enumerate(fields.items()):
+        block = axs[:, 3 * b : 3 * b + 3]
+        for sign, part in ((1, field.clamp(min=0)), (-1, (-field).clamp(min=0))):
+            beam = field_to_beam(part, cell_size, k)
+            if beam is None:
+                continue
+            beam.plot_distribution(
+                ("x", "y", "tau"),
+                bins=n,
+                bin_ranges=bin_ranges,
+                plot_2d_kws={"pcolormesh_kws": {"cmap": cmap}},
+                axs=block,
             )
-            for k, (kind, field) in enumerate((("GT", gt), ("Pred", pred))):
-                label = f"{name} {kind} {unit}".strip()
-                _draw_cuts(
-                    fig2, [axs2[i, 2 * j + k]], field, label, "magma", cuts=(cut,), vlim=vlim
-                )
-    fig2.suptitle(
-        f"Output: physical vs. nondimensionalized (model: {trained_on})", y=0.99
-    )
-    fig2.tight_layout()
+            # Undo the per-panel normalization of Cheetah (division by the maximum).
+            counts = torch.round(k * part)
+            for i in range(3):
+                line = block[i, i].get_lines()[-1]
+                scale = sign * float(summed(counts, i).max()) / k / ref_1d[i]
+                line.set_ydata(line.get_ydata() * scale)
+                lines.append(line)
+            for i, j in pairs:
+                mesh = block[j, i].collections[-1]
+                scale = sign * float(summed(counts, i, j).max()) / k / ref_2d[i, j]
+                mesh.set_array(mesh.get_array() * scale)
+                meshes.append(mesh)
+        block[0, 0].set_title(label, loc="left")
 
-    _save_figures({"norm_input": fig1, "norm_output": fig2}, save_dir, tag)
-    plt.show()
-    return fig1, fig2
+    # Shared scales: symmetric colour range, common y-range of the 1D curves.
+    values = [np.ma.masked_invalid(m.get_array()) for m in meshes]
+    vmax = max([1.0] + [float(np.abs(v).max()) for v in values if v.count()])
+    for mesh in meshes:
+        mesh.set_clim(-vmax, vmax)
+    ys = np.concatenate([line.get_ydata() for line in lines])
+    lo, hi = min(0.0, float(ys.min())), max(0.0, float(ys.max()))
+    for b in range(len(fields)):
+        for i in range(3):
+            ax = axs[i, 3 * b + i]
+            ax.set_ylim(lo - 0.05 * (hi - lo), hi + 0.05 * (hi - lo))
+            ax.axhline(0.0, color="grey", lw=0.5)
+
+    fig.colorbar(
+        ScalarMappable(Normalize(-vmax, vmax), cmap),
+        ax=axs.ravel().tolist(),
+        shrink=0.8,
+        label=f"projection / max |projection of {ref_name}|",
+    )
+    fig.suptitle(title)
+    _save_figures({name: fig}, save_dir, tag)
+    return fig
 
 
 def plot_losses(history, save_dir=None, tag=""):

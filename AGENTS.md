@@ -85,7 +85,7 @@ sets itself apart from it: the NO replaces the *physics kernel* of an element on
    precision, then assert that both the outputs and the gradients w.r.t. beam and element
    parameters match to float tolerance.
 6. **neuraloperator is a full dependency.** The element takes the trained network as a
-   `neuralop.models.base_model.BaseModel`. Save **only the state dict** as `models/<name>.pth`
+   `neuralop.models.base_model.BaseModel`. Save **only the state dict** as `models/<name>_<run>.pth`
    via neuralop's `state_dict()` (it embeds the init kwargs as `_metadata`) and load with
    `scripts/evaluate_model.load_model` (rebuild from `_metadata`, then neuralop's
    `load_state_dict`). No `save_checkpoint` (writes extra files). Any model passed to the
@@ -108,15 +108,19 @@ pip install -e ".[dev]"              # after changing pyproject.toml (the ONLY d
 python scripts/verify_physics.py     # Cheetah's solver vs analytic charged sphere (~30 s)
 pytest                               # testpaths = tests (incl. element vs SpaceChargeKick)
 python scripts/train_model.py        # train; generates missing data
-python scripts/evaluate_model.py     # evaluation table + prediction plots
+python scripts/evaluate_model.py     # evaluation table + test beam plots
 python scripts/inspect_scaling.py    # spread of phi_hat in the training data
+bash maxwell-script.sh 4             # Maxwell login node: Optuna study, data job, 4 workers
+python scripts/tune_model.py report  # Optuna table + plots of the latest study
 ```
 
-No config files: **all settings are the constants at the top of `scripts/train_model.py`**
-(`DATA`, `MODEL`, `LOSS`, `TRAINING`, `MODEL_NAME`, ...); the other scripts import them.
-Outputs go **only** to `models/<MODEL_NAME>.pth`, `figures/` (plots) and `tables/` (CSV:
-`<MODEL_NAME>_history.csv`, `<MODEL_NAME>_evaluation.csv`); never create other output
-folders or files. For a quick check run, patch the constants in memory instead of editing
+No config files: **all settings are the constants in `src/scno/config.py`**
+(`DATA`, `MODEL`, `LOSS`, `TRAINING`, `MODEL_NAME`, paths, `model_path`, Optuna budget, ...);
+all scripts and tests import them from there.
+Every training run gets a run ID `<YYYY-MM-DD>_<NN>` (`NN` counts the runs of that day).
+Outputs go **only** to `models/<MODEL_NAME>_<RUN>.pth`, `figures/<RUN>/` (plots) and
+`tables/<RUN>/` (CSV: `history.csv`, `evaluation.csv`); `evaluate_model.py [RUN]`
+evaluates the given run, by default the latest. Never create other output folders or files. For a quick check run, patch the constants in memory instead of editing
 the file, and remove the produced files afterwards.
 
 `data/`, `*.h5`, `*.pt` are git-ignored. Windows: keep `num_workers: 0`; set
@@ -162,10 +166,12 @@ differences → field → kick.
 - `utils/losses.py`: `SobolevLoss` (field + weighted gradient, neuralop `LpLoss`/`FiniteDiff`,
   summed over the batch as the `Trainer` expects). `poisson_residual` never reaches 0 against
   IGF labels; report its floor measured with exact inputs.
-- `train.py` only holds `HistoryTrainer`; `evaluate.py` only the evaluation and plot
-  functions. The runs are `scripts/train_model.py` (`load_cheetah_sc(**DATA)` →
-  `FNO(**MODEL)` → `HistoryTrainer` → `.pth` + loss curves + history CSV; the final model,
-  no best checkpoint) and `scripts/evaluate_model.py` (refits the data processor via
+- `train.py` holds the training shared by training and tuning: `fit` (FNO + AdamW + cosine
+  schedule + `HistoryTrainer`, all settings as arguments), `HistoryTrainer`, `history_rows`;
+  `evaluate.py` only the evaluation and plot functions. The runs are
+  `scripts/train_model.py` (`load_cheetah_sc(**DATA)` → `fit` → `.pth` + loss curves +
+  history CSV; the final model, no best checkpoint), `scripts/tune_model.py` (Optuna,
+  `fit` with a pruning `HistoryTrainer`) and `scripts/evaluate_model.py` (refits the data processor via
   `load_cheetah_sc(**DATA, generate=False)`, needed only for `nondim=False`).
 
 ## Cheetah facts that matter here
@@ -206,4 +212,5 @@ Cheetah's dependencies and an entry in Cheetah's `tests/conftest.py`.
 
 1. `verify_physics.py` before training: if the teacher is wrong, the student learns nonsense.
 2. Run on tiny data first (few samples and epochs), then scale.
-3. Give every experiment its own `MODEL_NAME`, so that model, figures and tables belong together.
+3. Every training run gets its own run ID (date + consecutive number), so that model, figures
+   and tables belong together; change `MODEL_NAME` for a new kind of model.

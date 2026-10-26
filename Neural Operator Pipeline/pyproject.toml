@@ -23,8 +23,9 @@ dependencies = [
 [project.optional-dependencies]
 notebooks = ["ipykernel", "pandas"]
 logging = ["wandb>=0.16"]
+tune = ["optuna>=4.0"]
 test = ["pytest", "pytest-mock"]
-dev = ["scno[notebooks,logging,test]"]
+dev = ["scno[notebooks,logging,test,tune]"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
