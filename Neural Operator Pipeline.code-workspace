@@ -1,6 +1,6 @@
 {
 	"folders": [
-		{ "path": "Neural Operator Pipeline" },
+		{ "path": "Pipeline" },
 		{ "path": "../Cheetah repos/cheetah-accelerator" },
 		{ "path": "../Cheetah repos/cheetah-demos/neural_network_space_charge_quad" },
 		{ "path": "../pytorch-deep-learning" }
