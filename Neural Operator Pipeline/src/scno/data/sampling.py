@@ -37,7 +37,7 @@ DEFAULT_RANGES: dict[str, dict[str, float]] = {
     "energy": {"min": 5.0e7, "max": 1.5e8},  # [eV]
     "total_charge": {"min": 1.0e-10, "max": 2.0e-9},  # [C]
     # uniform (integer)
-    "n_particles": {"min": 1.0e4, "max": 1.0e6},  # [1] macroparticles per bunch
+    "n_particles": {"min": 1.0e6, "max": 1.0e6},  # [1] macroparticles per bunch; TODO: setted min=max=1e6 for testing, but should be a range, drawn on every decade of magnitude, e.g. 1e5..1e7
 }
 
 # Quantities drawn log-uniformly (see docstring).

@@ -42,20 +42,20 @@ DATA = {
 
 # Keyword arguments of neuralop.models.FNO.
 MODEL = {
-    "n_modes": (8, 8, 8),  # kept Fourier modes per axis
+    "n_modes": (16, 16, 16),  # kept Fourier modes per axis
     "in_channels": 4,  # rho_hat + 3 aspect ratios log(E_i/L)
     "out_channels": 1,  # phi_hat
     "hidden_channels": 16,
     "n_layers": 3,
     "domain_padding": 0.25,  # padding against the open boundaries
-    "factorization": None,  # e.g. "tucker" for fewer weights
+    "factorization": None,  # use "tucker" for fewer weights
     "rank": 1.0,
 }
 
 # Keyword arguments of scno.utils.losses.SobolevLoss.
-LOSS = {
+LOSS = {    # TODO: einfachen MSE/ MAE loss probieren, wobei Sobolev bereits sinn macht, da Problem in f-domain
     "gradient_weight": 1.0,  # weight of the gradient error -- the kick is a gradient
-    "physics_weight": 0.0,  # > 0 adds the Poisson residual (PINN part)
+    "physics_weight": 1.0,  # > 0 adds the Poisson residual (PINN part)
 }
 
 TRAINING = {

@@ -105,8 +105,8 @@ def fit(
         lr=training["learning_rate"],
         weight_decay=training["weight_decay"],
     )
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=training["epochs"]
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, patience=5, factor=0.5
     )
 
     trainer = trainer_cls(

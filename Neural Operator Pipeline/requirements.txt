@@ -8,4 +8,4 @@
 # torch is NOT reinstalled: Colab brings a matching CUDA version, and torch>=2.2 from
 # pyproject.toml is thereby already satisfied.
 
--e .[logging]
+-e .[dev]
