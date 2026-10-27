@@ -29,14 +29,12 @@ source /etc/profile.d/modules.sh    # makes the `module` command available in a 
 module purge                        # drop inherited modules, so the run starts from a known state
 module load maxwell pytorch         # site base paths + the cluster's CUDA PyTorch (pip must not replace it)
 
-spack env activate pytorch          # wire up the Spack install tree (PATH, LD_LIBRARY_PATH, PYTHONPATH)
-
 cd "$SLURM_SUBMIT_DIR"              # run from the submit dir, so the relative paths below resolve
+source no4cheetah.venv/bin/activate
 export MPLBACKEND=Agg               # headless matplotlib: plt.show() must not block on a compute node
 
 if [ -z "${SLURM_JOB_ID:-}" ]; then # empty => login node; set => we are already a batch job
                                     # Install once, on the login node: N array tasks must not run pip into the same env at once.
-    pip install --user -e ".[tune,logging]"                                     # editable scno + optuna and wandb; torch is left untouched
     RUN=$(python scripts/tune_model.py create | tail -n 1)                      # new study, prints its run ID last
     GEN=$(sbatch --parsable --partition=maxgpu --constraint=A100 --nodes=1 \
         --time=12:00:00 --job-name=fno-gen --output=fno-gen-%j.out \
