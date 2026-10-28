@@ -108,7 +108,7 @@ def suggest(trial: optuna.Trial) -> tuple[dict, dict, dict]:
     training = {
         **TRAINING,
         # +1: the Trainer evaluates at epochs 0, k, 2k, ..., so the last epoch is one too.
-        "epochs": TUNE_EPOCHS + 1,
+        "epochs": trial.suggest_float("epochs", 1.0e3, 1.0e5, log=True),
         "learning_rate": trial.suggest_float("learning_rate", 1.0e-4, 1.0e-2, log=True),
         "weight_decay": trial.suggest_float("weight_decay", 1.0e-6, 1.0e-3, log=True),
     }

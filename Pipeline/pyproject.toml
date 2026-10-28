@@ -9,7 +9,6 @@ description = "Neural operator replacing the space-charge Poisson solver in Chee
 requires-python = ">=3.10,<3.13"
 # The ONLY package list of the project. New package? -> add it here, then `pip install -e ".[dev]"`.
 dependencies = [
-    "torch>=2.2",                    # comes via conda (pytorch / pytorch-gpu) or from Colab; pip then leaves it alone
     "numpy>=1.26",
     "scipy>=1.11",
     "h5py>=3.10",
