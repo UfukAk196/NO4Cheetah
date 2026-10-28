@@ -35,15 +35,21 @@ conda activate no4cheetah
 
 export MPLBACKEND=Agg               # headless matplotlib: plt.show() must not block on a compute node
 
-cd "$SLURM_SUBMIT_DIR"              # run from the submit dir, so the relative paths below resolve
+if [ -n "${SLURM_JOB_ID:-}" ]; then
+    PIPELINE_DIR="$SLURM_SUBMIT_DIR"                       # batch job: $0 is Slurm's spool copy, so use the submit dir
+else
+    PIPELINE_DIR="$(dirname "$(readlink -f "$0")")"        # login node: the dir this script lives in, whatever the cwd
+fi
+cd "$PIPELINE_DIR"                  # run from "Neural Operator Pipeline/", so the relative paths below resolve
 
 if [ -z "${SLURM_JOB_ID:-}" ] && [ -z "${1:-}" ]; then # empty => login node; set => we are already a batch job
                                     # Install once, on the login node: N array tasks must not run pip into the same env at once.
     RUN=$(python scripts/tune_model.py create | tail -n 1)                      # new study, prints its run ID last
-    GEN=$(sbatch --parsable --partition=maxgpu --constraint=A100 --nodes=1 \
+    GEN=$(sbatch --parsable --chdir="$PIPELINE_DIR" --partition=maxgpu --constraint=A100 --nodes=1 \
         --time=12:00:00 --job-name=fno-gen --output=fno-gen-%j.out \
         --wrap "python scripts/tune_model.py generate")                         # generate the HDF5 data exactly once
-    sbatch --dependency=afterok:"$GEN" --array=0-$(( ${1:-4} - 1 )) "$0" "$RUN" # N workers, held until data exists
+    sbatch --chdir="$PIPELINE_DIR" --dependency=afterok:"$GEN" --array=0-$(( ${1:-4} - 1 )) \
+        "$PIPELINE_DIR/tune-script.sh" "$RUN"                                   # N workers, held until data exists
     echo "Study $RUN: data job $GEN, workers wait for it."
     exit 0                          # stop here, or the login node would run `work` below
 fi
