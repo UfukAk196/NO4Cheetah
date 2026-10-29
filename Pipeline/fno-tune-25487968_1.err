@@ -1,0 +1,15 @@
+/home/akkaya/.conda/envs/no4cheetah/lib/python3.12/site-packages/torch/nn/modules/module.py:1794: UserWarning: FNO.forward() received unexpected keyword arguments: ['y']. These arguments will be ignored.
+  return forward_call(*args, **kwargs)
+[I 2026-10-29 15:59:28,828] Trial 1 finished with value: 1.6636133193969727 and parameters: {'n_modes': 5, 'hidden_channels': 32, 'n_layers': 5, 'domain_padding': 0.5, 'gradient_weight': 2.091931375514268, 'epochs': 33841, 'learning_rate': 0.005721870407999674, 'weight_decay': 2.3001161397276094e-05}. Best is trial 12 with value: 1.6622698307037354.
+Traceback (most recent call last):
+  File "/home/akkaya/NO4Cheetah/Pipeline/scripts/tune_model.py", line 229, in <module>
+    raise SystemExit(main(*sys.argv[1:]))
+                     ^^^^^^^^^^^^^^^^^^^
+  File "/home/akkaya/NO4Cheetah/Pipeline/scripts/tune_model.py", line 211, in main
+    work(run)
+  File "/home/akkaya/NO4Cheetah/Pipeline/scripts/tune_model.py", line 169, in work
+    report(run)
+  File "/home/akkaya/NO4Cheetah/Pipeline/scripts/tune_model.py", line 200, in report
+    _save_figures({name: ax.figure for name, ax in axes.items()}, save_dir=FIGURES_DIR / run)
+                         ^^^^^^^^^
+AttributeError: 'numpy.ndarray' object has no attribute 'figure'

@@ -1,0 +1,30 @@
+/home/akkaya/.conda/envs/no4cheetah/lib/python3.12/site-packages/torch/nn/modules/module.py:1794: UserWarning: FNO.forward() received unexpected keyword arguments: ['y']. These arguments will be ignored.
+  return forward_call(*args, **kwargs)
+[I 2026-10-29 15:22:15,236] Trial 0 finished with value: 2.2222585678100586 and parameters: {'n_modes': 7, 'hidden_channels': 16, 'n_layers': 2, 'domain_padding': 0.125, 'gradient_weight': 2.220549772696997, 'epochs': 20620, 'learning_rate': 0.00020099978970781253, 'weight_decay': 5.761658637824338e-06}. Best is trial 3 with value: 1.6671617031097412.
+[I 2026-10-29 15:22:16,606] Trial 6 pruned. 
+[I 2026-10-29 15:22:25,595] Trial 7 pruned. 
+[I 2026-10-29 15:22:26,675] Trial 8 pruned. 
+[I 2026-10-29 15:22:27,682] Trial 9 pruned. 
+[I 2026-10-29 15:22:29,064] Trial 10 pruned. 
+[I 2026-10-29 15:22:30,323] Trial 11 pruned. 
+[I 2026-10-29 15:24:22,865] Trial 12 finished with value: 1.6622698307037354 and parameters: {'n_modes': 5, 'hidden_channels': 16, 'n_layers': 4, 'domain_padding': 0.25, 'gradient_weight': 0.9719960724401766, 'epochs': 1197, 'learning_rate': 0.0006626774934136918, 'weight_decay': 4.92123270207299e-05}. Best is trial 12 with value: 1.6622698307037354.
+[I 2026-10-29 15:24:31,467] Trial 13 pruned. 
+[I 2026-10-29 15:24:32,639] Trial 14 pruned. 
+[I 2026-10-29 15:24:33,886] Trial 15 pruned. 
+[I 2026-10-29 15:31:02,579] Trial 16 finished with value: 1.6673614978790283 and parameters: {'n_modes': 5, 'hidden_channels': 16, 'n_layers': 5, 'domain_padding': 0.25, 'gradient_weight': 2.766639154741061, 'epochs': 3852, 'learning_rate': 0.0023470069658811502, 'weight_decay': 2.295491510346652e-06}. Best is trial 12 with value: 1.6622698307037354.
+[I 2026-10-29 15:31:31,660] Trial 69 pruned. 
+[I 2026-10-29 15:31:32,900] Trial 70 pruned. 
+[I 2026-10-29 15:31:36,278] Trial 71 pruned. 
+[I 2026-10-29 15:36:07,275] Trial 72 finished with value: 1.666796326637268 and parameters: {'n_modes': 5, 'hidden_channels': 16, 'n_layers': 6, 'domain_padding': 0.25, 'gradient_weight': 1.7062181936102545, 'epochs': 2446, 'learning_rate': 0.0015853127571760117, 'weight_decay': 1.7087311078682563e-06}. Best is trial 12 with value: 1.6622698307037354.
+Traceback (most recent call last):
+  File "/home/akkaya/NO4Cheetah/Pipeline/scripts/tune_model.py", line 229, in <module>
+    raise SystemExit(main(*sys.argv[1:]))
+                     ^^^^^^^^^^^^^^^^^^^
+  File "/home/akkaya/NO4Cheetah/Pipeline/scripts/tune_model.py", line 211, in main
+    work(run)
+  File "/home/akkaya/NO4Cheetah/Pipeline/scripts/tune_model.py", line 169, in work
+    report(run)
+  File "/home/akkaya/NO4Cheetah/Pipeline/scripts/tune_model.py", line 200, in report
+    _save_figures({name: ax.figure for name, ax in axes.items()}, save_dir=FIGURES_DIR / run)
+                         ^^^^^^^^^
+AttributeError: 'numpy.ndarray' object has no attribute 'figure'
