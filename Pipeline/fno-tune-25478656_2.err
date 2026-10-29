@@ -1,0 +1,36 @@
+/home/akkaya/.conda/envs/no4cheetah/lib/python3.12/site-packages/torch/nn/modules/module.py:1794: UserWarning: FNO.forward() received unexpected keyword arguments: ['y']. These arguments will be ignored.
+  return forward_call(*args, **kwargs)
+[I 2026-10-28 22:18:05,752] Trial 4 pruned. 
+[I 2026-10-28 22:18:08,999] Trial 5 pruned. 
+[I 2026-10-28 22:18:10,324] Trial 6 pruned. 
+[I 2026-10-28 22:18:11,215] Trial 7 pruned. 
+[I 2026-10-28 22:18:13,590] Trial 8 pruned. 
+[I 2026-10-28 22:18:21,827] Trial 9 pruned. 
+[I 2026-10-28 22:18:23,586] Trial 10 pruned. 
+[I 2026-10-28 23:03:49,853] Trial 11 pruned. 
+[I 2026-10-28 23:03:51,370] Trial 76 pruned. 
+[I 2026-10-28 23:04:01,519] Trial 77 pruned. 
+[I 2026-10-28 23:04:31,533] Trial 78 pruned. 
+[I 2026-10-28 23:05:05,893] Trial 79 pruned. 
+[I 2026-10-28 23:05:07,189] Trial 80 pruned. 
+[I 2026-10-28 23:05:08,468] Trial 81 pruned. 
+[I 2026-10-28 23:05:12,040] Trial 82 pruned. 
+[I 2026-10-28 23:05:16,914] Trial 83 pruned. 
+[I 2026-10-28 23:05:20,575] Trial 84 pruned. 
+[I 2026-10-28 23:05:22,084] Trial 85 pruned. 
+[I 2026-10-28 23:05:25,576] Trial 86 pruned. 
+[I 2026-10-28 23:05:26,869] Trial 87 pruned. 
+[I 2026-10-28 23:05:30,373] Trial 88 pruned. 
+[I 2026-10-29 00:21:34,911] Trial 89 finished with value: 1.656761646270752 and parameters: {'n_modes': 6, 'hidden_channels': 32, 'n_layers': 6, 'domain_padding': 0.5, 'gradient_weight': 7.739780310954986, 'epochs': 36103, 'learning_rate': 0.0008465272960074421, 'weight_decay': 5.617450086291681e-06}. Best is trial 89 with value: 1.656761646270752.
+[I 2026-10-29 00:22:08,786] Trial 90 pruned. 
+[I 2026-10-29 00:22:10,227] Trial 91 pruned. 
+[I 2026-10-29 00:22:43,967] Trial 92 pruned. 
+[I 2026-10-29 00:22:45,457] Trial 93 pruned. 
+[I 2026-10-29 00:23:14,489] Trial 94 pruned. 
+[I 2026-10-29 00:23:15,955] Trial 95 pruned. 
+[I 2026-10-29 00:23:17,185] Trial 96 pruned. 
+[I 2026-10-29 00:23:50,912] Trial 97 pruned. 
+[I 2026-10-29 00:24:02,296] Trial 98 pruned. 
+[I 2026-10-29 00:24:03,731] Trial 99 pruned. 
+[I 2026-10-29 00:24:15,128] Trial 100 pruned. 
+[I 2026-10-29 01:50:54,453] Trial 101 finished with value: 1.6651322841644287 and parameters: {'n_modes': 7, 'hidden_channels': 32, 'n_layers': 6, 'domain_padding': 0.5, 'gradient_weight': 9.562035981060681, 'epochs': 41306, 'learning_rate': 0.0016673985946441007, 'weight_decay': 1.7303111432250347e-06}. Best is trial 89 with value: 1.656761646270752.

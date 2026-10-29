@@ -19,40 +19,43 @@
 # the workers never write the same HDF5 files. Every array task re-runs this script
 # under sbatch and becomes one worker sharing tables/<RUN>/optuna_journal.log.
 #
-# Check the request without submitting:  sbatch --test-only tune-script.sh dummy
+# Check the request without submitting:  sbatch --test-only --export=ALL,TUNE_RUN=dummy tune-script.sh
 # Follow the jobs (sparingly, the info commands load the Slurm server):
 #   squeue -u $USER          sacct -j <jobid>          scancel <jobid>
 # Results when done:  python scripts/tune_model.py report <RUN>
 
 set -euo pipefail                   # abort on error, unset variable, or any failing pipeline stage
 
-source /etc/profile.d/modules.sh        # makes the `module` command available in a batch shell
-module purge                            # drop inherited modules, so the run starts from a known state
-module load maxwell pytorch conda/3.9   # site base paths + the cluster's CUDA PyTorch (pip must not replace it)
+# Not SLURM_JOB_ID / SLURM_SUBMIT_DIR: a JupyterHub terminal on Maxwell is itself a Slurm job
+# (submit dir /etc/jupyterhub). Workers start in --chdir, so $PWD is right in both cases.
 
+PIPELINE_DIR="$PWD"                 # saved before module/conda setup, which may change the cwd
+
+source /etc/profile.d/modules.sh
+module purge
+module load maxwell conda/3.9          # pytorch-Modul raus
 . conda-init
 conda activate no4cheetah
 
+PY="$CONDA_PREFIX/bin/python"          # Python fest verdrahten, egal was im PATH rumfliegt
+echo "Python: $PY"
+"$PY" -c "import optuna, torch; print(optuna.__version__, torch.__version__, torch.cuda.is_available())"
+
 export MPLBACKEND=Agg               # headless matplotlib: plt.show() must not block on a compute node
 
-if [ -n "${SLURM_JOB_ID:-}" ]; then
-    PIPELINE_DIR="$SLURM_SUBMIT_DIR"                       # batch job: $0 is Slurm's spool copy, so use the submit dir
-else
-    PIPELINE_DIR="$(dirname "$(readlink -f "$0")")"        # login node: the dir this script lives in, whatever the cwd
-fi
 cd "$PIPELINE_DIR"                  # run from "Neural Operator Pipeline/", so the relative paths below resolve
 
-if [ -z "${SLURM_JOB_ID:-}" ] && [ -z "${1:-}" ]; then # empty => login node; set => we are already a batch job
-                                    # Install once, on the login node: N array tasks must not run pip into the same env at once.
+if [ -z "${TUNE_RUN:-}" ]; then    # unset => started by you; set => one of the worker jobs submitted below
     RUN=$(python scripts/tune_model.py create | tail -n 1)                      # new study, prints its run ID last
     GEN=$(sbatch --parsable --chdir="$PIPELINE_DIR" --partition=maxgpu --constraint=A100 --nodes=1 \
         --time=12:00:00 --job-name=fno-gen --output=fno-gen-%j.out \
-        --wrap "python scripts/tune_model.py generate")                         # generate the HDF5 data exactly once
-    sbatch --chdir="$PIPELINE_DIR" --dependency=afterok:"$GEN" --array=0-$(( ${1:-4} - 1 )) \
-        "$PIPELINE_DIR/tune-script.sh" "$RUN"                                   # N workers, held until data exists
+        --wrap "$PY scripts/tune_model.py generate")                         # generate the HDF5 data exactly once
+    sbatch --chdir="$PIPELINE_DIR" --export=ALL,TUNE_RUN="$RUN" \
+        --dependency=afterok:"$GEN" --array=0-$(( ${1:-4} - 1 )) \
+        "$PIPELINE_DIR/tune-script.sh"                                          # N workers, held until data exists
     echo "Study $RUN: data job $GEN, workers wait for it."
-    exit 0                          # stop here, or the login node would run `work` below
+    exit 0                          # stop here, or this shell would run `work` below
 fi
 
-echo "Worker started with SLURM_JOB_ID=$SLURM_JOB_ID, args=$*"
-python scripts/tune_model.py work "${1:-}"   # batch job: one Optuna worker on study "$1"
+echo "Worker started with SLURM_JOB_ID=${SLURM_JOB_ID:-}, TUNE_RUN=$TUNE_RUN"
+"$PY" scripts/tune_model.py work "$TUNE_RUN"   # batch job: one Optuna worker on study $TUNE_RUN

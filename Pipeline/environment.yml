@@ -1,14 +1,19 @@
-# Lokale CPU-Umgebung (Laptop + Arbeits-PC).
-# Conda liefert nur Python und torch -- alle anderen Pakete stehen in pyproject.toml.
+# local environment as well as for Maxwell Cluster.
+# Conda only installs the right python version. Everything else is provided via pip from pyproject.toml.
 #
-#   conda env create -f environment.yml      # einmalig
-#   conda env update -f environment.yml      # nach Aenderungen an dieser Datei
-#   pip install -e ".[dev]"                  # nach Aenderungen an pyproject.toml
+#   conda env create -f environment.yml      # first set up                         
+#   conda env update -f environment.yml      # after every change of this file or pyproject.toml
+#   source ~/.bashrc                         # acitvate conda in shell
+#   conda activate no4cheetah                # to check environment
+#   python -c "import torch; print(torch.cuda.is_available())"    # check whether pytorch-gpu is available
+#   conda deactivate                         # if in base: leave conda prompt; if in any other env: go back to base
 name: no4cheetah
 channels:
+  - pytorch
+  - nvidia
   - conda-forge
 dependencies:
   - python=3.12
   - pip
   - pip:
-      - -e .[dev]       # scno + alle Abhaengigkeiten aus pyproject.toml
+      - -e .       # scno + alle Abhaengigkeiten aus pyproject.toml

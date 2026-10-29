@@ -108,10 +108,13 @@ def suggest(trial: optuna.Trial) -> tuple[dict, dict, dict]:
     training = {
         **TRAINING,
         # +1: the Trainer evaluates at epochs 0, k, 2k, ..., so the last epoch is one too.
-        "epochs": trial.suggest_float("epochs", 1.0e3, 1.0e5, log=True),
+        "epochs": trial.suggest_int("epochs", 1.0e3, 1.0e5, log=True),
         "learning_rate": trial.suggest_float("learning_rate", 1.0e-4, 1.0e-2, log=True),
         "weight_decay": trial.suggest_float("weight_decay", 1.0e-6, 1.0e-3, log=True),
     }
+    # other hyperparams to be tuned: regulization technique, loss function (Sobolev vs MAE vs MSE),
+    # drop-out rate (Neurons/ hidden layers or data), data size, grid size, batch size, batch normalization parameters,
+    # normalization/ scaling function, activation functions, optimization algorithm
     return model_kwargs, loss_kwargs, training
 
 

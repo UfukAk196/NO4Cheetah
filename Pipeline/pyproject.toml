@@ -17,14 +17,13 @@ dependencies = [
     # Own fork, unchanged Cheetah; locally: pip install -e "../../Cheetah repos/cheetah-accelerator"
     "cheetah-accelerator @ git+https://github.com/UfukAk196/cheetah.git",
     "neuraloperator==2.0.0",
+    "ipykernel",
+    "pandas",
+    "wandb>=0.16",
+    "optuna>=4.0",
+    "pytest",
+    "pytest-mock",
 ]
-
-[project.optional-dependencies]
-notebooks = ["ipykernel", "pandas"]
-logging = ["wandb>=0.16"]
-tune = ["optuna>=4.0"]
-test = ["pytest", "pytest-mock"]
-dev = ["scno[notebooks,logging,test,tune]"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -34,4 +33,4 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py312"
