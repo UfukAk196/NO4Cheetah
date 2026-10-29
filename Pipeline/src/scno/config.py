@@ -60,12 +60,12 @@ LOSS = {    # TODO: einfachen MSE/ MAE loss probieren, wobei Sobolev bereits sin
 
 TRAINING = {
     "epochs": 1000,
-    "learning_rate": 1.0e-4,
+    "learning_rate": 1.0e-3,
     "weight_decay": 1.0e-4,
 }
 
 EVAL_INTERVAL = 100  # epochs between evaluations on the test resolutions
-WANDB = False  # log to Weights & Biases (project "space-charge-neural-operator")
+WANDB = True  # log to Weights & Biases (project "space-charge-neural-operator")
 
 # Optuna search of scripts/tune_model.py (search space: tune_model.suggest).
 N_TRIALS = 100  # finished (complete + pruned) trials over all workers

@@ -46,8 +46,9 @@ def main() -> int:
         import wandb
 
         wandb.init(
+            entity="ufuk-akkaya-deutsches-elektronen-synchrotron-desy",
             project="space-charge-neural-operator",
-            config={"data": DATA, "model": MODEL, "loss": LOSS, "training": TRAINING},
+            config={"data": DATA, "model": MODEL, "loss": LOSS, "training": TRAINING,},
         )
 
     model, trainer = fit(

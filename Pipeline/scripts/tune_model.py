@@ -184,8 +184,9 @@ def report(run: str) -> None:
     ]
     print(f"Trials saved: {save_csv(rows, TABLES_DIR / run / 'trials.csv')}")
 
-    plots = optuna.visualization.matplotlib
+    plots = optuna.visualization
     axes = {
+        "optuna_rank": plots.plot_rank(study),
         "optuna_history": plots.plot_optimization_history(study),
         "optuna_intermediate": plots.plot_intermediate_values(study),
         "optuna_parallel": plots.plot_parallel_coordinate(study),
@@ -211,8 +212,12 @@ def main(command: str, run: str | None = None) -> int:
             runs = [r for r in existing_runs(*RUN_DIRS) if journal_path(r).exists()]
             if not runs:
                 raise FileNotFoundError("No study found, run `tune_model.py create` first.")
-            run = runs[-1]
-        report(run)
+            for r in runs:
+                print(f"Study {r}:")
+                report(r)
+                print()
+        else:
+            report(run)
     else:
         raise ValueError(f"Unknown command {command!r}, see the module docstring.")
     return 0

@@ -1,0 +1,31 @@
+quantity,value
+accuracy.potential_rel_l2.mean,0.6667948961257935
+accuracy.potential_rel_l2.median,0.6158044934272766
+accuracy.potential_rel_l2.p95,0.7847433686256409
+accuracy.potential_rel_l2.max,0.8076513409614563
+accuracy.potential_rel_l2.n,4
+accuracy.force_rel_l2.mean,0.9999816417694092
+accuracy.force_rel_l2.median,0.9995304942131042
+accuracy.force_rel_l2.p95,1.0006953477859497
+accuracy.force_rel_l2.max,1.0007987022399902
+accuracy.force_rel_l2.n,4
+accuracy.per_distribution.gaussian.potential.mean,0.6667948961257935
+accuracy.per_distribution.gaussian.potential.median,0.6158044934272766
+accuracy.per_distribution.gaussian.potential.p95,0.7847433686256409
+accuracy.per_distribution.gaussian.potential.max,0.8076513409614563
+accuracy.per_distribution.gaussian.potential.n,4
+accuracy.per_distribution.gaussian.force.mean,0.9999816417694092
+accuracy.per_distribution.gaussian.force.median,0.9995304942131042
+accuracy.per_distribution.gaussian.force.p95,1.0006953477859497
+accuracy.per_distribution.gaussian.force.max,1.0007987022399902
+accuracy.per_distribution.gaussian.force.n,4
+gradients.cosine_similarity_mean,0.25297707319259644
+gradients.cosine_similarity_min,-0.06567027419805527
+gradients.magnitude_ratio_mean,0.001251238863915205
+gradients.n,4
+resolution.downsample_1.grid,"(16, 16, 16)"
+resolution.downsample_1.potential_rel_l2_mean,0.6667948961257935
+resolution.downsample_1.force_rel_l2_mean,0.9999816417694092
+resolution.downsample_2.grid,"(8, 8, 8)"
+resolution.downsample_2.potential_rel_l2_mean,0.6611875295639038
+resolution.downsample_2.force_rel_l2_mean,0.9998815059661865

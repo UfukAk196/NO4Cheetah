@@ -7,7 +7,7 @@ name = "scno"
 version = "0.1.0"
 description = "Neural operator replacing the space-charge Poisson solver in Cheetah"
 requires-python = ">=3.10,<3.13"
-# The ONLY package list of the project. New package? -> add it here, then `pip install -e ".[dev]"`.
+# The ONLY package list of the project. New package? -> add it here, then `pip install -e .`.
 dependencies = [
     "numpy>=1.26",
     "scipy>=1.11",
