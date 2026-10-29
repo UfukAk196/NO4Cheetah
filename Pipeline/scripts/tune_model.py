@@ -166,6 +166,8 @@ def work(run: str) -> None:
         callbacks=[MaxTrialsCallback(N_TRIALS, states=(TrialState.COMPLETE, TrialState.PRUNED))],
     )
 
+    report(run)
+
 
 def report(run: str) -> None:
     study = load_study(run)
@@ -184,7 +186,7 @@ def report(run: str) -> None:
     ]
     print(f"Trials saved: {save_csv(rows, TABLES_DIR / run / 'trials.csv')}")
 
-    plots = optuna.visualization
+    plots = optuna.visualization.matplotlib
     axes = {
         "optuna_rank": plots.plot_rank(study),
         "optuna_history": plots.plot_optimization_history(study),

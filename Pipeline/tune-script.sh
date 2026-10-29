@@ -39,7 +39,7 @@ conda activate no4cheetah
 
 PY="$CONDA_PREFIX/bin/python"          # Python fest verdrahten, egal was im PATH rumfliegt
 echo "Python: $PY"
-"$PY" -c "import optuna, torch; print(optuna.__version__, torch.__version__, torch.cuda.is_available())"
+"$PY" -c "import optuna, torch; print(f'Optuna version: {optuna.__version__}, torch version: {torch.__version__}, Cuda: {torch.cuda.is_available()}')"
 
 export MPLBACKEND=Agg               # headless matplotlib: plt.show() must not block on a compute node
 
