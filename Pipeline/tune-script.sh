@@ -17,7 +17,7 @@
 # This creates the study on the login node, submits one data-generation job and then an
 # array of N_WORKERS Optuna workers that start only after the data exists (afterok), so
 # the workers never write the same HDF5 files. Every array task re-runs this script
-# under sbatch and becomes one worker sharing tables/<RUN>/optuna_journal.log.
+# under sbatch and becomes one worker sharing tables/<RUN>/optuna.db.
 #
 # Check the request without submitting:  sbatch --test-only --export=ALL,TUNE_RUN=dummy tune-script.sh
 # Follow the jobs (sparingly, the info commands load the Slurm server):
