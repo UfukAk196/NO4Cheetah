@@ -1,0 +1,31 @@
+/home/akkaya/.conda/envs/no4cheetah/lib/python3.12/site-packages/torch/nn/modules/module.py:1794: UserWarning: FNO.forward() received unexpected keyword arguments: ['y']. These arguments will be ignored.
+  return forward_call(*args, **kwargs)
+[I 2026-10-30 00:01:15,726] Trial 2 finished with value: 1.667195439338684 and parameters: {'n_modes': 8, 'hidden_channels': 64, 'n_layers': 5, 'domain_padding': 0.125, 'gradient_weight': 1.1120720311284327, 'epochs': 21564, 'learning_rate': 0.0027088067626477043, 'weight_decay': 6.147018874474545e-05}. Best is trial 2 with value: 1.667195439338684.
+[I 2026-10-30 00:01:16,948] Trial 24 pruned. 
+[I 2026-10-30 00:01:20,572] Trial 25 pruned. 
+[I 2026-10-30 00:28:25,403] Trial 26 finished with value: 1.6535005569458008 and parameters: {'n_modes': 5, 'hidden_channels': 32, 'n_layers': 5, 'domain_padding': 0.125, 'gradient_weight': 0.10527868933112776, 'epochs': 15785, 'learning_rate': 0.00020451078294192443, 'weight_decay': 0.00040817750023481133}. Best is trial 49 with value: 1.65325927734375.
+[I 2026-10-30 00:28:32,964] Trial 73 pruned. 
+[I 2026-10-30 00:28:36,448] Trial 74 pruned. 
+[I 2026-10-30 00:28:37,727] Trial 75 pruned. 
+[I 2026-10-30 00:28:38,930] Trial 76 pruned. 
+[I 2026-10-30 00:28:40,147] Trial 77 pruned. 
+[I 2026-10-30 00:28:43,632] Trial 78 pruned. 
+[I 2026-10-30 00:28:44,824] Trial 79 pruned. 
+[I 2026-10-30 00:28:48,159] Trial 80 pruned. 
+[I 2026-10-30 00:28:51,453] Trial 81 pruned. 
+[I 2026-10-30 00:28:52,667] Trial 82 pruned. 
+[I 2026-10-30 00:29:22,843] Trial 83 pruned. 
+[I 2026-10-30 00:29:32,277] Trial 84 pruned. 
+[I 2026-10-30 00:29:33,471] Trial 85 pruned. 
+[I 2026-10-30 00:29:34,687] Trial 86 pruned. 
+[I 2026-10-30 00:29:35,734] Trial 87 pruned. 
+[I 2026-10-30 00:29:38,463] Trial 88 pruned. 
+[I 2026-10-30 00:29:41,713] Trial 89 pruned. 
+[I 2026-10-30 00:29:44,963] Trial 90 pruned. 
+[I 2026-10-30 00:29:47,572] Trial 91 pruned. 
+[I 2026-10-30 00:29:48,694] Trial 92 pruned. 
+[I 2026-10-30 00:29:50,015] Trial 93 pruned. 
+[I 2026-10-30 00:29:50,975] Trial 94 pruned. 
+[I 2026-10-30 01:30:05,836] Trial 95 finished with value: 1.6491073369979858 and parameters: {'n_modes': 5, 'hidden_channels': 32, 'n_layers': 3, 'domain_padding': 0.125, 'gradient_weight': 0.15694191914421055, 'epochs': 41468, 'learning_rate': 0.0005603412484274111, 'weight_decay': 4.269270424462951e-06}. Best is trial 95 with value: 1.6491073369979858.
+/home/akkaya/NO4Cheetah/Pipeline/src/scno/evaluate.py:181: UserWarning: Tight layout not applied. The bottom and top margins cannot be made large enough to accommodate all Axes decorations.
+  fig.savefig(path, dpi=150, bbox_inches="tight")

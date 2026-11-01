@@ -1,0 +1,24 @@
+/home/akkaya/.conda/envs/no4cheetah/lib/python3.12/site-packages/torch/nn/modules/module.py:1794: UserWarning: FNO.forward() received unexpected keyword arguments: ['y']. These arguments will be ignored.
+  return forward_call(*args, **kwargs)
+[I 2026-10-30 00:24:08,905] Trial 1 finished with value: 1.6679712533950806 and parameters: {'n_modes': 7, 'hidden_channels': 16, 'n_layers': 6, 'domain_padding': 0.125, 'gradient_weight': 8.327736992717119, 'epochs': 33048, 'learning_rate': 0.002066643880244629, 'weight_decay': 0.0005959373109532631}. Best is trial 23 with value: 1.6617612838745117.
+[I 2026-10-30 00:24:10,361] Trial 50 pruned. 
+[I 2026-10-30 00:24:20,401] Trial 51 pruned. 
+[I 2026-10-30 00:24:23,866] Trial 52 pruned. 
+[I 2026-10-30 00:24:33,958] Trial 53 pruned. 
+[I 2026-10-30 00:24:35,590] Trial 54 pruned. 
+[I 2026-10-30 00:24:38,996] Trial 55 pruned. 
+[I 2026-10-30 00:24:40,139] Trial 56 pruned. 
+[I 2026-10-30 00:24:41,249] Trial 57 pruned. 
+[I 2026-10-30 00:24:51,294] Trial 58 pruned. 
+[I 2026-10-30 00:24:52,482] Trial 59 pruned. 
+[I 2026-10-30 00:24:55,286] Trial 60 pruned. 
+[I 2026-10-30 00:24:56,476] Trial 61 pruned. 
+[I 2026-10-30 00:25:06,519] Trial 62 pruned. 
+[I 2026-10-30 00:25:14,668] Trial 63 pruned. 
+[I 2026-10-30 00:25:18,188] Trial 64 pruned. 
+[I 2026-10-30 00:25:20,793] Trial 65 pruned. 
+[I 2026-10-30 00:25:43,100] Trial 66 pruned. 
+[I 2026-10-30 00:25:44,493] Trial 71 pruned. 
+[I 2026-10-30 00:48:36,756] Trial 72 finished with value: 1.656473159790039 and parameters: {'n_modes': 4, 'hidden_channels': 32, 'n_layers': 3, 'domain_padding': 0.125, 'gradient_weight': 0.1261126100388029, 'epochs': 15433, 'learning_rate': 0.0001537303025398976, 'weight_decay': 6.910841921137798e-06}. Best is trial 49 with value: 1.65325927734375.
+/home/akkaya/NO4Cheetah/Pipeline/src/scno/evaluate.py:181: UserWarning: Tight layout not applied. The bottom and top margins cannot be made large enough to accommodate all Axes decorations.
+  fig.savefig(path, dpi=150, bbox_inches="tight")
