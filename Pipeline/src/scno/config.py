@@ -62,10 +62,11 @@ TRAINING = {
     "epochs": 10000,
     "learning_rate": 2.0e-4,
     "weight_decay": 4.0e-6,
+    "scheduler": False,
 }
 
 EVAL_INTERVAL = 100  # epochs between evaluations on the test resolutions
-WANDB = True  # log to Weights & Biases (project "space-charge-neural-operator")
+WANDB = False  # log to Weights & Biases (project "space-charge-neural-operator")
 
 # Optuna search of scripts/tune_model.py (search space: tune_model.suggest).
 N_TRIALS = 100  # finished (complete + pruned) trials over all workers

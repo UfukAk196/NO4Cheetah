@@ -1,1 +1,0 @@
-[I 2026-10-30 00:25:31,459] Trial 49 finished with value: 1.65325927734375 and parameters: {'n_modes': 5, 'hidden_channels': 32, 'n_layers': 3, 'domain_padding': 0.125, 'gradient_weight': 0.24214611042195722, 'epochs': 7916, 'learning_rate': 0.00024268455177892229, 'weight_decay': 3.957853711160855e-06}. Best is trial 49 with value: 1.65325927734375.
