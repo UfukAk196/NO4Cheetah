@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import torch
 from neuralop import Trainer
-from neuralop.models import FNO
+from neuralop.models import TFNO
 from neuralop.utils import count_model_params
 
 from .utils.losses import SobolevLoss
@@ -97,8 +97,8 @@ def fit(
             "Poisson residual reads rho_hat and log(E_i/L) from x and assumes phi_hat."
         )
 
-    model = FNO(**model_kwargs).to(device)
-    print(f"Model: FNO, {count_model_params(model):,} parameters, device {device}")
+    model = TFNO(**model_kwargs).to(device)
+    print(f"Model: TFNO, {count_model_params(model):,} parameters, device {device}")
 
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -106,7 +106,7 @@ def fit(
         weight_decay=training["weight_decay"],
     )
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, patience=5, factor=0.5
+        optimizer, patience=5, factor=1.0
     )
 
     trainer = trainer_cls(

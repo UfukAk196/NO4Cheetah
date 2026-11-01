@@ -31,37 +31,37 @@ DATA = {
     "nondim": True,  # True: rho_hat -> phi_hat, False: rho [C/m^3] -> phi [V] (ablation)
     # "encode_output": unset = not nondim (Gaussian normalizer only for the raw ablation)
     "n_train": 16,  # TODO: target 5k-50k samples
-    "n_tests": [4, 4, 4],
-    "train_resolution": 16,
-    "test_resolutions": [16, 32, 64],
+    "n_tests": [4, 4],
+    "train_resolution": 32,
+    "test_resolutions": [ 32, 64],
     "batch_size": 4,
-    "test_batch_sizes": [4, 4, 4],
+    "test_batch_sizes": [4, 4],
     "num_workers": 0,  # keep at 0 on Windows
     # "ranges": override of scno.data.sampling.DEFAULT_RANGES, same shape
 }
 
-# Keyword arguments of neuralop.models.FNO.
+# Keyword arguments of neuralop.models.TFNO.
 MODEL = {
-    "n_modes": (16, 16, 16),  # kept Fourier modes per axis
+    "n_modes": (5, 5, 5),  # kept Fourier modes per axis
     "in_channels": 4,  # rho_hat + 3 aspect ratios log(E_i/L)
     "out_channels": 1,  # phi_hat
-    "hidden_channels": 16,
+    "hidden_channels": 32,
     "n_layers": 3,
-    "domain_padding": 0.25,  # padding against the open boundaries
-    "factorization": None,  # use "tucker" for fewer weights
-    "rank": 1.0,
+    "domain_padding": 0.125,  # padding against the open boundaries
+    #"factorization": "Tucker", # default value Tucker for TFNO
+    #"rank": 0.1,   # default value 0.1
 }
 
 # Keyword arguments of scno.utils.losses.SobolevLoss.
 LOSS = {    # TODO: einfachen MSE/ MAE loss probieren, wobei Sobolev bereits sinn macht, da Problem in f-domain
-    "gradient_weight": 1.0,  # weight of the gradient error -- the kick is a gradient
+    "gradient_weight": 0.24,  # weight of the gradient error -- the kick is a gradient
     "physics_weight": 1.0,  # > 0 adds the Poisson residual (PINN part)
 }
 
 TRAINING = {
-    "epochs": 1000,
-    "learning_rate": 1.0e-3,
-    "weight_decay": 1.0e-4,
+    "epochs": 10000,
+    "learning_rate": 2.0e-4,
+    "weight_decay": 4.0e-6,
 }
 
 EVAL_INTERVAL = 100  # epochs between evaluations on the test resolutions
