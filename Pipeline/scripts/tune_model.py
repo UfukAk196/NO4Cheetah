@@ -25,6 +25,7 @@ Call:
 """
 
 import sys
+import numpy as np
 
 import optuna
 from optuna.storages import JournalStorage
@@ -197,7 +198,12 @@ def report(run: str) -> None:
         axes["optuna_importances"] = plots.plot_param_importances(study)
         print(f"Best {METRIC} = {study.best_value:.4g} (trial {study.best_trial.number}):")
         print(f"  {study.best_params}")
-    _save_figures({name: ax.figure for name, ax in axes.items()}, save_dir=FIGURES_DIR / run)
+
+    def _figure_of(ax):
+        # plot_rank/plot_slice/plot_contour return an ndarray of Axes for >1 param
+        return np.ravel(ax)[0].figure
+
+    _save_figures({name: _figure_of(ax) for name, ax in axes.items()}, save_dir=FIGURES_DIR / run)
 
 
 def main(command: str, run: str | None = None) -> int:
