@@ -189,7 +189,7 @@ def report(run: str) -> None:
 
     plots = optuna.visualization.matplotlib
     axes = {
-        "optuna_rank": plots.plot_rank(study),
+        #"optuna_rank": plots.plot_rank(study),
         "optuna_history": plots.plot_optimization_history(study),
         "optuna_intermediate": plots.plot_intermediate_values(study),
         "optuna_parallel": plots.plot_parallel_coordinate(study),

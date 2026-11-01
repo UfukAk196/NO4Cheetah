@@ -1,0 +1,21 @@
+/home/akkaya/.conda/envs/no4cheetah/lib/python3.12/site-packages/torch/nn/modules/module.py:1794: UserWarning: FNO.forward() received unexpected keyword arguments: ['y']. These arguments will be ignored.
+  return forward_call(*args, **kwargs)
+[I 2026-10-29 23:40:56,994] Trial 7 pruned. 
+[I 2026-10-29 23:41:05,649] Trial 8 pruned. 
+[I 2026-10-29 23:41:08,739] Trial 9 pruned. 
+[I 2026-10-29 23:41:18,468] Trial 10 pruned. 
+[I 2026-10-30 00:14:14,191] Trial 11 finished with value: 1.666351079940796 and parameters: {'n_modes': 4, 'hidden_channels': 32, 'n_layers': 4, 'domain_padding': 0.5, 'gradient_weight': 1.2482319175675556, 'epochs': 19598, 'learning_rate': 0.004522381816682004, 'weight_decay': 9.997402340154773e-06}. Best is trial 23 with value: 1.6617612838745117.
+[I 2026-10-30 00:14:16,602] Trial 42 pruned. 
+[I 2026-10-30 00:14:20,121] Trial 43 pruned. 
+[I 2026-10-30 00:14:22,744] Trial 44 pruned. 
+[I 2026-10-30 00:14:23,853] Trial 45 pruned. 
+[I 2026-10-30 00:14:26,256] Trial 46 pruned. 
+[I 2026-10-30 00:14:27,362] Trial 47 pruned. 
+[I 2026-10-30 00:14:36,565] Trial 48 pruned. 
+[I 2026-10-30 00:25:31,459] Trial 49 finished with value: 1.65325927734375 and parameters: {'n_modes': 5, 'hidden_channels': 32, 'n_layers': 3, 'domain_padding': 0.125, 'gradient_weight': 0.24214611042195722, 'epochs': 7916, 'learning_rate': 0.00024268455177892229, 'weight_decay': 3.957853711160855e-06}. Best is trial 49 with value: 1.65325927734375.
+[I 2026-10-30 00:25:40,864] Trial 67 pruned. 
+[I 2026-10-30 00:25:41,977] Trial 68 pruned. 
+[I 2026-10-30 00:25:43,076] Trial 69 pruned. 
+[I 2026-10-30 00:37:11,016] Trial 70 finished with value: 1.6561071872711182 and parameters: {'n_modes': 5, 'hidden_channels': 32, 'n_layers': 3, 'domain_padding': 0.125, 'gradient_weight': 0.26897229488209684, 'epochs': 8306, 'learning_rate': 0.0003804185910306383, 'weight_decay': 4.49365005621771e-06}. Best is trial 49 with value: 1.65325927734375.
+/home/akkaya/NO4Cheetah/Pipeline/src/scno/evaluate.py:181: UserWarning: Tight layout not applied. The bottom and top margins cannot be made large enough to accommodate all Axes decorations.
+  fig.savefig(path, dpi=150, bbox_inches="tight")
