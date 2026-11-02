@@ -2,12 +2,9 @@ import cheetah
 import torch
 from neuralop.models.base_model import BaseModel
 
-from scno.utils.normalization import (
-    input_channels,
-    nondimensionalize,
-    potential_from_hat,
-    stretched_cell_size,
-)
+from scno.models.exact import ExactOperator
+from scno.utils.normalization import (input_channels, nondimensionalize,
+                                      potential_from_hat, stretched_cell_size)
 
 
 class NeuralSpaceChargeKick(cheetah.SpaceChargeKick):
@@ -56,6 +53,7 @@ class NeuralSpaceChargeKick(cheetah.SpaceChargeKick):
         grid_extent_x: torch.Tensor | None = None,
         grid_extent_y: torch.Tensor | None = None,
         grid_extent_tau: torch.Tensor | None = None,
+        in_channel_type: str = "normalized_extents",
         name: str | None = None,
         sanitize_name: bool | None = None,
         metadata: dict | None = None,
@@ -75,6 +73,9 @@ class NeuralSpaceChargeKick(cheetah.SpaceChargeKick):
             dtype=dtype,
         )
         self.operator = operator
+        # Must match the variant the operator was trained with (``DATA["in_channel_type"]``),
+        # otherwise the input has the wrong number of channels.
+        self.in_channel_type = in_channel_type
 
     def _solve_poisson_equation(
         self,
@@ -109,7 +110,25 @@ class NeuralSpaceChargeKick(cheetah.SpaceChargeKick):
         # (e.g. `ExactOperator`) gets the full precision of the charge density.
         weight = next(self.operator.parameters(), None)
         dtype = weight.dtype if weight is not None else charge_density.dtype
-        x = input_channels(rho_hat.to(dtype), scaling.normalized_extent)
+        aspect = (
+            beam.relativistic_gamma
+            if self.in_channel_type == "gamma"
+            else scaling.normalized_extent
+        )
+        x = input_channels(rho_hat.to(dtype), aspect, self.in_channel_type)
+        # The exact solver needs the geometry out of band when the variant lacks it.
+        # normalized_extent is already gamma-stretched, so it is the cell size in units
+        # of L directly. ponytail: mutates the shared operator; fine while one kick owns
+        # its operator, otherwise build a fresh ExactOperator(cell_size=...) per call.
+        if isinstance(self.operator, ExactOperator) and (
+            self.in_channel_type != "normalized_extents"
+        ):
+            grid = torch.tensor(
+                self.grid_shape,
+                dtype=scaling.normalized_extent.dtype,
+                device=scaling.normalized_extent.device,
+            )
+            self.operator.cell_size = scaling.normalized_extent / grid
         phi_hat = self.operator(x)[:, 0].to(charge_density.dtype)
         return potential_from_hat(phi_hat, scaling)
 

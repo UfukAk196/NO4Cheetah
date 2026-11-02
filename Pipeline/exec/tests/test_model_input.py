@@ -11,19 +11,15 @@ import torch
 from evaluate_model import load_model
 from neuralop.data.transforms.data_processors import DefaultDataProcessor
 from neuralop.data.transforms.normalizers import UnitGaussianNormalizer
-from neuralop.models import FNO
+from neuralop.models import TFNO
 
-from scno.config import MODEL
+from scno.config import DATA, MODEL
 from scno.evaluate import predict
 from scno.models.exact import ExactOperator, solve_poisson_on_grid
 from scno.utils.losses import SobolevLoss
-from scno.utils.normalization import (
-    INPUT_CHANNELS,
-    decode_prediction,
-    input_channels,
-    nondimensionalize_fields,
-    stretched_cell_size,
-)
+from scno.utils.normalization import (INPUT_CHANNELS, decode_prediction,
+                                      input_channels, nondimensionalize_fields,
+                                      stretched_cell_size)
 
 
 def _physical_fields(batch: int = 2, grid=(8, 8, 8)):
@@ -41,23 +37,29 @@ def _physical_fields(batch: int = 2, grid=(8, 8, 8)):
 
 
 def test_model_settings_accept_input_channels():
+    """The model must accept the input of the *configured* variant."""
     rho_hat = torch.rand(2, 8, 8, 8)
-    extent = torch.tensor([[0.5, 1.0, 2.0]]).expand(2, -1)  # product = 1
-    x = input_channels(rho_hat, extent)
-    assert x.shape[1] == INPUT_CHANNELS
+    variant = DATA["in_channel_type"]
+    aspect = (
+        torch.tensor([100.0, 250.0])  # gamma
+        if variant == "gamma"
+        else torch.tensor([[0.5, 1.0, 2.0]]).expand(2, -1)  # product = 1
+    )
+    x = input_channels(rho_hat, aspect, variant)
+    assert x.shape[1] == INPUT_CHANNELS[variant]
 
-    assert MODEL["in_channels"] == INPUT_CHANNELS
-    assert FNO(**MODEL)(x).shape == (2, 1, 8, 8, 8)
+    assert MODEL["in_channels"] == INPUT_CHANNELS[variant]
+    assert TFNO(**MODEL)(x).shape == (2, 1, 8, 8, 8)
 
 
 def test_state_dict_round_trip(tmp_path):
     """The .pth holds only the state dict; neuralop's `_metadata` rebuilds the model."""
-    model = FNO(**MODEL).eval()
+    model = TFNO(**MODEL).eval()
     path = tmp_path / "model.pth"
     torch.save(model.state_dict(), path)
 
     loaded = load_model(path, torch.device("cpu")).eval()
-    x = torch.rand(1, INPUT_CHANNELS, 8, 8, 8)
+    x = torch.rand(1, MODEL["in_channels"], 8, 8, 8)
     assert torch.equal(loaded(x), model(x))
 
 

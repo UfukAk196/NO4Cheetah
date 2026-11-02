@@ -28,7 +28,7 @@ from cheetah.particles import ParticleBeam
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
 
-from scno.config import FIGURES_DIR
+from scno.config import DATA, FIGURES_DIR
 from scno.data.dataset import CheetahDataset
 from scno.data.generate import DISTRIBUTIONS
 from scno.models.exact import ExactOperator
@@ -127,7 +127,9 @@ def resolution_study(
     return out
 
 
-def gradient_consistency(model, dataset, data_processor=None, num_samples: int = 4) -> dict:
+def gradient_consistency(
+    model, dataset, data_processor=None, num_samples: int = 4
+) -> dict:
     """Checks whether gradients *through* the model are usable.
 
     That is exactly what this thesis is about: the surrogate must not only compute
@@ -140,9 +142,14 @@ def gradient_consistency(model, dataset, data_processor=None, num_samples: int =
     what an optimizer actually uses. For a raw model (``nondim=False``) the gradient is
     taken w.r.t. rho instead of rho_hat; per sample the two differ only by a constant
     factor, so the cosine stays comparable.
+
+    The reference input is built with the *same* variant as the model, so the two are
+    compared on identical inputs. For variants that do not carry the geometry
+    (``"gamma"``, ``"only rho"``) the cell size is handed to ``ExactOperator`` out of
+    band, taken from the dataset's meta fields.
     """
     model.eval()
-    exact = ExactOperator().to(_device(model))
+    variant = DATA["in_channel_type"]
     similarities, magnitudes = [], []
 
     for i in range(min(num_samples, len(dataset))):
@@ -153,8 +160,24 @@ def gradient_consistency(model, dataset, data_processor=None, num_samples: int =
         pred = predict(model, {"x": x, "y": item["y"][None]}, data_processor)
         grad_model = torch.autograd.grad(pred.square().mean(), x)[0][:, 0]
 
-        x_ref = input_channels(item["rho_hat"][None], item["normalized_extent"][None])
-        x_ref = x_ref.double().to(_device(exact)).requires_grad_(True)
+        # Same variant as the model; the geometry comes from the meta fields.
+        aspect = (
+            item["gamma"][None]
+            if variant == "gamma"
+            else item["normalized_extent"][None]
+        )
+        x_ref = input_channels(item["rho_hat"][None], aspect, variant)
+        x_ref = x_ref.double().requires_grad_(True)
+
+        # normalized_extent is already gamma-stretched (see nondimensionalize), so it is
+        # the cell size in units of L directly -- no extra gamma factor here.
+        grid = torch.tensor(x_ref.shape[-3:], dtype=torch.float64)
+        if variant == "normalized_extents":
+            exact = ExactOperator()
+        else:
+            exact = ExactOperator(cell_size=item["normalized_extent"].double() / grid)
+        exact = exact.to(_device(model))
+
         grad_ref = torch.autograd.grad(exact(x_ref).square().mean(), x_ref)[0][:, 0]
 
         a = grad_model.flatten().double()
@@ -206,7 +229,12 @@ def field_to_beam(field, cell_size, k: float) -> ParticleBeam | None:
 
 
 def plot_field_comparison(
-    fields: dict, cell_size, title="", name="fields", tag="", save_dir=None,
+    fields: dict,
+    cell_size,
+    title="",
+    name="fields",
+    tag="",
+    save_dir=None,
     max_particles: int = 2_000_000,
 ):
     """Grid fields (e.g. ``{"phi GT": gt, "phi Pred": pred}``) side by side through
@@ -247,7 +275,10 @@ def plot_field_comparison(
 
     cmap = "RdBu_r"
     fig, axs = plt.subplots(
-        3, 3 * len(fields), figsize=(7 * len(fields) + 1, 6), gridspec_kw={"wspace": 0.45}
+        3,
+        3 * len(fields),
+        figsize=(7 * len(fields) + 1, 6),
+        gridspec_kw={"wspace": 0.45},
     )
     meshes, lines = [], []
     for b, (label, field) in enumerate(fields.items()):
@@ -320,7 +351,10 @@ def plot_losses(history, save_dir=None, tag=""):
     ax = axs[0]
     if train_hist.get("epoch"):
         ax.plot(
-            train_hist["epoch"], train_hist["avg_loss"], label="avg_loss", color="tab:blue"
+            train_hist["epoch"],
+            train_hist["avg_loss"],
+            label="avg_loss",
+            color="tab:blue",
         )
         ax.plot(
             train_hist["epoch"],
@@ -384,4 +418,3 @@ def plot_losses(history, save_dir=None, tag=""):
     _save_figures({"loss_curves": fig}, save_dir, tag)
     plt.show()
     return fig
-

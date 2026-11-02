@@ -66,11 +66,13 @@ class CheetahDataset(Dataset):
         downsample: int = 1,
         return_meta: bool = True,
         nondim: bool = True,
+        in_channel_type: str = "normalized_extents",  # "gamma", "normalized extents" or "only rho"
     ):
         self.path = Path(path)
         self.downsample = int(downsample)
         self.return_meta = return_meta
         self.nondim = nondim
+        self.in_channel_type = in_channel_type
         self._file = None
 
         with h5py.File(self.path, "r") as f:
@@ -143,7 +145,15 @@ class CheetahDataset(Dataset):
             rho, phi = fields["rho_hat"], fields["phi_hat"]
         else:
             rho, phi = fields["rho"], fields["phi"]
-        x = input_channels(rho, fields["scaling"].normalized_extent)  # (B, 4, ...)
+
+        # The aspect tensor is the normalized extent or gamma, depending on the variant;
+        # "only rho" ignores it. input_channels fixes the channel count.
+        aspect = (
+            fields["gamma"]
+            if self.in_channel_type == "gamma"
+            else fields["scaling"].normalized_extent
+        )
+        x = input_channels(rho, aspect, self.in_channel_type)
         return x, phi[:, None]  # (B, 1, ...)
 
     def __getitem__(self, index: int) -> dict:
@@ -225,6 +235,7 @@ def load_cheetah_sc(
     encode_input=False,
     encode_output=None,
     encoding="channel-wise",
+    in_channel_type="normalized_extents",
     channel_dim=1,
     generate=True,
     seed=0,
@@ -316,6 +327,7 @@ def load_cheetah_sc(
         dataset_path(data_root, "train", train_resolution),
         return_meta=False,
         nondim=nondim,
+        in_channel_type=in_channel_type,
     )
     train_db = _first(train_ds, n_train)
 
@@ -342,7 +354,10 @@ def load_cheetah_sc(
     test_loaders = {}
     for res, n_test, test_bsize in zip(test_resolutions, n_tests, test_batch_sizes):
         test_ds = CheetahDataset(
-            dataset_path(data_root, "test", res), return_meta=False, nondim=nondim
+            dataset_path(data_root, "test", res),
+            return_meta=False,
+            nondim=nondim,
+            in_channel_type=in_channel_type,
         )
         test_loaders[res] = DataLoader(
             _first(test_ds, n_test),

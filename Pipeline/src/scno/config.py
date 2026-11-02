@@ -13,6 +13,8 @@ Weights & Biases logs go to ``outputs/studies/wandb/``.
 
 from pathlib import Path
 
+from scno.utils.normalization import INPUT_CHANNELS
+
 # ponytail: the pipeline folder, found from this file -- correct for the editable
 # install (`pip install -e .`) the project uses; a regular install would point into
 # site-packages (then make it an environment variable).
@@ -22,9 +24,16 @@ OUTPUTS_DIR = ROOT / "outputs"  # everything a run writes
 MODELS_DIR = OUTPUTS_DIR / "models"
 FIGURES_DIR = OUTPUTS_DIR / "figures"
 TABLES_DIR = OUTPUTS_DIR / "tables"
-STUDIES_DIR = OUTPUTS_DIR / "studies"  # wandb.init(dir=STUDIES_DIR) writes to studies/wandb/
+STUDIES_DIR = (
+    OUTPUTS_DIR / "studies"
+)  # wandb.init(dir=STUDIES_DIR) writes to studies/wandb/
 OPTUNA_DIR = STUDIES_DIR / "optuna"
-RUN_DIRS = (MODELS_DIR, FIGURES_DIR, TABLES_DIR, OPTUNA_DIR)  # where run IDs are looked up
+RUN_DIRS = (
+    MODELS_DIR,
+    FIGURES_DIR,
+    TABLES_DIR,
+    OPTUNA_DIR,
+)  # where run IDs are looked up
 
 SEED = 0
 DEVICE = "auto"  # auto | cpu | cuda | mps
@@ -33,32 +42,41 @@ DEVICE = "auto"  # auto | cpu | cuda | mps
 DATA = {
     "data_root": ROOT / "data",
     "seed": 0,
-    "nondim": True,  # True: rho_hat -> phi_hat, False: rho [C/m^3] -> phi [V] (ablation)
+    "nondim": False,  # True: rho_hat -> phi_hat, False: rho [C/m^3] -> phi [V] (ablation)
     # "encode_output": unset = not nondim (Gaussian normalizer only for the raw ablation)
     "n_train": 16,  # TODO: target 5k-50k samples
     "n_tests": [4, 4],
     "train_resolution": 32,
-    "test_resolutions": [ 32, 64],
+    "test_resolutions": [32, 64],
     "batch_size": 4,
     "test_batch_sizes": [4, 4],
+    "encode_input": True,
+    "in_channel_type": "gamma",  # "gamma", "normalized_extents" or "only rho" (the input channels of the model)
     "num_workers": 0,  # keep at 0 on Windows
     # "ranges": override of scno.data.sampling.DEFAULT_RANGES, same shape
 }
 
+# ================= MODEL, LOSS, and TRAINING hyperparameters according to optuna study from 2026-10-28   =================
+
 # Keyword arguments of neuralop.models.TFNO.
 MODEL = {
-    "n_modes": (5, 5, 5),  # kept Fourier modes per axis
-    "in_channels": 4,  # rho_hat + 3 aspect ratios log(E_i/L)
-    "out_channels": 1,  # phi_hat
+    "n_modes": (
+        5,
+        5,
+        5,
+    ),  # kept Fourier modes per axis; less according to optuna research from 2026-10-28.    TODO: try more according to best-practices (e.g 16)
+    # Derived from DATA["in_channel_type"] below, so the model always matches the data.
+    "in_channels": INPUT_CHANNELS[DATA["in_channel_type"]],
+    "out_channels": 1,  # phi_hat                                                                               TODO: try unnormalized/ -scaled
     "hidden_channels": 32,
     "n_layers": 3,
     "domain_padding": 0.125,  # padding against the open boundaries
-    #"factorization": "Tucker", # default value Tucker for TFNO
-    #"rank": 0.1,   # default value 0.1
+    # "factorization": "Tucker", # default value Tucker for TFNO
+    # "rank": 0.1,   # default value 0.1
 }
 
 # Keyword arguments of scno.utils.losses.SobolevLoss.
-LOSS = {    # TODO: einfachen MSE/ MAE loss probieren, wobei Sobolev bereits sinn macht, da Problem in f-domain
+LOSS = {  # TODO: einfachen MSE/ MAE loss probieren, wobei Sobolev bereits sinn macht, da Problem in f-domain
     "gradient_weight": 0.24,  # weight of the gradient error -- the kick is a gradient
     "physics_weight": 1.0,  # > 0 adds the Poisson residual (PINN part)
 }

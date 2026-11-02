@@ -89,8 +89,8 @@ def fit(
     train_loader, test_loaders, data_processor = loaders
     if loss_kwargs["physics_weight"] > 0.0 and (
         not nondim
-        or data_processor.in_normalizer is not None
-        or data_processor.out_normalizer is not None
+        and data_processor.in_normalizer is None
+        and data_processor.out_normalizer is None
     ):
         raise ValueError(
             "physics_weight > 0 needs nondimensionalized data without normalizers: the "

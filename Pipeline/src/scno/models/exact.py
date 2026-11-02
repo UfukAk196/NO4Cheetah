@@ -20,6 +20,8 @@ from cheetah.particles import ParticleBeam, Species
 from neuralop.models.base_model import BaseModel
 from scipy.constants import epsilon_0
 
+from scno.utils.normalization import INPUT_CHANNELS
+
 
 def solve_poisson_on_grid(
     charge_density: torch.Tensor,  # (B, nx, ny, nz) in C/m^3
@@ -65,15 +67,43 @@ class ExactOperator(BaseModel, name="ExactOperator"):
     It is a neuralop ``BaseModel`` so that it can be passed wherever a trained network
     is expected, in particular to ``NeuralSpaceChargeKick``.
 
-    Input (B, 4, nx, ny, nz): rho_hat, log(E_i/L)
+    The solver needs the cell size, which only the ``"normalized_extents"`` variant
+    carries in the input (``log(E_i/L)``). For ``"gamma"`` and ``"only rho"`` the
+    geometry is missing from ``x``, so it is passed out of band via ``cell_size``:
+
+        ExactOperator()                  # "normalized_extents": geometry from x
+        ExactOperator(cell_size=cell)    # "gamma" / "only rho": geometry from cell_size
+
+    ``cell_size`` is in units of the reference length L, shape (B, 3) or (3,), and is
+    broadcast over the batch. It is a plain attribute, not a buffer, so the operator
+    stays a pure function of ``x`` when it is not needed.
+
+    Input (B, C, nx, ny, nz): rho_hat plus the variant's geometry channels
     Output (B, 1, nx, ny, nz): phi_hat
     """
 
+    def __init__(self, cell_size: torch.Tensor | None = None, **kwargs):
+        super().__init__(**kwargs)
+        self.cell_size = cell_size
+
+    def _cell_size(self, x: torch.Tensor) -> torch.Tensor:
+        """Cell size in units of L, (B, 3), from the input or from ``self.cell_size``."""
+        grid = torch.tensor(x.shape[-3:], dtype=torch.float64, device=x.device)
+        if x.shape[1] == INPUT_CHANNELS["normalized_extents"]:
+            aspect = x[:, 1:4, 0, 0, 0].double().exp()  # E_i / L
+            return aspect / grid[None, :]
+        if self.cell_size is None:
+            raise ValueError(
+                f"ExactOperator got {x.shape[1]} input channels, so the cell size is "
+                "not in x; pass it as ExactOperator(cell_size=...) (in units of L)."
+            )
+        # Already in units of L (E_i/L / grid), so no second division by the grid.
+        cell = self.cell_size.to(device=x.device, dtype=torch.float64)
+        return cell.expand(x.shape[0], 3)
+
     def forward(self, x: torch.Tensor, **kwargs) -> torch.Tensor:
         rho_hat = x[:, 0].double()
-        grid = torch.tensor(rho_hat.shape[1:], dtype=torch.float64, device=x.device)
-        aspect = x[:, 1:4, 0, 0, 0].double().exp()  # E_i / L
-        cell = aspect / grid[None, :]  # cell size in units of L
+        cell = self._cell_size(x)
 
         # The solver brings the factor 1/(4*pi*eps0); in hat units the equation reads
         # laplace(phi_hat) = -4*pi*rho_hat, so it is removed again.

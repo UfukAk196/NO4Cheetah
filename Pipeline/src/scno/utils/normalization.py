@@ -56,7 +56,9 @@ class Scaling:
 
     total_charge: torch.Tensor  # (B,) in C
     reference_length: torch.Tensor  # (B,) in m: (Ex*Ey*Ez)^(1/3) of the box edges
-    normalized_extent: torch.Tensor  # (B, 3): E_i / L, product = 1, resolution independent
+    normalized_extent: (
+        torch.Tensor
+    )  # (B, 3): E_i / L, product = 1, resolution independent
 
     def to(self, device):
         return Scaling(
@@ -82,7 +84,9 @@ def nondimensionalize(
     )
 
     extent = cell_size * grid_shape[None, :]  # (B, 3) box edges
-    reference_length = extent.prod(dim=1).pow(1.0 / 3.0)  # geometric mean of the box edges
+    reference_length = extent.prod(dim=1).pow(
+        1.0 / 3.0
+    )  # geometric mean of the box edges
     normalized_extent = extent / reference_length[:, None]  # product of the three is 1
 
     # As a density, not as a charge fraction: this is the quantity that converges to
@@ -149,24 +153,53 @@ def decode_prediction(
     return potential_to_hat(field, scaling), field
 
 
-INPUT_CHANNELS = 4  # rho_hat + 3x log(E_i/L)
+# Channel counts of the three input variants of ``input_channels``.
+INPUT_CHANNELS = {"normalized_extents": 4, "gamma": 2, "only rho": 1}
 
 
-def input_channels(rho_hat: torch.Tensor, normalized_extent: torch.Tensor) -> torch.Tensor:
-    """Model input x: rho_hat + three constant channels log(E_i/L).
+def input_channels(
+    rho_hat: torch.Tensor,
+    aspect: torch.Tensor | None = None,
+    in_channel_type: str = "normalized_extents",
+) -> torch.Tensor:
+    """Model input x: rho_hat plus constant channels describing the geometry.
 
     The only place that defines the input format -- dataset, training, evaluation and
-    the Cheetah element all go through here.
+    the Cheetah element all go through here. ``in_channel_type`` selects the variant
+    and fixes the channel count (``INPUT_CHANNELS``):
+
+        "normalized_extents"  rho_hat + 3x log(E_i/L)   -> 4 channels
+        "gamma"               rho_hat + 1x log(gamma)   -> 2 channels
+        "only rho"            rho_hat                   -> 1 channel
 
     E_i are the (gamma-stretched) box edges, not the electric field. Without them the
     network only sees grid indices and cannot distinguish equal rho_hat at different
     aspect ratios. Grid coordinates are not part of the input: neuralop's ``FNO``
     appends them itself (``positional_embedding="grid"``).
 
-    rho_hat (..., nx, ny, nz), normalized_extent (..., 3) -> x (..., 4, nx, ny, nz)
+    ``aspect`` is the per-sample geometry tensor: ``normalized_extent`` (..., 3) for
+    "normalized_extents", ``gamma`` (...,) for "gamma", unused for "only rho".
+
+    rho_hat (..., nx, ny, nz) -> x (..., INPUT_CHANNELS[in_channel_type], nx, ny, nz)
     """
+    if in_channel_type == "only rho":
+        return rho_hat.unsqueeze(-4)
+
+    if aspect is None:
+        raise ValueError(f"in_channel_type={in_channel_type!r} needs the aspect tensor")
+
+    if in_channel_type == "normalized_extents":
+        extra = aspect.log()  # (..., 3)
+    elif in_channel_type == "gamma":
+        extra = aspect.log().unsqueeze(-1)  # (...,) -> (..., 1)
+    else:
+        raise ValueError(
+            f"unknown in_channel_type {in_channel_type!r}, "
+            f"expected one of {sorted(INPUT_CHANNELS)}"
+        )
+
     grid = rho_hat.shape[-3:]
-    log_aspect = normalized_extent.log().to(rho_hat.dtype)[..., :, None, None, None]
+    extra = extra.to(rho_hat.dtype)[..., :, None, None, None]
     return torch.cat(
-        [rho_hat.unsqueeze(-4), log_aspect.expand(*log_aspect.shape[:-3], *grid)], dim=-4
+        [rho_hat.unsqueeze(-4), extra.expand(*extra.shape[:-3], *grid)], dim=-4
     )
