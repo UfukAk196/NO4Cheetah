@@ -68,8 +68,8 @@ def fit(
     wandb_log: bool = False,
     trainer_cls: type[HistoryTrainer] = HistoryTrainer,
     **trainer_kwargs,
-) -> tuple[FNO, HistoryTrainer]:
-    """Builds the FNO and trains it with AdamW, a cosine schedule and ``SobolevLoss``.
+) -> tuple[TFNO, HistoryTrainer]:
+    """Builds the TFNO and trains it with AdamW, a cosine schedule and ``SobolevLoss``.
 
     Shared by ``train_model.py`` and ``tune_model.py`` (which passes its own settings
     and a pruning ``trainer_cls``), so tuning runs exactly the training code path.
@@ -77,7 +77,7 @@ def fit(
 
     :param loaders: ``(train_loader, test_loaders, data_processor)`` of ``load_cheetah_sc``.
     :param device: Device the model is trained on.
-    :param model_kwargs: Keyword arguments of ``neuralop.models.FNO``.
+    :param model_kwargs: Keyword arguments of ``neuralop.models.TFNO``.
     :param loss_kwargs: Keyword arguments of the training ``SobolevLoss``.
     :param training: ``{"epochs", "learning_rate", "weight_decay"}``.
     :param eval_interval: Epochs between evaluations.
