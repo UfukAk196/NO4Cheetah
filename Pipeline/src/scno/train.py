@@ -105,9 +105,15 @@ def fit(
         lr=training["learning_rate"],
         weight_decay=training["weight_decay"],
     )
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, patience=5, factor=1.0
-    )
+
+    if training["scheduler"]:
+        # Option A: (Scheduler in-use)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, patience=5, factor=0.5
+        )
+    else:
+        # Option B: (Scheduler deactivated)
+        scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=1.0, total_iters=0)
 
     trainer = trainer_cls(
         model=model,

@@ -21,7 +21,7 @@ from pathlib import Path
 
 import h5py
 import torch
-from neuralop.models import FNO
+from neuralop.models import TFNO
 
 from scno.config import DATA, DEVICE, FIGURES_DIR, RUN_DIRS, TABLES_DIR, model_path
 from scno.data.dataset import CheetahDataset, load_cheetah_sc
@@ -37,15 +37,15 @@ from scno.evaluate import (
 )
 from scno.utils.common import existing_runs, pick_device, save_csv
 
-# Entries of neuralop's `_metadata` that are bookkeeping, not FNO arguments.
+# Entries of neuralop's `_metadata` that are bookkeeping, not TFNO arguments.
 _METADATA_ONLY = ("_version", "_name", "args")
 
 
-def load_model(path: Path, device: torch.device) -> FNO:
-    """Rebuilds the FNO from the init kwargs in the state dict and loads the weights."""
+def load_model(path: Path, device: torch.device) -> TFNO:
+    """Rebuilds the TFNO from the init kwargs in the state dict and loads the weights."""
     state_dict = torch.load(path, map_location=device, weights_only=False)
     kwargs = {k: v for k, v in state_dict["_metadata"].items() if k not in _METADATA_ONLY}
-    model = FNO(**kwargs)
+    model = TFNO(**kwargs)
     model.load_state_dict(state_dict)
     return model.to(device)
 

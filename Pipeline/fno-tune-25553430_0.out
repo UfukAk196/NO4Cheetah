@@ -1,0 +1,1383 @@
+Python: /home/akkaya/.conda/envs/no4cheetah/bin/python
+Optuna version: 5.0.0, torch version: 2.14.1+cu130, Cuda: True
+Worker started with SLURM_JOB_ID=25553437, TUNE_RUN=2026-11-01_02
+Model: TFNO, 265,481 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=1.11, avg_loss=6855.4219, train_err=27421.6875
+Eval: 32_h1=2.2763, 32_l2=1.2828
+[10] time=0.26, avg_loss=555.8610, train_err=2223.4438
+Eval: 32_h1=2.2075, 32_l2=1.2095
+Model: TFNO, 126,561 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.84, avg_loss=5111.6082, train_err=20446.4330
+Eval: 32_h1=2.7848, 32_l2=1.7666
+[10] time=0.43, avg_loss=76.9950, train_err=307.9800
+Eval: 32_h1=1.6657, 32_l2=0.6661
+[20] time=0.43, avg_loss=25.9444, train_err=103.7774
+Eval: 32_h1=1.6770, 32_l2=0.6772
+[30] time=0.43, avg_loss=21.9315, train_err=87.7259
+Eval: 32_h1=1.6701, 32_l2=0.6703
+Model: TFNO, 535,421 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.14, avg_loss=8951.0661, train_err=35804.2644
+Eval: 32_h1=3.0631, 32_l2=1.9824
+[10] time=0.13, avg_loss=1920.8530, train_err=7683.4121
+Eval: 32_h1=2.6153, 32_l2=1.5581
+Model: TFNO, 126,497 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.22, avg_loss=33719.0068, train_err=134876.0273
+Eval: 32_h1=3.6532, 32_l2=1.7924
+[10] time=0.12, avg_loss=2432.6852, train_err=9730.7407
+Eval: 32_h1=1.6339, 32_l2=0.6200
+[20] time=0.12, avg_loss=880.4424, train_err=3521.7696
+Eval: 32_h1=1.7146, 32_l2=0.6971
+[30] time=0.12, avg_loss=1027.6153, train_err=4110.4610
+Eval: 32_h1=1.7056, 32_l2=0.7045
+Model: TFNO, 3,895,001 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.42, avg_loss=5834.5071, train_err=23338.0286
+Eval: 32_h1=2.2424, 32_l2=1.2142
+[10] time=0.39, avg_loss=717.8556, train_err=2871.4225
+Eval: 32_h1=2.0984, 32_l2=1.0830
+Model: TFNO, 2,532,617 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.24, avg_loss=6529.5691, train_err=26118.2764
+Eval: 32_h1=2.1369, 32_l2=1.1123
+[10] time=0.23, avg_loss=869.9545, train_err=3479.8180
+Eval: 32_h1=1.6949, 32_l2=0.7065
+Model: TFNO, 535,421 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.17, avg_loss=3705.6544, train_err=14822.6177
+Eval: 32_h1=2.1347, 32_l2=1.1595
+[10] time=0.17, avg_loss=2529.4445, train_err=10117.7779
+Eval: 32_h1=1.9780, 32_l2=0.9795
+[20] time=0.17, avg_loss=1101.1308, train_err=4404.5233
+Eval: 32_h1=1.8365, 32_l2=0.8519
+[30] time=0.17, avg_loss=2774.9237, train_err=11099.6949
+Eval: 32_h1=1.7442, 32_l2=0.7699
+Model: TFNO, 123,653 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.18, avg_loss=4705.2300, train_err=18820.9199
+Eval: 32_h1=2.5240, 32_l2=1.4973
+[10] time=0.17, avg_loss=374.9429, train_err=1499.7717
+Eval: 32_h1=2.4669, 32_l2=1.4696
+[20] time=0.16, avg_loss=271.8171, train_err=1087.2682
+Eval: 32_h1=2.1302, 32_l2=1.1320
+[30] time=0.16, avg_loss=261.1477, train_err=1044.5908
+Eval: 32_h1=1.8335, 32_l2=0.8343
+Model: TFNO, 50,555 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.13, avg_loss=12859.7385, train_err=51438.9539
+Eval: 32_h1=2.6617, 32_l2=1.4881
+[10] time=0.11, avg_loss=1379.4858, train_err=5517.9430
+Eval: 32_h1=2.2141, 32_l2=1.2163
+Model: TFNO, 535,421 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.13, avg_loss=81818.6217, train_err=327274.4868
+Eval: 32_h1=3.9173, 32_l2=2.6568
+[10] time=0.13, avg_loss=419.1121, train_err=1676.4484
+Eval: 32_h1=1.7130, 32_l2=0.7098
+Model: TFNO, 157,009 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.53, avg_loss=8714.8965, train_err=34859.5862
+Eval: 32_h1=1.9920, 32_l2=0.9935
+[10] time=0.53, avg_loss=90.0000, train_err=360.0000
+Eval: 32_h1=1.6996, 32_l2=0.6999
+[20] time=0.52, avg_loss=33.7235, train_err=134.8938
+Eval: 32_h1=1.6708, 32_l2=0.6710
+[30] time=0.53, avg_loss=27.2550, train_err=109.0201
+Eval: 32_h1=1.6694, 32_l2=0.6698
+[40] time=0.53, avg_loss=23.2432, train_err=92.9729
+Eval: 32_h1=1.6716, 32_l2=0.6720
+[50] time=0.53, avg_loss=22.0705, train_err=88.2822
+Eval: 32_h1=1.6740, 32_l2=0.6744
+[60] time=0.52, avg_loss=21.9239, train_err=87.6957
+Eval: 32_h1=1.6689, 32_l2=0.6693
+[70] time=0.52, avg_loss=22.7450, train_err=90.9798
+Eval: 32_h1=1.6726, 32_l2=0.6730
+[80] time=0.52, avg_loss=21.0581, train_err=84.2326
+Eval: 32_h1=1.6679, 32_l2=0.6685
+[90] time=0.52, avg_loss=19.1534, train_err=76.6135
+Eval: 32_h1=1.6714, 32_l2=0.6719
+Model: TFNO, 502,401 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.21, avg_loss=13046.8018, train_err=52187.2073
+Eval: 32_h1=2.7711, 32_l2=1.6019
+[10] time=0.20, avg_loss=124.3105, train_err=497.2422
+Eval: 32_h1=1.6690, 32_l2=0.6677
+[20] time=0.19, avg_loss=50.1794, train_err=200.7178
+Eval: 32_h1=1.6719, 32_l2=0.6719
+[30] time=0.20, avg_loss=64.1707, train_err=256.6830
+Eval: 32_h1=1.6713, 32_l2=0.6714
+[40] time=0.19, avg_loss=32.5456, train_err=130.1824
+Eval: 32_h1=1.6711, 32_l2=0.6712
+[50] time=0.19, avg_loss=36.6939, train_err=146.7756
+Eval: 32_h1=1.6701, 32_l2=0.6698
+[60] time=0.19, avg_loss=24.5699, train_err=98.2794
+Eval: 32_h1=1.6720, 32_l2=0.6720
+[70] time=0.19, avg_loss=23.7107, train_err=94.8429
+Eval: 32_h1=1.6692, 32_l2=0.6693
+[80] time=0.19, avg_loss=26.7451, train_err=106.9803
+Eval: 32_h1=1.6733, 32_l2=0.6736
+[90] time=0.20, avg_loss=21.9453, train_err=87.7812
+Eval: 32_h1=1.6729, 32_l2=0.6730
+Model: TFNO, 182,897 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.19, avg_loss=62963.8509, train_err=251855.4037
+Eval: 32_h1=2.7187, 32_l2=1.6813
+[10] time=0.19, avg_loss=214.5887, train_err=858.3546
+Eval: 32_h1=1.6626, 32_l2=0.6651
+[20] time=0.19, avg_loss=101.3816, train_err=405.5263
+Eval: 32_h1=1.6672, 32_l2=0.6675
+[30] time=0.19, avg_loss=68.4458, train_err=273.7832
+Eval: 32_h1=1.6705, 32_l2=0.6713
+Model: TFNO, 126,497 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=27548.8468, train_err=110195.3873
+Eval: 32_h1=3.4472, 32_l2=2.3840
+[10] time=0.43, avg_loss=159.5224, train_err=638.0896
+Eval: 32_h1=1.6734, 32_l2=0.6731
+[20] time=0.43, avg_loss=52.6019, train_err=210.4074
+Eval: 32_h1=1.6727, 32_l2=0.6724
+[30] time=0.43, avg_loss=64.0114, train_err=256.0457
+Eval: 32_h1=1.6687, 32_l2=0.6689
+[40] time=0.43, avg_loss=37.4281, train_err=149.7124
+Eval: 32_h1=1.6701, 32_l2=0.6700
+[50] time=0.43, avg_loss=32.7799, train_err=131.1195
+Eval: 32_h1=1.6726, 32_l2=0.6727
+[60] time=0.43, avg_loss=27.5310, train_err=110.1241
+Eval: 32_h1=1.6743, 32_l2=0.6743
+[70] time=0.43, avg_loss=69.6562, train_err=278.6249
+Eval: 32_h1=1.6911, 32_l2=0.6911
+[80] time=0.43, avg_loss=28.2346, train_err=112.9382
+Eval: 32_h1=1.6926, 32_l2=0.6929
+[90] time=0.43, avg_loss=31.7870, train_err=127.1481
+Eval: 32_h1=1.6699, 32_l2=0.6702
+[100] time=0.43, avg_loss=22.7784, train_err=91.1134
+Eval: 32_h1=1.6755, 32_l2=0.6759
+[110] time=0.43, avg_loss=24.3997, train_err=97.5987
+Eval: 32_h1=1.6750, 32_l2=0.6754
+[120] time=0.43, avg_loss=32.8916, train_err=131.5662
+Eval: 32_h1=1.6701, 32_l2=0.6704
+[130] time=0.43, avg_loss=55.5428, train_err=222.1714
+Eval: 32_h1=1.6663, 32_l2=0.6666
+[140] time=0.43, avg_loss=25.1542, train_err=100.6168
+Eval: 32_h1=1.6792, 32_l2=0.6795
+[150] time=0.43, avg_loss=24.1197, train_err=96.4788
+Eval: 32_h1=1.6696, 32_l2=0.6702
+[160] time=0.43, avg_loss=25.4739, train_err=101.8956
+Eval: 32_h1=1.6667, 32_l2=0.6675
+[170] time=0.43, avg_loss=39.9574, train_err=159.8295
+Eval: 32_h1=1.6694, 32_l2=0.6698
+[180] time=0.43, avg_loss=21.1518, train_err=84.6074
+Eval: 32_h1=1.6659, 32_l2=0.6669
+[190] time=0.43, avg_loss=20.4952, train_err=81.9807
+Eval: 32_h1=1.6667, 32_l2=0.6677
+[200] time=0.43, avg_loss=19.4553, train_err=77.8211
+Eval: 32_h1=1.6699, 32_l2=0.6708
+[210] time=0.43, avg_loss=28.3478, train_err=113.3912
+Eval: 32_h1=1.6680, 32_l2=0.6694
+[220] time=0.43, avg_loss=22.2753, train_err=89.1012
+Eval: 32_h1=1.6678, 32_l2=0.6688
+[230] time=0.43, avg_loss=20.7044, train_err=82.8177
+Eval: 32_h1=1.6712, 32_l2=0.6719
+[240] time=0.43, avg_loss=21.7810, train_err=87.1240
+Eval: 32_h1=1.6730, 32_l2=0.6737
+[250] time=0.43, avg_loss=26.0736, train_err=104.2945
+Eval: 32_h1=1.6649, 32_l2=0.6660
+[260] time=0.43, avg_loss=24.0941, train_err=96.3764
+Eval: 32_h1=1.6644, 32_l2=0.6660
+[270] time=0.43, avg_loss=18.8372, train_err=75.3487
+Eval: 32_h1=1.6722, 32_l2=0.6735
+Model: TFNO, 126,561 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=5746.1269, train_err=22984.5076
+Eval: 32_h1=2.3991, 32_l2=1.4192
+[10] time=0.43, avg_loss=102.7634, train_err=411.0535
+Eval: 32_h1=1.6663, 32_l2=0.6663
+Model: TFNO, 36,005 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.36, avg_loss=19565.2424, train_err=78260.9697
+Eval: 32_h1=1.9927, 32_l2=0.8842
+[10] time=0.34, avg_loss=645.4718, train_err=2581.8871
+Eval: 32_h1=1.6479, 32_l2=0.6549
+[20] time=0.34, avg_loss=235.7876, train_err=943.1505
+Eval: 32_h1=1.6669, 32_l2=0.6684
+[30] time=0.34, avg_loss=253.5859, train_err=1014.3437
+Eval: 32_h1=1.6728, 32_l2=0.6727
+Model: TFNO, 96,065 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.34, avg_loss=30168.3612, train_err=120673.4448
+Eval: 32_h1=2.4004, 32_l2=0.9164
+[10] time=0.34, avg_loss=328.6392, train_err=1314.5569
+Eval: 32_h1=1.6727, 32_l2=0.6723
+Model: TFNO, 156,929 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.53, avg_loss=5125.5105, train_err=20502.0420
+Eval: 32_h1=1.6429, 32_l2=0.6557
+[10] time=0.53, avg_loss=49.1811, train_err=196.7243
+Eval: 32_h1=1.6746, 32_l2=0.6746
+[20] time=0.52, avg_loss=27.3866, train_err=109.5466
+Eval: 32_h1=1.6686, 32_l2=0.6690
+[30] time=0.52, avg_loss=18.1711, train_err=72.6843
+Eval: 32_h1=1.6709, 32_l2=0.6713
+Model: TFNO, 199,499 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.35, avg_loss=15525.3411, train_err=62101.3643
+Eval: 32_h1=2.1702, 32_l2=1.2301
+[10] time=0.34, avg_loss=184.3431, train_err=737.3724
+Eval: 32_h1=1.6753, 32_l2=0.6719
+Model: TFNO, 46,417 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=21490.8711, train_err=85963.4844
+Eval: 32_h1=6.9713, 32_l2=4.0055
+[10] time=0.43, avg_loss=201.7225, train_err=806.8899
+Eval: 32_h1=1.6589, 32_l2=0.6636
+[20] time=0.43, avg_loss=103.0497, train_err=412.1989
+Eval: 32_h1=1.6739, 32_l2=0.6738
+[30] time=0.43, avg_loss=80.3045, train_err=321.2179
+Eval: 32_h1=1.6687, 32_l2=0.6703
+[40] time=0.43, avg_loss=63.4378, train_err=253.7513
+Eval: 32_h1=1.6648, 32_l2=0.6667
+[50] time=0.43, avg_loss=49.5703, train_err=198.2813
+Eval: 32_h1=1.6709, 32_l2=0.6727
+[60] time=0.43, avg_loss=40.9209, train_err=163.6834
+Eval: 32_h1=1.6673, 32_l2=0.6686
+[70] time=0.43, avg_loss=26.1422, train_err=104.5689
+Eval: 32_h1=1.6668, 32_l2=0.6680
+[80] time=0.43, avg_loss=159.2239, train_err=636.8956
+Eval: 32_h1=1.6659, 32_l2=0.6653
+[90] time=0.43, avg_loss=57.7173, train_err=230.8691
+Eval: 32_h1=1.6803, 32_l2=0.6812
+Model: TFNO, 126,497 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=4047.6655, train_err=16190.6621
+Eval: 32_h1=1.5568, 32_l2=0.5924
+[10] time=0.43, avg_loss=154.3656, train_err=617.4623
+Eval: 32_h1=1.6633, 32_l2=0.6632
+[20] time=0.43, avg_loss=84.7539, train_err=339.0154
+Eval: 32_h1=1.6673, 32_l2=0.6673
+[30] time=0.43, avg_loss=39.7825, train_err=159.1299
+Eval: 32_h1=1.6673, 32_l2=0.6687
+[40] time=0.43, avg_loss=35.8672, train_err=143.4688
+Eval: 32_h1=1.6678, 32_l2=0.6680
+[50] time=0.43, avg_loss=24.3785, train_err=97.5140
+Eval: 32_h1=1.6696, 32_l2=0.6704
+[60] time=0.44, avg_loss=26.8131, train_err=107.2523
+Eval: 32_h1=1.6691, 32_l2=0.6701
+[70] time=0.43, avg_loss=23.4952, train_err=93.9806
+Eval: 32_h1=1.6694, 32_l2=0.6699
+[80] time=0.44, avg_loss=27.2336, train_err=108.9345
+Eval: 32_h1=1.6693, 32_l2=0.6695
+[90] time=0.43, avg_loss=21.0391, train_err=84.1563
+Eval: 32_h1=1.6693, 32_l2=0.6704
+Model: TFNO, 126,561 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.44, avg_loss=19084.2560, train_err=76337.0240
+Eval: 32_h1=2.7968, 32_l2=1.7275
+[10] time=0.44, avg_loss=203.2191, train_err=812.8763
+Eval: 32_h1=1.6774, 32_l2=0.6733
+Model: TFNO, 461,599 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.54, avg_loss=17786.0618, train_err=71144.2471
+Eval: 32_h1=1.7980, 32_l2=0.7798
+[10] time=0.53, avg_loss=84.1724, train_err=336.6894
+Eval: 32_h1=1.6764, 32_l2=0.6758
+[20] time=0.53, avg_loss=31.6584, train_err=126.6338
+Eval: 32_h1=1.6747, 32_l2=0.6743
+[30] time=0.53, avg_loss=20.5781, train_err=82.3125
+Eval: 32_h1=1.6720, 32_l2=0.6723
+Model: TFNO, 46,417 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=26077.5177, train_err=104310.0708
+Eval: 32_h1=3.6728, 32_l2=2.1762
+[10] time=0.43, avg_loss=218.2101, train_err=872.8403
+Eval: 32_h1=1.6697, 32_l2=0.6672
+Model: TFNO, 46,417 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=28076.7441, train_err=112306.9763
+Eval: 32_h1=3.4737, 32_l2=2.2949
+[10] time=0.43, avg_loss=108.4442, train_err=433.7766
+Eval: 32_h1=1.6852, 32_l2=0.6860
+Model: TFNO, 93,069 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.54, avg_loss=4659.5970, train_err=18638.3878
+Eval: 32_h1=2.5098, 32_l2=1.5052
+[10] time=0.53, avg_loss=542.3689, train_err=2169.4757
+Eval: 32_h1=1.7011, 32_l2=0.7077
+[20] time=0.53, avg_loss=44.8217, train_err=179.2867
+Eval: 32_h1=1.6675, 32_l2=0.6676
+[30] time=0.53, avg_loss=27.7049, train_err=110.8197
+Eval: 32_h1=1.6707, 32_l2=0.6710
+Model: TFNO, 264,409 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=3858.9592, train_err=15435.8368
+Eval: 32_h1=1.7258, 32_l2=0.6888
+[10] time=0.43, avg_loss=75.1969, train_err=300.7875
+Eval: 32_h1=1.6728, 32_l2=0.6728
+[20] time=0.44, avg_loss=37.7694, train_err=151.0777
+Eval: 32_h1=1.6706, 32_l2=0.6706
+[30] time=0.43, avg_loss=22.8143, train_err=91.2573
+Eval: 32_h1=1.6746, 32_l2=0.6748
+Model: TFNO, 46,417 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=8773.1707, train_err=35092.6826
+Eval: 32_h1=2.0231, 32_l2=0.9983
+[10] time=0.43, avg_loss=102.5401, train_err=410.1602
+Eval: 32_h1=1.6648, 32_l2=0.6652
+[20] time=0.43, avg_loss=37.0516, train_err=148.2065
+Eval: 32_h1=1.6706, 32_l2=0.6708
+[30] time=0.43, avg_loss=25.7240, train_err=102.8961
+Eval: 32_h1=1.6698, 32_l2=0.6702
+Model: TFNO, 156,929 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.52, avg_loss=15007.4987, train_err=60029.9949
+Eval: 32_h1=1.9026, 32_l2=0.8750
+[10] time=0.52, avg_loss=80.2717, train_err=321.0869
+Eval: 32_h1=1.6754, 32_l2=0.6754
+Model: TFNO, 157,009 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.52, avg_loss=27955.5508, train_err=111822.2031
+Eval: 32_h1=3.3772, 32_l2=1.7823
+[10] time=0.52, avg_loss=178.6429, train_err=714.5714
+Eval: 32_h1=1.6767, 32_l2=0.6757
+[20] time=0.54, avg_loss=93.6506, train_err=374.6024
+Eval: 32_h1=1.6748, 32_l2=0.6754
+[30] time=0.53, avg_loss=57.1451, train_err=228.5804
+Eval: 32_h1=1.6741, 32_l2=0.6747
+[40] time=0.52, avg_loss=49.3275, train_err=197.3099
+Eval: 32_h1=1.6654, 32_l2=0.6667
+[50] time=0.53, avg_loss=31.3109, train_err=125.2434
+Eval: 32_h1=1.6747, 32_l2=0.6750
+[60] time=0.52, avg_loss=28.8447, train_err=115.3787
+Eval: 32_h1=1.6752, 32_l2=0.6756
+[70] time=0.52, avg_loss=27.5130, train_err=110.0520
+Eval: 32_h1=1.6715, 32_l2=0.6715
+[80] time=0.53, avg_loss=54.6292, train_err=218.5167
+Eval: 32_h1=1.6756, 32_l2=0.6757
+[90] time=0.53, avg_loss=35.3868, train_err=141.5471
+Eval: 32_h1=1.6927, 32_l2=0.6915
+Model: TFNO, 126,497 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=23177.7903, train_err=92711.1613
+Eval: 32_h1=1.7020, 32_l2=0.7386
+[10] time=0.43, avg_loss=140.4046, train_err=561.6184
+Eval: 32_h1=1.6672, 32_l2=0.6662
+Model: TFNO, 264,409 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=8703.6046, train_err=34814.4183
+Eval: 32_h1=2.3748, 32_l2=1.4404
+[10] time=0.43, avg_loss=104.8333, train_err=419.3331
+Eval: 32_h1=1.6721, 32_l2=0.6754
+[20] time=0.43, avg_loss=47.0802, train_err=188.3207
+Eval: 32_h1=1.6676, 32_l2=0.6688
+[30] time=0.43, avg_loss=26.5261, train_err=106.1046
+Eval: 32_h1=1.6694, 32_l2=0.6700
+Model: TFNO, 75,409 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.17, avg_loss=7988.8002, train_err=31955.2007
+Eval: 32_h1=2.0350, 32_l2=1.0657
+[10] time=0.17, avg_loss=91.7994, train_err=367.1976
+Eval: 32_h1=1.6930, 32_l2=0.6912
+[20] time=0.17, avg_loss=52.6934, train_err=210.7736
+Eval: 32_h1=1.6686, 32_l2=0.6685
+[30] time=0.17, avg_loss=29.8625, train_err=119.4498
+Eval: 32_h1=1.6732, 32_l2=0.6730
+[40] time=0.17, avg_loss=23.3656, train_err=93.4625
+Eval: 32_h1=1.6699, 32_l2=0.6698
+[50] time=0.17, avg_loss=19.6669, train_err=78.6677
+Eval: 32_h1=1.6742, 32_l2=0.6742
+[60] time=0.17, avg_loss=20.7276, train_err=82.9102
+Eval: 32_h1=1.6681, 32_l2=0.6681
+[70] time=0.17, avg_loss=18.2727, train_err=73.0908
+Eval: 32_h1=1.6692, 32_l2=0.6692
+[80] time=0.17, avg_loss=19.0006, train_err=76.0025
+Eval: 32_h1=1.6697, 32_l2=0.6697
+[90] time=0.17, avg_loss=19.3903, train_err=77.5613
+Eval: 32_h1=1.6707, 32_l2=0.6706
+Model: TFNO, 96,113 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.34, avg_loss=21781.1135, train_err=87124.4541
+Eval: 32_h1=2.7217, 32_l2=1.5007
+[10] time=0.34, avg_loss=256.8757, train_err=1027.5026
+Eval: 32_h1=1.6572, 32_l2=0.6588
+[20] time=0.34, avg_loss=63.6731, train_err=254.6925
+Eval: 32_h1=1.6808, 32_l2=0.6814
+[30] time=0.34, avg_loss=91.6272, train_err=366.5088
+Eval: 32_h1=1.6716, 32_l2=0.6713
+Model: TFNO, 126,497 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=26667.8557, train_err=106671.4229
+Eval: 32_h1=1.6535, 32_l2=0.7157
+[10] time=0.43, avg_loss=550.6071, train_err=2202.4283
+Eval: 32_h1=1.9309, 32_l2=0.9293
+Model: TFNO, 36,005 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.34, avg_loss=5975.5546, train_err=23902.2183
+Eval: 32_h1=1.6960, 32_l2=0.7281
+[10] time=0.34, avg_loss=88.3631, train_err=353.4524
+Eval: 32_h1=1.6666, 32_l2=0.6666
+Model: TFNO, 156,929 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.52, avg_loss=15150.0979, train_err=60600.3915
+Eval: 32_h1=1.8669, 32_l2=0.8442
+[10] time=0.52, avg_loss=91.0195, train_err=364.0782
+Eval: 32_h1=1.7160, 32_l2=0.7159
+Model: TFNO, 57,749 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.34, avg_loss=18248.4377, train_err=72993.7510
+Eval: 32_h1=2.5738, 32_l2=1.2328
+[10] time=0.34, avg_loss=407.4974, train_err=1629.9896
+Eval: 32_h1=1.6613, 32_l2=0.6611
+[20] time=0.34, avg_loss=181.9218, train_err=727.6871
+Eval: 32_h1=1.6620, 32_l2=0.6639
+[30] time=0.34, avg_loss=53.4802, train_err=213.9208
+Eval: 32_h1=1.6648, 32_l2=0.6664
+[40] time=0.34, avg_loss=34.6664, train_err=138.6656
+Eval: 32_h1=1.6653, 32_l2=0.6659
+[50] time=0.34, avg_loss=37.5749, train_err=150.2997
+Eval: 32_h1=1.6678, 32_l2=0.6682
+[60] time=0.34, avg_loss=24.8386, train_err=99.3545
+Eval: 32_h1=1.6695, 32_l2=0.6699
+[70] time=0.34, avg_loss=31.1199, train_err=124.4797
+Eval: 32_h1=1.6685, 32_l2=0.6687
+[80] time=0.34, avg_loss=26.7804, train_err=107.1216
+Eval: 32_h1=1.6676, 32_l2=0.6678
+[90] time=0.34, avg_loss=29.6150, train_err=118.4599
+Eval: 32_h1=1.6688, 32_l2=0.6690
+[100] time=0.34, avg_loss=53.2091, train_err=212.8363
+Eval: 32_h1=1.6847, 32_l2=0.6853
+[110] time=0.34, avg_loss=23.8514, train_err=95.4055
+Eval: 32_h1=1.6710, 32_l2=0.6714
+[120] time=0.34, avg_loss=19.3822, train_err=77.5286
+Eval: 32_h1=1.6671, 32_l2=0.6675
+[130] time=0.34, avg_loss=17.5884, train_err=70.3535
+Eval: 32_h1=1.6699, 32_l2=0.6703
+[140] time=0.34, avg_loss=18.5676, train_err=74.2705
+Eval: 32_h1=1.6677, 32_l2=0.6681
+[150] time=0.34, avg_loss=21.5317, train_err=86.1267
+Eval: 32_h1=1.6743, 32_l2=0.6748
+[160] time=0.34, avg_loss=19.6871, train_err=78.7484
+Eval: 32_h1=1.6748, 32_l2=0.6752
+[170] time=0.34, avg_loss=21.0223, train_err=84.0891
+Eval: 32_h1=1.6719, 32_l2=0.6726
+[180] time=0.34, avg_loss=23.5224, train_err=94.0897
+Eval: 32_h1=1.6736, 32_l2=0.6746
+[190] time=0.34, avg_loss=19.0717, train_err=76.2870
+Eval: 32_h1=1.6690, 32_l2=0.6696
+[200] time=0.34, avg_loss=19.1112, train_err=76.4449
+Eval: 32_h1=1.6684, 32_l2=0.6693
+[210] time=0.34, avg_loss=17.3165, train_err=69.2660
+Eval: 32_h1=1.6725, 32_l2=0.6732
+[220] time=0.34, avg_loss=18.5099, train_err=74.0394
+Eval: 32_h1=1.6696, 32_l2=0.6704
+[230] time=0.34, avg_loss=15.6992, train_err=62.7967
+Eval: 32_h1=1.6688, 32_l2=0.6695
+[240] time=0.34, avg_loss=18.8219, train_err=75.2874
+Eval: 32_h1=1.6720, 32_l2=0.6725
+[250] time=0.34, avg_loss=16.4341, train_err=65.7364
+Eval: 32_h1=1.6708, 32_l2=0.6714
+[260] time=0.34, avg_loss=18.4274, train_err=73.7097
+Eval: 32_h1=1.6736, 32_l2=0.6741
+[270] time=0.34, avg_loss=17.5201, train_err=70.0804
+Eval: 32_h1=1.6709, 32_l2=0.6712
+Model: TFNO, 57,749 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.34, avg_loss=12653.0679, train_err=50612.2717
+Eval: 32_h1=1.7324, 32_l2=0.7035
+[10] time=0.34, avg_loss=121.7320, train_err=486.9279
+Eval: 32_h1=1.6664, 32_l2=0.6651
+Model: TFNO, 46,417 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=22313.0753, train_err=89252.3013
+Eval: 32_h1=3.5129, 32_l2=2.1028
+[10] time=0.43, avg_loss=147.1127, train_err=588.4508
+Eval: 32_h1=1.6739, 32_l2=0.6750
+[20] time=0.43, avg_loss=77.9386, train_err=311.7544
+Eval: 32_h1=1.6728, 32_l2=0.6728
+[30] time=0.43, avg_loss=107.2635, train_err=429.0542
+Eval: 32_h1=1.6786, 32_l2=0.6765
+Model: TFNO, 126,497 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=6499.8811, train_err=25999.5243
+Eval: 32_h1=1.7219, 32_l2=0.6937
+[10] time=0.43, avg_loss=365.4584, train_err=1461.8337
+Eval: 32_h1=1.6652, 32_l2=0.6639
+[20] time=0.43, avg_loss=129.6653, train_err=518.6610
+Eval: 32_h1=1.6702, 32_l2=0.6696
+[30] time=0.43, avg_loss=145.5454, train_err=582.1817
+Eval: 32_h1=1.6885, 32_l2=0.6876
+Model: TFNO, 75,409 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=8857.5029, train_err=35430.0117
+Eval: 32_h1=2.1584, 32_l2=1.1720
+[10] time=0.43, avg_loss=87.0300, train_err=348.1200
+Eval: 32_h1=1.6703, 32_l2=0.6700
+Model: TFNO, 25,593 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.24, avg_loss=53848.3956, train_err=215393.5825
+Eval: 32_h1=1.8187, 32_l2=0.7486
+[10] time=0.24, avg_loss=383.2406, train_err=1532.9625
+Eval: 32_h1=1.6833, 32_l2=0.6784
+[20] time=0.24, avg_loss=192.7587, train_err=771.0346
+Eval: 32_h1=1.6881, 32_l2=0.6906
+[30] time=0.25, avg_loss=55.0721, train_err=220.2883
+Eval: 32_h1=1.6800, 32_l2=0.6797
+Model: TFNO, 57,749 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.34, avg_loss=19396.6790, train_err=77586.7158
+Eval: 32_h1=3.3178, 32_l2=2.3190
+[10] time=0.34, avg_loss=155.1766, train_err=620.7063
+Eval: 32_h1=1.6776, 32_l2=0.6774
+[20] time=0.34, avg_loss=68.7582, train_err=275.0329
+Eval: 32_h1=1.6734, 32_l2=0.6747
+[30] time=0.34, avg_loss=49.4593, train_err=197.8370
+Eval: 32_h1=1.6706, 32_l2=0.6710
+Model: TFNO, 126,561 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=8043.9462, train_err=32175.7847
+Eval: 32_h1=2.1739, 32_l2=1.1903
+[10] time=0.43, avg_loss=127.0749, train_err=508.2998
+Eval: 32_h1=1.6698, 32_l2=0.6710
+[20] time=0.43, avg_loss=67.3558, train_err=269.4230
+Eval: 32_h1=1.6692, 32_l2=0.6692
+[30] time=0.44, avg_loss=33.7472, train_err=134.9889
+Eval: 32_h1=1.6710, 32_l2=0.6711
+Model: TFNO, 75,409 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=8161.8817, train_err=32647.5266
+Eval: 32_h1=2.5720, 32_l2=1.2095
+[10] time=0.43, avg_loss=162.6625, train_err=650.6499
+Eval: 32_h1=1.6771, 32_l2=0.6796
+Model: TFNO, 46,417 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=14052.2969, train_err=56209.1876
+Eval: 32_h1=1.8822, 32_l2=0.9240
+[10] time=0.43, avg_loss=118.2639, train_err=473.0555
+Eval: 32_h1=1.6651, 32_l2=0.6654
+[20] time=0.43, avg_loss=80.9534, train_err=323.8134
+Eval: 32_h1=1.6682, 32_l2=0.6684
+[30] time=0.43, avg_loss=49.7465, train_err=198.9859
+Eval: 32_h1=1.6701, 32_l2=0.6703
+Model: TFNO, 46,417 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.44, avg_loss=13338.8628, train_err=53355.4512
+Eval: 32_h1=1.7842, 32_l2=0.6977
+[10] time=0.43, avg_loss=176.1537, train_err=704.6150
+Eval: 32_h1=1.9126, 32_l2=0.9120
+Model: TFNO, 96,113 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.34, avg_loss=27898.4060, train_err=111593.6240
+Eval: 32_h1=3.2299, 32_l2=1.3187
+[10] time=0.34, avg_loss=381.8490, train_err=1527.3960
+Eval: 32_h1=1.6692, 32_l2=0.6689
+[20] time=0.34, avg_loss=102.6823, train_err=410.7292
+Eval: 32_h1=1.6689, 32_l2=0.6689
+[30] time=0.34, avg_loss=53.8723, train_err=215.4893
+Eval: 32_h1=1.6723, 32_l2=0.6724
+Model: TFNO, 40,089 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.25, avg_loss=32282.2728, train_err=129129.0913
+Eval: 32_h1=2.1661, 32_l2=1.2175
+[10] time=0.24, avg_loss=296.3125, train_err=1185.2501
+Eval: 32_h1=1.6666, 32_l2=0.6717
+[20] time=0.24, avg_loss=89.2649, train_err=357.0596
+Eval: 32_h1=1.6673, 32_l2=0.6674
+[30] time=0.24, avg_loss=54.3446, train_err=217.3782
+Eval: 32_h1=1.6691, 32_l2=0.6691
+[40] time=0.24, avg_loss=105.6269, train_err=422.5075
+Eval: 32_h1=1.6657, 32_l2=0.6657
+[50] time=0.24, avg_loss=38.5153, train_err=154.0611
+Eval: 32_h1=1.6772, 32_l2=0.6777
+[60] time=0.24, avg_loss=66.7691, train_err=267.0764
+Eval: 32_h1=1.6654, 32_l2=0.6652
+[70] time=0.24, avg_loss=42.4362, train_err=169.7449
+Eval: 32_h1=1.6652, 32_l2=0.6658
+[80] time=0.24, avg_loss=54.9092, train_err=219.6370
+Eval: 32_h1=1.6687, 32_l2=0.6688
+[90] time=0.24, avg_loss=32.0503, train_err=128.2011
+Eval: 32_h1=1.6717, 32_l2=0.6719
+Model: TFNO, 46,417 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=15672.8595, train_err=62691.4380
+Eval: 32_h1=2.1879, 32_l2=0.9862
+[10] time=0.43, avg_loss=226.9825, train_err=907.9298
+Eval: 32_h1=1.6906, 32_l2=0.6872
+Model: TFNO, 126,497 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.17, avg_loss=21196.2906, train_err=84785.1626
+Eval: 32_h1=2.0668, 32_l2=1.1004
+[10] time=0.16, avg_loss=107.0765, train_err=428.3059
+Eval: 32_h1=1.6905, 32_l2=0.6901
+[20] time=0.17, avg_loss=47.4470, train_err=189.7879
+Eval: 32_h1=1.6725, 32_l2=0.6721
+[30] time=0.17, avg_loss=32.2399, train_err=128.9597
+Eval: 32_h1=1.6703, 32_l2=0.6704
+Model: TFNO, 46,417 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.17, avg_loss=23452.4830, train_err=93809.9319
+Eval: 32_h1=2.7387, 32_l2=1.6786
+[10] time=0.17, avg_loss=148.0828, train_err=592.3313
+Eval: 32_h1=1.6684, 32_l2=0.6677
+[20] time=0.17, avg_loss=77.7404, train_err=310.9615
+Eval: 32_h1=1.6728, 32_l2=0.6730
+[30] time=0.17, avg_loss=50.9231, train_err=203.6924
+Eval: 32_h1=1.6716, 32_l2=0.6716
+[40] time=0.17, avg_loss=37.4176, train_err=149.6704
+Eval: 32_h1=1.6708, 32_l2=0.6706
+[50] time=0.17, avg_loss=30.1767, train_err=120.7069
+Eval: 32_h1=1.6716, 32_l2=0.6714
+[60] time=0.17, avg_loss=26.4848, train_err=105.9391
+Eval: 32_h1=1.6712, 32_l2=0.6710
+[70] time=0.17, avg_loss=22.6949, train_err=90.7795
+Eval: 32_h1=1.6769, 32_l2=0.6767
+[80] time=0.17, avg_loss=22.8060, train_err=91.2241
+Eval: 32_h1=1.6734, 32_l2=0.6732
+[90] time=0.17, avg_loss=23.2944, train_err=93.1776
+Eval: 32_h1=1.6738, 32_l2=0.6736
+Model: TFNO, 126,497 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=11288.5585, train_err=45154.2339
+Eval: 32_h1=3.6310, 32_l2=2.4081
+[10] time=0.43, avg_loss=109.3789, train_err=437.5158
+Eval: 32_h1=1.6716, 32_l2=0.6713
+Model: TFNO, 57,749 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.34, avg_loss=20124.4832, train_err=80497.9329
+Eval: 32_h1=1.7464, 32_l2=0.6990
+[10] time=0.34, avg_loss=235.1003, train_err=940.4014
+Eval: 32_h1=1.6654, 32_l2=0.6667
+[20] time=0.34, avg_loss=112.7264, train_err=450.9058
+Eval: 32_h1=1.6660, 32_l2=0.6682
+[30] time=0.34, avg_loss=47.0820, train_err=188.3281
+Eval: 32_h1=1.6751, 32_l2=0.6741
+[40] time=0.34, avg_loss=28.9625, train_err=115.8501
+Eval: 32_h1=1.6698, 32_l2=0.6700
+[50] time=0.34, avg_loss=31.6226, train_err=126.4902
+Eval: 32_h1=1.6691, 32_l2=0.6699
+[60] time=0.34, avg_loss=27.4790, train_err=109.9160
+Eval: 32_h1=1.6691, 32_l2=0.6693
+[70] time=0.34, avg_loss=33.9741, train_err=135.8965
+Eval: 32_h1=1.6720, 32_l2=0.6724
+[80] time=0.34, avg_loss=31.3444, train_err=125.3775
+Eval: 32_h1=1.6745, 32_l2=0.6746
+[90] time=0.34, avg_loss=23.3797, train_err=93.5187
+Eval: 32_h1=1.6735, 32_l2=0.6738
+Model: TFNO, 75,409 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=25912.2534, train_err=103649.0137
+Eval: 32_h1=1.8701, 32_l2=0.7787
+[10] time=0.43, avg_loss=90.4727, train_err=361.8908
+Eval: 32_h1=1.7299, 32_l2=0.7309
+Model: TFNO, 75,409 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.17, avg_loss=8369.5626, train_err=33478.2505
+Eval: 32_h1=1.7133, 32_l2=0.7279
+[10] time=0.17, avg_loss=139.6639, train_err=558.6558
+Eval: 32_h1=1.6683, 32_l2=0.6663
+Model: TFNO, 126,497 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=11428.7552, train_err=45715.0209
+Eval: 32_h1=3.0163, 32_l2=2.0486
+[10] time=0.43, avg_loss=104.0400, train_err=416.1602
+Eval: 32_h1=1.6717, 32_l2=0.6730
+[20] time=0.43, avg_loss=63.5287, train_err=254.1147
+Eval: 32_h1=1.6732, 32_l2=0.6744
+[30] time=0.43, avg_loss=43.9354, train_err=175.7417
+Eval: 32_h1=1.6758, 32_l2=0.6757
+[40] time=0.43, avg_loss=43.2339, train_err=172.9357
+Eval: 32_h1=1.6698, 32_l2=0.6702
+[50] time=0.43, avg_loss=32.0349, train_err=128.1395
+Eval: 32_h1=1.6693, 32_l2=0.6699
+[60] time=0.43, avg_loss=44.5971, train_err=178.3885
+Eval: 32_h1=1.6943, 32_l2=0.6951
+[70] time=0.43, avg_loss=29.5612, train_err=118.2448
+Eval: 32_h1=1.6911, 32_l2=0.6912
+[80] time=0.43, avg_loss=26.0736, train_err=104.2944
+Eval: 32_h1=1.6704, 32_l2=0.6712
+[90] time=0.43, avg_loss=25.2868, train_err=101.1472
+Eval: 32_h1=1.6712, 32_l2=0.6718
+Model: TFNO, 96,065 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.34, avg_loss=10135.2012, train_err=40540.8047
+Eval: 32_h1=1.7160, 32_l2=0.6911
+[10] time=0.34, avg_loss=77.1346, train_err=308.5384
+Eval: 32_h1=1.6685, 32_l2=0.6685
+[20] time=0.34, avg_loss=36.9271, train_err=147.7085
+Eval: 32_h1=1.6683, 32_l2=0.6686
+[30] time=0.34, avg_loss=23.1879, train_err=92.7515
+Eval: 32_h1=1.6715, 32_l2=0.6716
+Model: TFNO, 93,069 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.52, avg_loss=27373.0475, train_err=109492.1899
+Eval: 32_h1=2.6010, 32_l2=1.4375
+[10] time=0.52, avg_loss=309.3722, train_err=1237.4888
+Eval: 32_h1=1.6753, 32_l2=0.6755
+[20] time=0.53, avg_loss=132.3688, train_err=529.4752
+Eval: 32_h1=1.6759, 32_l2=0.6782
+[30] time=0.52, avg_loss=76.3634, train_err=305.4535
+Eval: 32_h1=1.6729, 32_l2=0.6745
+[40] time=0.52, avg_loss=55.8019, train_err=223.2077
+Eval: 32_h1=1.6680, 32_l2=0.6694
+[50] time=0.52, avg_loss=44.8860, train_err=179.5439
+Eval: 32_h1=1.6712, 32_l2=0.6725
+[60] time=0.53, avg_loss=49.3244, train_err=197.2975
+Eval: 32_h1=1.6681, 32_l2=0.6691
+[70] time=0.52, avg_loss=34.6378, train_err=138.5512
+Eval: 32_h1=1.6727, 32_l2=0.6733
+[80] time=0.53, avg_loss=28.3487, train_err=113.3946
+Eval: 32_h1=1.6714, 32_l2=0.6721
+[90] time=0.53, avg_loss=45.0412, train_err=180.1649
+Eval: 32_h1=1.6661, 32_l2=0.6672
+[100] time=0.52, avg_loss=32.6383, train_err=130.5530
+Eval: 32_h1=1.6919, 32_l2=0.6926
+[110] time=0.52, avg_loss=34.4907, train_err=137.9628
+Eval: 32_h1=1.6710, 32_l2=0.6721
+[120] time=0.52, avg_loss=28.0047, train_err=112.0187
+Eval: 32_h1=1.6689, 32_l2=0.6699
+[130] time=0.52, avg_loss=26.5799, train_err=106.3195
+Eval: 32_h1=1.6661, 32_l2=0.6669
+[140] time=0.52, avg_loss=21.3478, train_err=85.3913
+Eval: 32_h1=1.6706, 32_l2=0.6715
+[150] time=0.53, avg_loss=19.3961, train_err=77.5843
+Eval: 32_h1=1.6729, 32_l2=0.6734
+[160] time=0.52, avg_loss=23.3010, train_err=93.2038
+Eval: 32_h1=1.6670, 32_l2=0.6675
+[170] time=0.53, avg_loss=55.8063, train_err=223.2252
+Eval: 32_h1=1.6708, 32_l2=0.6715
+[180] time=0.52, avg_loss=20.8744, train_err=83.4978
+Eval: 32_h1=1.6677, 32_l2=0.6682
+[190] time=0.53, avg_loss=24.5329, train_err=98.1315
+Eval: 32_h1=1.6744, 32_l2=0.6752
+[200] time=0.53, avg_loss=23.5864, train_err=94.3458
+Eval: 32_h1=1.6649, 32_l2=0.6656
+[210] time=0.52, avg_loss=19.4935, train_err=77.9742
+Eval: 32_h1=1.6752, 32_l2=0.6759
+[220] time=0.53, avg_loss=20.5601, train_err=82.2404
+Eval: 32_h1=1.6674, 32_l2=0.6679
+[230] time=0.53, avg_loss=20.6285, train_err=82.5138
+Eval: 32_h1=1.6713, 32_l2=0.6720
+[240] time=0.52, avg_loss=29.5505, train_err=118.2021
+Eval: 32_h1=1.6688, 32_l2=0.6693
+[250] time=0.53, avg_loss=20.5054, train_err=82.0215
+Eval: 32_h1=1.6703, 32_l2=0.6709
+[260] time=0.53, avg_loss=33.9368, train_err=135.7471
+Eval: 32_h1=1.6677, 32_l2=0.6683
+[270] time=0.53, avg_loss=25.6066, train_err=102.4264
+Eval: 32_h1=1.6670, 32_l2=0.6674
+[280] time=0.53, avg_loss=32.7763, train_err=131.1054
+Eval: 32_h1=1.6774, 32_l2=0.6780
+[290] time=0.53, avg_loss=19.5786, train_err=78.3143
+Eval: 32_h1=1.6729, 32_l2=0.6734
+[300] time=0.52, avg_loss=24.8217, train_err=99.2867
+Eval: 32_h1=1.6677, 32_l2=0.6684
+[310] time=0.53, avg_loss=23.0407, train_err=92.1628
+Eval: 32_h1=1.6696, 32_l2=0.6701
+[320] time=0.52, avg_loss=20.9594, train_err=83.8377
+Eval: 32_h1=1.6688, 32_l2=0.6691
+[330] time=0.52, avg_loss=24.7481, train_err=98.9924
+Eval: 32_h1=1.6711, 32_l2=0.6717
+[340] time=0.53, avg_loss=20.5513, train_err=82.2053
+Eval: 32_h1=1.6685, 32_l2=0.6694
+[350] time=0.53, avg_loss=22.5170, train_err=90.0679
+Eval: 32_h1=1.6686, 32_l2=0.6686
+[360] time=0.53, avg_loss=18.7478, train_err=74.9910
+Eval: 32_h1=1.6692, 32_l2=0.6699
+[370] time=0.52, avg_loss=22.9677, train_err=91.8708
+Eval: 32_h1=1.6696, 32_l2=0.6701
+[380] time=0.53, avg_loss=19.8064, train_err=79.2256
+Eval: 32_h1=1.6687, 32_l2=0.6692
+[390] time=0.53, avg_loss=26.8709, train_err=107.4837
+Eval: 32_h1=1.6689, 32_l2=0.6698
+[400] time=0.52, avg_loss=20.7891, train_err=83.1562
+Eval: 32_h1=1.6704, 32_l2=0.6712
+[410] time=0.53, avg_loss=25.1294, train_err=100.5176
+Eval: 32_h1=1.6666, 32_l2=0.6672
+[420] time=0.52, avg_loss=21.1055, train_err=84.4220
+Eval: 32_h1=1.6657, 32_l2=0.6662
+[430] time=0.53, avg_loss=19.8477, train_err=79.3906
+Eval: 32_h1=1.6731, 32_l2=0.6737
+[440] time=0.52, avg_loss=18.3353, train_err=73.3411
+Eval: 32_h1=1.6716, 32_l2=0.6724
+[450] time=0.53, avg_loss=19.0075, train_err=76.0302
+Eval: 32_h1=1.6756, 32_l2=0.6766
+[460] time=0.53, avg_loss=20.3519, train_err=81.4074
+Eval: 32_h1=1.6744, 32_l2=0.6744
+[470] time=0.52, avg_loss=19.8530, train_err=79.4121
+Eval: 32_h1=1.6671, 32_l2=0.6678
+[480] time=0.53, avg_loss=39.0114, train_err=156.0458
+Eval: 32_h1=1.6735, 32_l2=0.6744
+[490] time=0.52, avg_loss=25.0201, train_err=100.0806
+Eval: 32_h1=1.6782, 32_l2=0.6793
+[500] time=0.53, avg_loss=23.9316, train_err=95.7265
+Eval: 32_h1=1.6670, 32_l2=0.6679
+[510] time=0.52, avg_loss=20.0866, train_err=80.3464
+Eval: 32_h1=1.6714, 32_l2=0.6722
+[520] time=0.52, avg_loss=28.7769, train_err=115.1078
+Eval: 32_h1=1.6701, 32_l2=0.6712
+[530] time=0.52, avg_loss=19.6195, train_err=78.4780
+Eval: 32_h1=1.6686, 32_l2=0.6694
+[540] time=0.52, avg_loss=18.9761, train_err=75.9045
+Eval: 32_h1=1.6692, 32_l2=0.6698
+[550] time=0.52, avg_loss=19.6633, train_err=78.6533
+Eval: 32_h1=1.6701, 32_l2=0.6706
+[560] time=0.53, avg_loss=22.7959, train_err=91.1837
+Eval: 32_h1=1.6671, 32_l2=0.6679
+[570] time=0.53, avg_loss=18.7889, train_err=75.1557
+Eval: 32_h1=1.6735, 32_l2=0.6743
+[580] time=0.52, avg_loss=18.4986, train_err=73.9943
+Eval: 32_h1=1.6692, 32_l2=0.6698
+[590] time=0.52, avg_loss=18.9870, train_err=75.9482
+Eval: 32_h1=1.6679, 32_l2=0.6685
+[600] time=0.53, avg_loss=20.3046, train_err=81.2184
+Eval: 32_h1=1.6702, 32_l2=0.6708
+[610] time=0.52, avg_loss=20.4469, train_err=81.7876
+Eval: 32_h1=1.6730, 32_l2=0.6737
+[620] time=0.53, avg_loss=22.0511, train_err=88.2046
+Eval: 32_h1=1.6678, 32_l2=0.6681
+[630] time=0.53, avg_loss=21.9791, train_err=87.9166
+Eval: 32_h1=1.6711, 32_l2=0.6716
+[640] time=0.52, avg_loss=41.8688, train_err=167.4752
+Eval: 32_h1=1.6727, 32_l2=0.6730
+[650] time=0.52, avg_loss=19.7106, train_err=78.8425
+Eval: 32_h1=1.6669, 32_l2=0.6676
+[660] time=0.53, avg_loss=19.4713, train_err=77.8853
+Eval: 32_h1=1.6720, 32_l2=0.6724
+[670] time=0.52, avg_loss=23.0527, train_err=92.2109
+Eval: 32_h1=1.6721, 32_l2=0.6725
+[680] time=0.52, avg_loss=22.3639, train_err=89.4558
+Eval: 32_h1=1.6672, 32_l2=0.6681
+[690] time=0.52, avg_loss=21.4120, train_err=85.6480
+Eval: 32_h1=1.6703, 32_l2=0.6708
+[700] time=0.52, avg_loss=20.5955, train_err=82.3822
+Eval: 32_h1=1.6693, 32_l2=0.6699
+[710] time=0.52, avg_loss=18.5968, train_err=74.3872
+Eval: 32_h1=1.6756, 32_l2=0.6766
+[720] time=0.52, avg_loss=17.4164, train_err=69.6658
+Eval: 32_h1=1.6779, 32_l2=0.6784
+[730] time=0.53, avg_loss=18.7753, train_err=75.1011
+Eval: 32_h1=1.6688, 32_l2=0.6692
+[740] time=0.53, avg_loss=18.8557, train_err=75.4228
+Eval: 32_h1=1.6701, 32_l2=0.6708
+[750] time=0.52, avg_loss=18.6357, train_err=74.5428
+Eval: 32_h1=1.6741, 32_l2=0.6747
+[760] time=0.53, avg_loss=17.4285, train_err=69.7139
+Eval: 32_h1=1.6691, 32_l2=0.6697
+[770] time=0.52, avg_loss=17.5571, train_err=70.2283
+Eval: 32_h1=1.6720, 32_l2=0.6728
+[780] time=0.53, avg_loss=17.8956, train_err=71.5825
+Eval: 32_h1=1.6685, 32_l2=0.6691
+[790] time=0.52, avg_loss=20.1729, train_err=80.6914
+Eval: 32_h1=1.6687, 32_l2=0.6695
+[800] time=0.52, avg_loss=19.4076, train_err=77.6304
+Eval: 32_h1=1.6746, 32_l2=0.6749
+[810] time=0.53, avg_loss=19.3266, train_err=77.3062
+Eval: 32_h1=1.6734, 32_l2=0.6746
+Model: TFNO, 96,065 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.34, avg_loss=13572.1328, train_err=54288.5312
+Eval: 32_h1=2.1471, 32_l2=0.7917
+[10] time=0.34, avg_loss=357.1544, train_err=1428.6176
+Eval: 32_h1=1.6843, 32_l2=0.6823
+[20] time=0.34, avg_loss=144.1013, train_err=576.4053
+Eval: 32_h1=1.6714, 32_l2=0.6694
+[30] time=0.34, avg_loss=85.9812, train_err=343.9249
+Eval: 32_h1=1.6691, 32_l2=0.6698
+[40] time=0.34, avg_loss=56.5725, train_err=226.2902
+Eval: 32_h1=1.6692, 32_l2=0.6697
+[50] time=0.34, avg_loss=32.3715, train_err=129.4858
+Eval: 32_h1=1.6719, 32_l2=0.6717
+[60] time=0.34, avg_loss=33.4739, train_err=133.8958
+Eval: 32_h1=1.6683, 32_l2=0.6691
+[70] time=0.34, avg_loss=24.5360, train_err=98.1439
+Eval: 32_h1=1.6712, 32_l2=0.6714
+[80] time=0.34, avg_loss=23.8176, train_err=95.2702
+Eval: 32_h1=1.6718, 32_l2=0.6717
+[90] time=0.34, avg_loss=22.6279, train_err=90.5117
+Eval: 32_h1=1.6718, 32_l2=0.6721
+Model: TFNO, 36,005 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.34, avg_loss=14932.9713, train_err=59731.8853
+Eval: 32_h1=4.3171, 32_l2=3.1950
+[10] time=0.34, avg_loss=241.6819, train_err=966.7274
+Eval: 32_h1=1.7043, 32_l2=0.7059
+Model: TFNO, 46,417 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=30133.9893, train_err=120535.9570
+Eval: 32_h1=3.4051, 32_l2=2.0111
+[10] time=0.43, avg_loss=207.5543, train_err=830.2170
+Eval: 32_h1=1.6658, 32_l2=0.6665
+[20] time=0.43, avg_loss=59.1147, train_err=236.4587
+Eval: 32_h1=1.6698, 32_l2=0.6712
+[30] time=0.43, avg_loss=49.5142, train_err=198.0567
+Eval: 32_h1=1.6680, 32_l2=0.6693
+[40] time=0.43, avg_loss=47.4423, train_err=189.7691
+Eval: 32_h1=1.7051, 32_l2=0.7064
+[50] time=0.43, avg_loss=34.5761, train_err=138.3044
+Eval: 32_h1=1.6718, 32_l2=0.6728
+[60] time=0.43, avg_loss=44.9246, train_err=179.6985
+Eval: 32_h1=1.6781, 32_l2=0.6791
+[70] time=0.43, avg_loss=35.9917, train_err=143.9669
+Eval: 32_h1=1.6647, 32_l2=0.6657
+[80] time=0.43, avg_loss=25.5438, train_err=102.1753
+Eval: 32_h1=1.6722, 32_l2=0.6732
+[90] time=0.43, avg_loss=24.5295, train_err=98.1178
+Eval: 32_h1=1.6712, 32_l2=0.6722
+Model: TFNO, 46,417 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=12170.2928, train_err=48681.1710
+Eval: 32_h1=1.8913, 32_l2=0.7249
+[10] time=0.43, avg_loss=117.5067, train_err=470.0267
+Eval: 32_h1=1.6819, 32_l2=0.6812
+[20] time=0.43, avg_loss=50.9049, train_err=203.6197
+Eval: 32_h1=1.6715, 32_l2=0.6714
+[30] time=0.43, avg_loss=43.0853, train_err=172.3412
+Eval: 32_h1=1.6725, 32_l2=0.6726
+Model: TFNO, 46,417 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=12279.4880, train_err=49117.9521
+Eval: 32_h1=2.3818, 32_l2=1.4204
+[10] time=0.43, avg_loss=283.1050, train_err=1132.4198
+Eval: 32_h1=1.7077, 32_l2=0.7094
+Model: TFNO, 46,417 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=9410.4713, train_err=37641.8853
+Eval: 32_h1=2.6718, 32_l2=1.6991
+[10] time=0.43, avg_loss=87.9845, train_err=351.9382
+Eval: 32_h1=1.6802, 32_l2=0.6812
+Model: TFNO, 93,069 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.52, avg_loss=7840.8162, train_err=31363.2646
+Eval: 32_h1=2.7345, 32_l2=1.7210
+[10] time=0.52, avg_loss=74.1774, train_err=296.7095
+Eval: 32_h1=1.6780, 32_l2=0.6784
+Model: TFNO, 126,497 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=11815.9695, train_err=47263.8779
+Eval: 32_h1=1.6750, 32_l2=0.6754
+[10] time=0.43, avg_loss=86.3575, train_err=345.4300
+Eval: 32_h1=1.6809, 32_l2=0.6810
+[20] time=0.43, avg_loss=40.3963, train_err=161.5852
+Eval: 32_h1=1.6676, 32_l2=0.6678
+[30] time=0.43, avg_loss=26.3420, train_err=105.3678
+Eval: 32_h1=1.6703, 32_l2=0.6706
+Model: TFNO, 75,409 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=16473.0240, train_err=65892.0962
+Eval: 32_h1=1.8508, 32_l2=0.9176
+[10] time=0.43, avg_loss=289.4021, train_err=1157.6084
+Eval: 32_h1=1.6673, 32_l2=0.6664
+[20] time=0.43, avg_loss=104.3974, train_err=417.5895
+Eval: 32_h1=1.6704, 32_l2=0.6693
+[30] time=0.43, avg_loss=69.3940, train_err=277.5758
+Eval: 32_h1=1.6720, 32_l2=0.6716
+Model: TFNO, 46,417 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=21998.7977, train_err=87995.1907
+Eval: 32_h1=2.0931, 32_l2=0.8217
+[10] time=0.43, avg_loss=101.1719, train_err=404.6875
+Eval: 32_h1=1.6767, 32_l2=0.6768
+[20] time=0.43, avg_loss=74.5716, train_err=298.2863
+Eval: 32_h1=1.6684, 32_l2=0.6683
+[30] time=0.43, avg_loss=54.7652, train_err=219.0608
+Eval: 32_h1=1.6690, 32_l2=0.6689
+[40] time=0.43, avg_loss=67.1249, train_err=268.4994
+Eval: 32_h1=1.6708, 32_l2=0.6723
+[50] time=0.43, avg_loss=38.8121, train_err=155.2483
+Eval: 32_h1=1.6707, 32_l2=0.6710
+[60] time=0.43, avg_loss=30.2430, train_err=120.9720
+Eval: 32_h1=1.6710, 32_l2=0.6712
+[70] time=0.43, avg_loss=21.3299, train_err=85.3195
+Eval: 32_h1=1.6700, 32_l2=0.6702
+[80] time=0.43, avg_loss=21.0469, train_err=84.1876
+Eval: 32_h1=1.6702, 32_l2=0.6704
+[90] time=0.43, avg_loss=19.4268, train_err=77.7071
+Eval: 32_h1=1.6744, 32_l2=0.6746
+Model: TFNO, 75,409 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=37991.8203, train_err=151967.2810
+Eval: 32_h1=3.0708, 32_l2=1.7117
+[10] time=0.43, avg_loss=321.4073, train_err=1285.6290
+Eval: 32_h1=1.8171, 32_l2=0.8175
+[20] time=0.43, avg_loss=99.8674, train_err=399.4694
+Eval: 32_h1=1.6691, 32_l2=0.6712
+[30] time=0.43, avg_loss=67.2544, train_err=269.0176
+Eval: 32_h1=1.6772, 32_l2=0.6778
+Model: TFNO, 126,497 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=16672.8658, train_err=66691.4634
+Eval: 32_h1=1.8807, 32_l2=0.7709
+[10] time=0.43, avg_loss=124.3400, train_err=497.3599
+Eval: 32_h1=1.6666, 32_l2=0.6669
+[20] time=0.43, avg_loss=68.1906, train_err=272.7625
+Eval: 32_h1=1.6768, 32_l2=0.6770
+[30] time=0.43, avg_loss=44.0353, train_err=176.1414
+Eval: 32_h1=1.6673, 32_l2=0.6677
+[40] time=0.43, avg_loss=23.2632, train_err=93.0530
+Eval: 32_h1=1.6689, 32_l2=0.6692
+[50] time=0.43, avg_loss=22.5626, train_err=90.2503
+Eval: 32_h1=1.6722, 32_l2=0.6726
+[60] time=0.43, avg_loss=20.5695, train_err=82.2779
+Eval: 32_h1=1.6674, 32_l2=0.6678
+[70] time=0.43, avg_loss=19.4621, train_err=77.8484
+Eval: 32_h1=1.6706, 32_l2=0.6712
+[80] time=0.43, avg_loss=18.7196, train_err=74.8784
+Eval: 32_h1=1.6677, 32_l2=0.6682
+[90] time=0.43, avg_loss=17.1191, train_err=68.4764
+Eval: 32_h1=1.6724, 32_l2=0.6730
+Model: TFNO, 75,409 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=8688.5022, train_err=34754.0089
+Eval: 32_h1=1.9738, 32_l2=0.9255
+[10] time=0.43, avg_loss=240.0964, train_err=960.3858
+Eval: 32_h1=1.7106, 32_l2=0.7110
+[20] time=0.43, avg_loss=87.5783, train_err=350.3133
+Eval: 32_h1=1.6715, 32_l2=0.6731
+[30] time=0.43, avg_loss=54.3769, train_err=217.5076
+Eval: 32_h1=1.6715, 32_l2=0.6718
+Model: TFNO, 75,409 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=28405.6368, train_err=113622.5471
+Eval: 32_h1=2.8056, 32_l2=1.7569
+[10] time=0.43, avg_loss=191.7081, train_err=766.8325
+Eval: 32_h1=1.6650, 32_l2=0.6668
+[20] time=0.43, avg_loss=101.8869, train_err=407.5475
+Eval: 32_h1=1.6770, 32_l2=0.6781
+[30] time=0.43, avg_loss=155.5660, train_err=622.2641
+Eval: 32_h1=1.6685, 32_l2=0.6679
+[40] time=0.43, avg_loss=42.7687, train_err=171.0750
+Eval: 32_h1=1.6702, 32_l2=0.6709
+[50] time=0.43, avg_loss=29.2752, train_err=117.1006
+Eval: 32_h1=1.6740, 32_l2=0.6746
+[60] time=0.43, avg_loss=26.2578, train_err=105.0311
+Eval: 32_h1=1.6698, 32_l2=0.6700
+[70] time=0.43, avg_loss=25.1559, train_err=100.6234
+Eval: 32_h1=1.6731, 32_l2=0.6733
+[80] time=0.43, avg_loss=19.0806, train_err=76.3224
+Eval: 32_h1=1.6706, 32_l2=0.6711
+[90] time=0.43, avg_loss=21.4346, train_err=85.7384
+Eval: 32_h1=1.6720, 32_l2=0.6720
+Model: TFNO, 75,409 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=5131.9241, train_err=20527.6962
+Eval: 32_h1=3.1840, 32_l2=2.1469
+[10] time=0.43, avg_loss=62.4690, train_err=249.8762
+Eval: 32_h1=1.6888, 32_l2=0.6884
+Model: TFNO, 75,409 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=6304.4189, train_err=25217.6758
+Eval: 32_h1=2.6984, 32_l2=1.6934
+[10] time=0.43, avg_loss=128.6316, train_err=514.5263
+Eval: 32_h1=1.6889, 32_l2=0.6886
+[20] time=0.43, avg_loss=57.3175, train_err=229.2698
+Eval: 32_h1=1.6733, 32_l2=0.6734
+[30] time=0.43, avg_loss=42.7366, train_err=170.9464
+Eval: 32_h1=1.6922, 32_l2=0.6924
+[40] time=0.43, avg_loss=32.8136, train_err=131.2546
+Eval: 32_h1=1.6744, 32_l2=0.6749
+[50] time=0.43, avg_loss=26.7743, train_err=107.0973
+Eval: 32_h1=1.6696, 32_l2=0.6700
+[60] time=0.43, avg_loss=26.6320, train_err=106.5279
+Eval: 32_h1=1.6706, 32_l2=0.6715
+[70] time=0.43, avg_loss=27.7609, train_err=111.0437
+Eval: 32_h1=1.6701, 32_l2=0.6706
+[80] time=0.43, avg_loss=20.7377, train_err=82.9509
+Eval: 32_h1=1.6717, 32_l2=0.6719
+[90] time=0.43, avg_loss=21.8861, train_err=87.5445
+Eval: 32_h1=1.6809, 32_l2=0.6817
+Model: TFNO, 75,409 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=11206.2358, train_err=44824.9434
+Eval: 32_h1=1.6130, 32_l2=0.6680
+[10] time=0.43, avg_loss=108.6564, train_err=434.6257
+Eval: 32_h1=1.6677, 32_l2=0.6676
+[20] time=0.43, avg_loss=63.1576, train_err=252.6302
+Eval: 32_h1=1.6712, 32_l2=0.6716
+[30] time=0.43, avg_loss=39.7877, train_err=159.1510
+Eval: 32_h1=1.6685, 32_l2=0.6690
+[40] time=0.43, avg_loss=32.2285, train_err=128.9139
+Eval: 32_h1=1.6712, 32_l2=0.6718
+[50] time=0.43, avg_loss=24.6289, train_err=98.5156
+Eval: 32_h1=1.6784, 32_l2=0.6791
+[60] time=0.43, avg_loss=20.8399, train_err=83.3597
+Eval: 32_h1=1.6686, 32_l2=0.6690
+[70] time=0.43, avg_loss=21.5337, train_err=86.1348
+Eval: 32_h1=1.6661, 32_l2=0.6667
+[80] time=0.43, avg_loss=19.2266, train_err=76.9063
+Eval: 32_h1=1.6743, 32_l2=0.6739
+[90] time=0.43, avg_loss=22.0242, train_err=88.0968
+Eval: 32_h1=1.6748, 32_l2=0.6752
+Model: TFNO, 46,417 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=5955.7204, train_err=23822.8815
+Eval: 32_h1=1.6895, 32_l2=0.6677
+[10] time=0.43, avg_loss=273.2445, train_err=1092.9781
+Eval: 32_h1=1.7143, 32_l2=0.7139
+Model: TFNO, 75,409 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=6207.0705, train_err=24828.2821
+Eval: 32_h1=1.7238, 32_l2=0.7111
+[10] time=0.43, avg_loss=79.2679, train_err=317.0717
+Eval: 32_h1=1.6852, 32_l2=0.6833
+Model: TFNO, 126,561 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=10659.5562, train_err=42638.2246
+Eval: 32_h1=2.3152, 32_l2=1.3713
+[10] time=0.43, avg_loss=154.4445, train_err=617.7779
+Eval: 32_h1=1.6690, 32_l2=0.6670
+[20] time=0.43, avg_loss=77.0598, train_err=308.2393
+Eval: 32_h1=1.6693, 32_l2=0.6691
+[30] time=0.43, avg_loss=53.4182, train_err=213.6728
+Eval: 32_h1=1.6691, 32_l2=0.6694
+[40] time=0.43, avg_loss=38.0368, train_err=152.1473
+Eval: 32_h1=1.6698, 32_l2=0.6702
+[50] time=0.43, avg_loss=27.1415, train_err=108.5658
+Eval: 32_h1=1.6698, 32_l2=0.6702
+[60] time=0.43, avg_loss=20.8758, train_err=83.5033
+Eval: 32_h1=1.6698, 32_l2=0.6701
+[70] time=0.43, avg_loss=22.4594, train_err=89.8377
+Eval: 32_h1=1.6686, 32_l2=0.6689
+[80] time=0.43, avg_loss=22.7325, train_err=90.9302
+Eval: 32_h1=1.6719, 32_l2=0.6720
+[90] time=0.43, avg_loss=17.7556, train_err=71.0224
+Eval: 32_h1=1.6732, 32_l2=0.6735
+Model: TFNO, 93,069 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.53, avg_loss=16538.4614, train_err=66153.8456
+Eval: 32_h1=1.8779, 32_l2=0.8369
+[10] time=0.53, avg_loss=69.0038, train_err=276.0153
+Eval: 32_h1=1.6695, 32_l2=0.6704
+Model: TFNO, 75,409 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=29472.1223, train_err=117888.4894
+Eval: 32_h1=3.0510, 32_l2=1.7465
+[10] time=0.43, avg_loss=104.8313, train_err=419.3251
+Eval: 32_h1=1.6716, 32_l2=0.6719
+[20] time=0.43, avg_loss=50.3420, train_err=201.3679
+Eval: 32_h1=1.6681, 32_l2=0.6688
+[30] time=0.43, avg_loss=42.2125, train_err=168.8502
+Eval: 32_h1=1.6689, 32_l2=0.6697
+[40] time=0.43, avg_loss=36.7701, train_err=147.0805
+Eval: 32_h1=1.6672, 32_l2=0.6681
+[50] time=0.43, avg_loss=32.3522, train_err=129.4090
+Eval: 32_h1=1.6679, 32_l2=0.6688
+[60] time=0.43, avg_loss=29.6390, train_err=118.5559
+Eval: 32_h1=1.6697, 32_l2=0.6705
+[70] time=0.43, avg_loss=26.5563, train_err=106.2251
+Eval: 32_h1=1.6707, 32_l2=0.6714
+[80] time=0.43, avg_loss=25.7872, train_err=103.1489
+Eval: 32_h1=1.6729, 32_l2=0.6736
+[90] time=0.43, avg_loss=23.3819, train_err=93.5276
+Eval: 32_h1=1.6707, 32_l2=0.6713
+[100] time=0.43, avg_loss=22.1508, train_err=88.6034
+Eval: 32_h1=1.6683, 32_l2=0.6688
+[110] time=0.43, avg_loss=23.2209, train_err=92.8837
+Eval: 32_h1=1.6731, 32_l2=0.6736
+[120] time=0.43, avg_loss=18.6534, train_err=74.6136
+Eval: 32_h1=1.6700, 32_l2=0.6704
+[130] time=0.43, avg_loss=20.7425, train_err=82.9701
+Eval: 32_h1=1.6696, 32_l2=0.6701
+[140] time=0.43, avg_loss=18.4228, train_err=73.6911
+Eval: 32_h1=1.6703, 32_l2=0.6707
+[150] time=0.43, avg_loss=18.4547, train_err=73.8189
+Eval: 32_h1=1.6687, 32_l2=0.6692
+[160] time=0.43, avg_loss=17.6204, train_err=70.4816
+Eval: 32_h1=1.6720, 32_l2=0.6724
+[170] time=0.43, avg_loss=17.5387, train_err=70.1547
+Eval: 32_h1=1.6690, 32_l2=0.6695
+[180] time=0.43, avg_loss=17.1127, train_err=68.4508
+Eval: 32_h1=1.6691, 32_l2=0.6697
+[190] time=0.43, avg_loss=16.9683, train_err=67.8732
+Eval: 32_h1=1.6681, 32_l2=0.6686
+[200] time=0.43, avg_loss=20.3294, train_err=81.3176
+Eval: 32_h1=1.6674, 32_l2=0.6682
+[210] time=0.43, avg_loss=18.2498, train_err=72.9991
+Eval: 32_h1=1.6670, 32_l2=0.6680
+[220] time=0.43, avg_loss=17.1229, train_err=68.4917
+Eval: 32_h1=1.6705, 32_l2=0.6712
+[230] time=0.43, avg_loss=16.8909, train_err=67.5638
+Eval: 32_h1=1.6678, 32_l2=0.6683
+[240] time=0.43, avg_loss=18.1033, train_err=72.4131
+Eval: 32_h1=1.6684, 32_l2=0.6696
+[250] time=0.43, avg_loss=16.7754, train_err=67.1017
+Eval: 32_h1=1.6722, 32_l2=0.6730
+[260] time=0.43, avg_loss=17.0026, train_err=68.0103
+Eval: 32_h1=1.6668, 32_l2=0.6677
+[270] time=0.43, avg_loss=16.7811, train_err=67.1242
+Eval: 32_h1=1.6724, 32_l2=0.6732
+Model: TFNO, 75,409 parameters, device cuda
+Training on 16 samples
+Testing on [4] samples         on resolutions [32].
+Raw outputs of shape torch.Size([4, 1, 32, 32, 32])
+[0] time=0.43, avg_loss=11346.7134, train_err=45386.8538
+Eval: 32_h1=3.7070, 32_l2=2.5451
+[10] time=0.43, avg_loss=276.8906, train_err=1107.5623
+Eval: 32_h1=2.2396, 32_l2=1.2395
+Trials saved: /home/akkaya/NO4Cheetah/Pipeline/tables/2026-11-01_02/trials.csv
+Best 32_h1 = 1.665 (trial 4):
+  {'n_modes': 9, 'hidden_channels': 32, 'n_layers': 2, 'domain_padding': 0.25, 'gradient_weight': 0.7847855411710525, 'epochs': 1060, 'learning_rate': 0.0016438929005835009, 'weight_decay': 2.946142710071473e-06}
+Figures saved: /home/akkaya/NO4Cheetah/Pipeline/figures/2026-11-01_02/optuna_history.png, /home/akkaya/NO4Cheetah/Pipeline/figures/2026-11-01_02/optuna_intermediate.png, /home/akkaya/NO4Cheetah/Pipeline/figures/2026-11-01_02/optuna_parallel.png, /home/akkaya/NO4Cheetah/Pipeline/figures/2026-11-01_02/optuna_importances.png
