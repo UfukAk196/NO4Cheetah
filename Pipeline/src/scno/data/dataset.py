@@ -236,7 +236,7 @@ def load_cheetah_sc(
     Returns three objects like ``load_darcy_flow_small``:
         (train_loader, test_loaders, data_processor)
 
-    ``scripts/train_model.py`` passes the ``DATA`` settings of ``scno.config`` as
+    ``exec/train_model.py`` passes the ``DATA`` settings of ``scno.config`` as
     keyword arguments.
 
     Parameters

@@ -1,0 +1,38 @@
+train @ 16: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████| 16/16 [00:05<00:00,  2.80it/s]
+test @ 16: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [00:00<00:00,  4.15it/s]
+test @ 32: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [00:00<00:00,  4.03it/s]
+test @ 64: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████| 4/4 [00:01<00:00,  3.13it/s]
+Model: FNO, 3,542,009 parameters, device cpu
+Training on 16 samples
+Testing on [4, 4, 4] samples         on resolutions [16, 32, 64].
+C:\Users\akkaya\AppData\Local\miniforge3\envs\no4cheetah\Lib\site-packages\torch\utils\data\dataloader.py:759: UserWarning: 'pin_memory' argument is set as true but no accelerator is found, then device pinned memory won't be used.
+  super().__init__(loader)
+C:\Users\akkaya\AppData\Local\miniforge3\envs\no4cheetah\Lib\site-packages\torch\nn\modules\module.py:1794: UserWarning: FNO.forward() received unexpected keyword arguments: ['y']. These arguments will be ignored.
+  return forward_call(*args, **kwargs)
+Raw outputs of shape torch.Size([4, 1, 16, 16, 16])
+[0] time=1.34, avg_loss=3937.6022, train_err=15750.4087
+C:\Users\akkaya\AppData\Local\miniforge3\envs\no4cheetah\Lib\site-packages\torch\utils\data\dataloader.py:759: UserWarning: 'pin_memory' argument is set as true but no accelerator is found, then device pinned memory won't be used.
+  super().__init__(loader)
+C:\Users\akkaya\AppData\Local\miniforge3\envs\no4cheetah\Lib\site-packages\torch\nn\modules\module.py:1794: UserWarning: FNO.forward() received unexpected keyword arguments: ['y']. These arguments will be ignored.
+  return forward_call(*args, **kwargs)
+Eval: 16_h1=1.7335, 16_l2=0.6940, 32_h1=1.7174, 32_l2=0.6711, 64_h1=2.3268, 64_l2=1.1256
+[100] time=0.89, avg_loss=23.7982, train_err=95.1926
+Eval: 16_h1=1.6671, 16_l2=0.6669, 32_h1=1.6557, 32_l2=0.6559, 64_h1=1.8242, 64_l2=0.8225
+[200] time=1.11, avg_loss=22.1755, train_err=88.7022
+Eval: 16_h1=1.6671, 16_l2=0.6669, 32_h1=1.6554, 32_l2=0.6557, 64_h1=1.8251, 64_l2=0.8235
+[300] time=1.09, avg_loss=21.6166, train_err=86.4666
+Eval: 16_h1=1.6670, 16_l2=0.6669, 32_h1=1.6554, 32_l2=0.6556, 64_h1=1.8250, 64_l2=0.8236
+[400] time=1.08, avg_loss=21.3055, train_err=85.2221
+Eval: 16_h1=1.6670, 16_l2=0.6669, 32_h1=1.6553, 32_l2=0.6556, 64_h1=1.8250, 64_l2=0.8236
+[500] time=1.03, avg_loss=21.1041, train_err=84.4164
+Eval: 16_h1=1.6670, 16_l2=0.6669, 32_h1=1.6553, 32_l2=0.6556, 64_h1=1.8250, 64_l2=0.8238
+[600] time=0.98, avg_loss=20.9775, train_err=83.9100
+Eval: 16_h1=1.6669, 16_l2=0.6669, 32_h1=1.6552, 32_l2=0.6555, 64_h1=1.8252, 64_l2=0.8239
+[700] time=0.96, avg_loss=20.8376, train_err=83.3506
+Eval: 16_h1=1.6669, 16_l2=0.6669, 32_h1=1.6551, 32_l2=0.6555, 64_h1=1.8254, 64_l2=0.8242
+[800] time=0.88, avg_loss=20.6928, train_err=82.7713
+Eval: 16_h1=1.6668, 16_l2=0.6668, 32_h1=1.6550, 32_l2=0.6554, 64_h1=1.8255, 64_l2=0.8244
+[900] time=0.93, avg_loss=20.5653, train_err=82.2612
+Eval: 16_h1=1.6668, 16_l2=0.6668, 32_h1=1.6550, 32_l2=0.6554, 64_h1=1.8257, 64_l2=0.8246
+Model saved: D:\Masterarbeit NO-Surrogate for SC simulations\Neural Operator for Cheetah\Pipeline\models\fno_cheetah_space_charge_2026-10-29_01.pth
+Figures saved: D:\Masterarbeit NO-Surrogate for SC simulations\Neural Operator for Cheetah\Pipeline\figures\2026-10-29_01\loss_curves.png

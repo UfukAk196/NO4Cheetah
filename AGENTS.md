@@ -35,7 +35,7 @@ Not lazy about: understanding the problem (read it fully and trace the real flow
 
 | # | What | Where | Role |
 |---|---|---|---|
-| 1 | **NO4Cheetah** (this repo), package `scno` | `Neural Operator Pipeline/` | Data generation, FNO training, evaluation, lattice element |
+| 1 | **NO4Cheetah** (this repo), package `scno` | `Pipeline/` | Data generation, FNO training, evaluation, lattice element |
 | 2 | **Cheetah** (`cheetah-accelerator`, 0.8.5-dev clone) | `../Cheetah repos/cheetah-accelerator` | Host simulator; source of `SpaceChargeKick` and training data |
 | 3 | **neuraloperator** `==2.0.0` (pip only, docs: neuraloperator.github.io/dev) | site-packages | `FNO`, `Trainer`, `DefaultDataProcessor`, `UnitGaussianNormalizer` |
 
@@ -45,7 +45,7 @@ sets itself apart from it: the NO replaces the *physics kernel* of an element on
 
 ## Repo layout
 
-- `Neural Operator Pipeline/`: **all code**. Run every command from here.
+- `Pipeline/`: **all code**. Run every command from here.
 - `Konzeptionierung/`: design notes. Read these before architectural changes:
   - `NO Spezifikationen/Modell/Surrogate Schnittstellen.md`: the 11 blocks of
     `SpaceChargeKick` and the three possible cuts (A: ρ↦φ, **the chosen core**;
@@ -85,9 +85,9 @@ sets itself apart from it: the NO replaces the *physics kernel* of an element on
    precision, then assert that both the outputs and the gradients w.r.t. beam and element
    parameters match to float tolerance.
 6. **neuraloperator is a full dependency.** The element takes the trained network as a
-   `neuralop.models.base_model.BaseModel`. Save **only the state dict** as `models/<name>_<run>.pth`
+   `neuralop.models.base_model.BaseModel`. Save **only the state dict** as `outputs/models/<name>_<run>.pth`
    via neuralop's `state_dict()` (it embeds the init kwargs as `_metadata`) and load with
-   `scripts/evaluate_model.load_model` (rebuild from `_metadata`, then neuralop's
+   `exec/evaluate_model.load_model` (rebuild from `_metadata`, then neuralop's
    `load_state_dict`). No `save_checkpoint` (writes extra files). Any model passed to the
    element (like `ExactOperator`) subclasses `BaseModel`. Moving the element upstream then means adding
    `neuraloperator` to Cheetah's dependencies.
@@ -95,7 +95,7 @@ sets itself apart from it: the NO replaces the *physics kernel* of an element on
    grid geometry/extent and the HDF5 layout change only after the user agrees: such changes
    invalidate existing datasets and checkpoints. When agreed, change dataset, train, evaluate
    and element together; `test_model_input.py` must stay green.
-8. **Changelog per change.** Add an entry to `Neural Operator Pipeline/CHANGELOG.md` in
+8. **Changelog per change.** Add an entry to `CHANGELOG.md` in
    Cheetah's format (🚨 Breaking Changes / 🚀 Features / 🐛 Bug fixes / 🐆 Other, English; an
    entry ends in a period only if it contains other punctuation), so entries can be carried
    over into Cheetah's `CHANGELOG.md`.
@@ -105,21 +105,24 @@ sets itself apart from it: the NO replaces the *physics kernel* of an element on
 ```bash
 conda activate no4cheetah            # CPU; GPU: no4cheetah-gpu (environment-gpu.yml)
 pip install -e ".[dev]"              # after changing pyproject.toml (the ONLY dependency list)
-python scripts/verify_physics.py     # Cheetah's solver vs analytic charged sphere (~30 s)
+python exec/verify_physics.py     # Cheetah's solver vs analytic charged sphere (~30 s)
 pytest                               # testpaths = tests (incl. element vs SpaceChargeKick)
-python scripts/train_model.py        # train; generates missing data
-python scripts/evaluate_model.py     # evaluation table + test beam plots
-python scripts/inspect_scaling.py    # spread of phi_hat in the training data
-bash maxwell-script.sh 4             # Maxwell login node: Optuna study, data job, 4 workers
-python scripts/tune_model.py report  # Optuna table + plots of the latest study
+python exec/train_model.py        # train; generates missing data
+python exec/evaluate_model.py     # evaluation table + test beam plots
+python exec/inspect_scaling.py    # spread of phi_hat in the training data
+bash scripts/tune-script.sh 4        # Maxwell login node: Optuna study, data job, 4 workers
+python exec/tune_model.py report  # Optuna table + plots of the latest study
 ```
 
 No config files: **all settings are the constants in `src/scno/config.py`**
 (`DATA`, `MODEL`, `LOSS`, `TRAINING`, `MODEL_NAME`, paths, `model_path`, Optuna budget, ...);
 all scripts and tests import them from there.
 Every training run gets a run ID `<YYYY-MM-DD>_<NN>` (`NN` counts the runs of that day).
-Outputs go **only** to `models/<MODEL_NAME>_<RUN>.pth`, `figures/<RUN>/` (plots) and
-`tables/<RUN>/` (CSV: `history.csv`, `evaluation.csv`); `evaluate_model.py [RUN]`
+Outputs go **only** to `outputs/`: `models/<MODEL_NAME>_<RUN>.pth`, `figures/<RUN>/` (plots) and
+`tables/<RUN>/` (CSV: `history.csv`, `evaluation.csv`) for training and evaluation,
+`studies/optuna/<RUN>/` (`<DATE>_optuna_journal_<NN>.log`, `<DATE>_trials_<NN>.csv`,
+plots) for Optuna studies and `studies/wandb/` for Weights & Biases; `scripts/` holds the
+Slurm logs (`fno*.out/.err`); `evaluate_model.py [RUN]`
 evaluates the given run, by default the latest. Never create other output folders or files. For a quick check run, patch the constants in memory instead of editing
 the file, and remove the produced files afterwards.
 
@@ -156,7 +159,7 @@ differences → field → kick.
   `_integrated_green_function` on a γ = 1 stand-in beam + the mirrored padding/FFT;
   guarded by `test_fields.py::test_solve_poisson_on_grid_matches_cheetah`).
   `ExactOperator(BaseModel)` uses it in hat units. It must give ~0 error and cosine 1.0 in every evaluation
-  (`tests/test_exact_operator.py`). Odd result → run it through the same evaluation first;
+  (`exec/tests/test_exact_operator.py`). Odd result → run it through the same evaluation first;
   if it fails there, the bug is in the plumbing, not the network.
 - `evaluate.py`: `predict()` is the **only** path through the neuralop `DefaultDataProcessor`
   (sets `eval()`, then `preprocess` → model → `postprocess`; don't use the processor's
@@ -169,9 +172,9 @@ differences → field → kick.
 - `train.py` holds the training shared by training and tuning: `fit` (FNO + AdamW + cosine
   schedule + `HistoryTrainer`, all settings as arguments), `HistoryTrainer`, `history_rows`;
   `evaluate.py` only the evaluation and plot functions. The runs are
-  `scripts/train_model.py` (`load_cheetah_sc(**DATA)` → `fit` → `.pth` + loss curves +
-  history CSV; the final model, no best checkpoint), `scripts/tune_model.py` (Optuna,
-  `fit` with a pruning `HistoryTrainer`) and `scripts/evaluate_model.py` (refits the data processor via
+  `exec/train_model.py` (`load_cheetah_sc(**DATA)` → `fit` → `.pth` + loss curves +
+  history CSV; the final model, no best checkpoint), `exec/tune_model.py` (Optuna,
+  `fit` with a pruning `HistoryTrainer`) and `exec/evaluate_model.py` (refits the data processor via
   `load_cheetah_sc(**DATA, generate=False)`, needed only for `nondim=False`).
 
 ## Cheetah facts that matter here
@@ -202,7 +205,7 @@ as a neuralop `BaseModel` and overrides only `_solve_poisson_equation`: first oc
 `_array_rho`, γ-stretched `cell_size` → `nondimensionalize` → `input_channels` → operator →
 `potential_from_hat`. Broadcasting, deposition, gradients and
 force interpolation stay Cheetah's code, and inputs match `data/fields.py` exactly.
-`tests/test_neural_space_charge_kick.py` checks it with `ExactOperator` against
+`exec/tests/test_neural_space_charge_kick.py` checks it with `ExactOperator` against
 `SpaceChargeKick` (tracking and gradients, vectorized beam). It accepts only models trained
 with `nondim=True` and no output normalizer. Cut B would override `_E_plus_vB_field` instead.
 Moving it into Cheetah: copy the module to `cheetah/accelerator/`, add `neuraloperator` to

@@ -27,7 +27,7 @@ class NeuralSpaceChargeKick(cheetah.SpaceChargeKick):
     channels rho_hat and log(E_i/L), output `(B, 1, nx, ny, nz)` with phi_hat. It must
     therefore have been trained with `nondim=True` and without output normalizer.
 
-    :param operator: Trained neural operator, e.g. from `scripts/evaluate_model.load_model`.
+    :param operator: Trained neural operator, e.g. from `exec/evaluate_model.load_model`.
     :param effect_length: Length over which the effect is applied in meters.
     :param grid_shape: Number of grid points in (x, y, tau) directions. May differ from
         the training resolution -- that is the point of neural operators.

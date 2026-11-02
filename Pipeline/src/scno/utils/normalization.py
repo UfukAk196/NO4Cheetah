@@ -28,7 +28,7 @@ depends on the geometry, not on the discretization.
 The geometric mean instead of a single edge is deliberate as well: the gamma
 stretching of the longitudinal axis spreads the aspect ratios over several orders of
 magnitude, and a symmetric reference noticeably compresses the spread of phi_hat
-(measure it with scripts/inspect_scaling.py).
+(measure it with exec/inspect_scaling.py).
 
 The remaining true parameters are the aspect ratios log(E_i / L). By construction
 the three values sum to zero, and they enter the network as constant extra

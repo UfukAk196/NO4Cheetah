@@ -1,0 +1,13 @@
+2026-10-29 13:13:00,287 INFO    MainThread:36708 [wandb_setup.py:_flush():81] Current SDK version is 0.30.0
+2026-10-29 13:13:00,288 INFO    MainThread:36708 [wandb_setup.py:_flush():81] Configure stats pid to 36708
+2026-10-29 13:13:00,288 INFO    MainThread:36708 [wandb_setup.py:_flush():81] Loading settings from environment variables
+2026-10-29 13:13:00,288 INFO    MainThread:36708 [wandb_init.py:setup_run_log_directory():739] Logging user logs to D:\Masterarbeit NO-Surrogate for SC simulations\Neural Operator for Cheetah\Pipeline\wandb\run-20261029_131300-oftggqe4\logs\debug.log
+2026-10-29 13:13:00,288 INFO    MainThread:36708 [wandb_init.py:setup_run_log_directory():740] Logging internal logs to D:\Masterarbeit NO-Surrogate for SC simulations\Neural Operator for Cheetah\Pipeline\wandb\run-20261029_131300-oftggqe4\logs\debug-internal.log
+2026-10-29 13:13:00,301 INFO    MainThread:36708 [wandb_init.py:init():783] calling init triggers
+2026-10-29 13:13:00,301 INFO    MainThread:36708 [wandb_init.py:init():788] wandb.init called with sweep_config: {}
+config: {'data': {'data_root': WindowsPath('D:/Masterarbeit NO-Surrogate for SC simulations/Neural Operator for Cheetah/Pipeline/data'), 'seed': 0, 'nondim': True, 'n_train': 16, 'n_tests': [4, 4, 4], 'train_resolution': 16, 'test_resolutions': [16, 32, 64], 'batch_size': 4, 'test_batch_sizes': [4, 4, 4], 'num_workers': 0}, 'model': {'n_modes': (16, 16, 16), 'in_channels': 4, 'out_channels': 1, 'hidden_channels': 16, 'n_layers': 3, 'domain_padding': 0.25, 'factorization': None, 'rank': 1.0}, 'loss': {'gradient_weight': 1.0, 'physics_weight': 1.0}, 'training': {'epochs': 1000, 'learning_rate': 0.001, 'weight_decay': 0.0001}, '_wandb': {}}
+2026-10-29 13:13:00,301 INFO    MainThread:36708 [wandb_init.py:init():831] starting backend
+2026-10-29 13:13:00,302 INFO    MainThread:36708 [wandb_init.py:init():846] sending inform_init request
+2026-10-29 13:13:00,321 INFO    MainThread:36708 [wandb_init.py:init():851] backend started and connected
+2026-10-29 13:13:00,322 INFO    MainThread:36708 [wandb_init.py:init():921] updated telemetry
+2026-10-29 13:13:00,565 INFO    MainThread:36708 [wandb_init.py:init():944] communicating run to backend with 90.0 second timeout

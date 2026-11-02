@@ -31,7 +31,7 @@ is one overridden method: `NeuralSpaceChargeKick` subclasses Cheetah's unchanged
 
 | Folder | Content |
 |---|---|
-| [`Neural Operator Pipeline/`](Neural%20Operator%20Pipeline/) | **The code**: Python package `scno`, scripts, notebooks, models, figures, tables |
+| [`Pipeline/`](Pipeline/) | **The code**: Python package `scno`, run scripts, Slurm scripts, tutorials, models, figures, tables |
 | [`Konzeptionierung/`](Konzeptionierung/) | Architecture and interface drafts, profiling of the SC kick, text drafts of the thesis |
 | [`Projektplanung/`](Projektplanung/) | Work plan, scheduling |
 | [`Quellen/`](Quellen/) | Literature |
@@ -43,7 +43,7 @@ to upstream), so the element can later move into Cheetah as it is.
 ### The code in detail
 
 ```
-Neural Operator Pipeline/
+Pipeline/
 ├── pyproject.toml            the only package list (package "scno")
 ├── environment.yml           conda, CPU
 ├── environment-gpu.yml       conda, CUDA (e.g. the Maxwell cluster)
@@ -66,30 +66,35 @@ Neural Operator Pipeline/
 │   ├── config.py             ALL settings (paths, data, model, loss, training, tuning)
 │   ├── train.py              fit + HistoryTrainer (neuralop Trainer with loss history)
 │   └── evaluate.py           accuracy, resolution study, gradient fidelity, plots
-├── scripts/
+├── exec/
 │   ├── train_model.py        training run
 │   ├── evaluate_model.py     evaluation run of the saved model
-│   ├── tune_model.py         distributed Optuna search (maxwell-script.sh submits it)
+│   ├── tune_model.py         distributed Optuna search (scripts/tune-script.sh submits it)
 │   ├── verify_physics.py     Cheetah's solver vs. charged sphere
-│   └── inspect_scaling.py    spread of phi_hat in the training data
-├── tests/                    pytest
-├── notebooks/                cheetah_test, neuralop_test, train_model (Colab launcher)
+│   ├── inspect_scaling.py    spread of phi_hat in the training data
+│   ├── tests/                pytest
+│   └── tutorials/            cheetah_test, neuralop_test
+├── scripts/                  Slurm scripts (train-script.sh, tune-script.sh) and their .out/.err logs
 ├── data/                     generated HDF5 datasets (git-ignored)
-├── models/                   trained model state dicts (.pth)
-├── figures/                  plots (loss curves, predictions)
-└── tables/                   CSV tables (history, evaluation) and profiling results
+└── outputs/                  everything a run writes
+    ├── models/               trained model state dicts (.pth), checkpoints/
+    ├── figures/<RUN>/        plots of training and evaluation (loss curves, predictions)
+    ├── tables/<RUN>/         CSV tables of training and evaluation (history, evaluation)
+    └── studies/
+        ├── optuna/<RUN>/     Optuna journal, trials table and plots of a study
+        └── wandb/            Weights & Biases runs
 ```
 
 ---
 
 ## Installation
 
-All commands run in the folder **`Neural Operator Pipeline/`**. Python 3.10–3.12.
+All commands run in the folder **`Pipeline/`**. Python 3.10–3.12.
 
 **Conda (recommended, local)**
 
 ```bash
-cd "Neural Operator Pipeline"
+cd Pipeline
 conda env create -f environment.yml          # CPU
 # conda env create -f environment-gpu.yml    # GPU; match cuda-version to `nvidia-smi`
 conda activate no4cheetah                    # or no4cheetah-gpu
@@ -104,7 +109,7 @@ against a local Cheetah clone instead, install it on top:
 
 ```bash
 git clone https://github.com/UfukAk196/NO4Cheetah.git
-cd "NO4Cheetah/Neural Operator Pipeline"
+cd NO4Cheetah/Pipeline
 pip install -r requirements.txt              # torch comes with Colab
 ```
 
@@ -117,14 +122,14 @@ Main dependencies: `torch>=2.2`, `cheetah-accelerator` (unchanged, from the fork
 
 ```bash
 # 1. Is the reference solver right? (charged sphere, analytical)        ~30 s
-python scripts/verify_physics.py
+python exec/verify_physics.py
 
 # 2. Unit tests, incl. the element against SpaceChargeKick
 pytest
 
 # 3. Train, then evaluate
-python scripts/train_model.py
-python scripts/evaluate_model.py
+python exec/train_model.py
+python exec/evaluate_model.py
 ```
 
 ---
@@ -132,7 +137,7 @@ python scripts/evaluate_model.py
 ## Pipeline step by step
 
 All settings (data, model, loss, training, tuning) are the constants in
-[`src/scno/config.py`](Neural%20Operator%20Pipeline/src/scno/config.py); all scripts
+[`src/scno/config.py`](Pipeline/src/scno/config.py); all scripts
 import them. For an experiment, change them
 there and give the run its own `MODEL_NAME`, so that numbers and settings stay together.
 
@@ -151,35 +156,40 @@ and test never overlap. Drawn are `sigma_x`, `sigma_y`, `sigma_tau`, `energy`,
 ### 2. Train
 
 ```bash
-python scripts/train_model.py
+python exec/train_model.py      # on Maxwell: sbatch scripts/train-script.sh
 ```
 
 Trains with the neuralop `Trainer` and writes only:
 
-- `models/<MODEL_NAME>.pth`: state dict of the final model. neuralop's `state_dict()`
+- `outputs/models/<MODEL_NAME>_<RUN>.pth`: state dict of the final model. neuralop's `state_dict()`
   carries the init kwargs as `_metadata`, so this one file is enough to rebuild the model.
-- `figures/loss_curves_<MODEL_NAME>.png`
-- `tables/<MODEL_NAME>_history.csv`: losses per epoch (eval columns every `EVAL_INTERVAL` epochs)
+- `outputs/figures/<RUN>/loss_curves.png`
+- `outputs/tables/<RUN>/history.csv`: losses per epoch (eval columns every `EVAL_INTERVAL` epochs)
+
+`<RUN>` is the run ID `<YYYY-MM-DD>_<NN>`. With `WANDB = True` the Weights & Biases logs go
+to `outputs/studies/wandb/`.
 
 ### Tune hyperparameters (optional, Maxwell)
 
 ```bash
-bash maxwell-script.sh 4                   # on a Maxwell login node: study + data job + 4 workers
-python scripts/tune_model.py report <RUN>  # trials.csv + Optuna plots of the study
+bash scripts/tune-script.sh 4             # on a Maxwell login node: study + data job + 4 workers
+python exec/tune_model.py report <RUN>    # trials table + Optuna plots of the study
 ```
 
-`scripts/tune_model.py` minimizes the Sobolev (H1) test loss at the training resolution
+`exec/tune_model.py` minimizes the Sobolev (H1) test loss at the training resolution
 with TPE + Hyperband pruning; the workers share the study via a journal file
-(`tables/<RUN>/optuna_journal.log`). Copy the best parameters into `scno/config.py`.
+(`outputs/studies/optuna/<RUN>/<DATE>_optuna_journal_<NN>.log`); `report` writes
+`<DATE>_trials_<NN>.csv` and the plots next to it. Copy the best parameters into
+`scno/config.py`.
 
 ### 3. Evaluate
 
 ```bash
-python scripts/evaluate_model.py
+python exec/evaluate_model.py [RUN]   # default: the latest run
 ```
 
-Writes `tables/<MODEL_NAME>_evaluation.csv` and the prediction plots per test resolution
-to `figures/`:
+Writes `outputs/tables/<RUN>/evaluation.csv` and the prediction plots per test resolution
+to `outputs/figures/<RUN>/`:
 
 - **Accuracy:** relative L2 error of φ̂ and of the field ∇φ̂
 - **Resolution study:** zero-shot on a different grid than in training
@@ -189,10 +199,10 @@ to `figures/`:
 
 ```python
 import torch
-from evaluate_model import load_model   # run from scripts/, or copy the 4 lines
+from evaluate_model import load_model   # run from exec/, or copy the 4 lines
 from scno.accelerator import NeuralSpaceChargeKick
 
-operator = load_model("models/fno_cheetah_space_charge.pth", torch.device("cpu"))
+operator = load_model("outputs/models/fno_cheetah_space_charge.pth", torch.device("cpu"))
 kick = NeuralSpaceChargeKick(operator=operator, effect_length=torch.tensor(0.3))
 ```
 
@@ -207,7 +217,7 @@ and takes models trained with `DATA["nondim"] = True`.
 
 Charges spread over decades, cell sizes over two, γ over three. So what is known
 analytically is removed analytically (details in
-[`normalization.py`](Neural%20Operator%20Pipeline/src/scno/utils/normalization.py)):
+[`normalization.py`](Pipeline/src/scno/utils/normalization.py)):
 
 ```
 L       = (Ex · Ey · Ez)^(1/3)        box edges of the γ-stretched box (rest frame)
@@ -226,7 +236,7 @@ super-resolution collapses. Measured: 142 % error on 32³ (cell reference) versu
 The nondimensionalization can be switched off for ablations (`DATA["nondim"] = False`):
 the model then learns ρ [C/m³] → φ [V], and only in that case a Gaussian normalizer is
 fitted on the output. How much `phi_hat` still spreads is measured by
-`scripts/inspect_scaling.py`.
+`exec/inspect_scaling.py`.
 
 ### The loss must know the gradient
 
@@ -242,7 +252,7 @@ residual is added (`LOSS["physics_weight"] > 0`).
 Prediction after training on 16³, evaluated zero-shot on 64³:
 
 <p align="center">
-  <img src="Neural%20Operator%20Pipeline/figures/phi_hat_gt_vs_pred_after_training_res64.png" width="80%">
+  <img src="Pipeline/outputs/figures/2026-10-15_old%20plots/phi_hat_gt_vs_pred_after_training_res64.png" width="80%">
 </p>
 
 Early calibration run from the skeleton phase (96 samples, 16³, 60 epochs, the former

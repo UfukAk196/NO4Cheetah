@@ -1,12 +1,14 @@
 """All settings of the pipeline runs: paths, data, model, loss and training.
 
-The single place to change an experiment. ``scripts/train_model.py``,
+The single place to change an experiment. ``exec/train_model.py``,
 ``evaluate_model.py``, ``tune_model.py``, ``inspect_scaling.py`` and the tests import
 these constants, so that training, evaluation, tuning and diagnosis see exactly the same
 setup.
 
 Every run gets an ID ``<date>_<NN>`` (``scno.utils.common.new_run_id``); its outputs go
-only to ``models/<MODEL_NAME>_<RUN>.pth``, ``figures/<RUN>/`` and ``tables/<RUN>/``.
+only to ``outputs/``: ``models/<MODEL_NAME>_<RUN>.pth``, ``figures/<RUN>/`` and
+``tables/<RUN>/`` (training, evaluation) or ``studies/optuna/<RUN>/`` (Optuna study);
+Weights & Biases logs go to ``outputs/studies/wandb/``.
 """
 
 from pathlib import Path
@@ -16,10 +18,13 @@ from pathlib import Path
 # site-packages (then make it an environment variable).
 ROOT = Path(__file__).resolve().parents[2]
 MODEL_NAME = "fno_cheetah_space_charge"
-MODELS_DIR = ROOT / "models"
-FIGURES_DIR = ROOT / "figures"
-TABLES_DIR = ROOT / "tables"
-RUN_DIRS = (MODELS_DIR, FIGURES_DIR, TABLES_DIR)  # where run IDs are looked up
+OUTPUTS_DIR = ROOT / "outputs"  # everything a run writes
+MODELS_DIR = OUTPUTS_DIR / "models"
+FIGURES_DIR = OUTPUTS_DIR / "figures"
+TABLES_DIR = OUTPUTS_DIR / "tables"
+STUDIES_DIR = OUTPUTS_DIR / "studies"  # wandb.init(dir=STUDIES_DIR) writes to studies/wandb/
+OPTUNA_DIR = STUDIES_DIR / "optuna"
+RUN_DIRS = (MODELS_DIR, FIGURES_DIR, TABLES_DIR, OPTUNA_DIR)  # where run IDs are looked up
 
 SEED = 0
 DEVICE = "auto"  # auto | cpu | cuda | mps
@@ -68,7 +73,7 @@ TRAINING = {
 EVAL_INTERVAL = 100  # epochs between evaluations on the test resolutions
 WANDB = False  # log to Weights & Biases (project "space-charge-neural-operator")
 
-# Optuna search of scripts/tune_model.py (search space: tune_model.suggest).
+# Optuna search of exec/tune_model.py (search space: tune_model.suggest).
 N_TRIALS = 100  # finished (complete + pruned) trials over all workers
 TUNE_EPOCHS = 200  # epochs of a trial that is not pruned
 TUNE_EVAL_INTERVAL = 10  # epochs between evaluations = pruning checks

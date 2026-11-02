@@ -1,8 +1,8 @@
 """
 Training with the neuraloperator ``Trainer``.
 
-The runs (settings in ``scno.config``, data, saving) are ``scripts/train_model.py`` and
-``scripts/tune_model.py``; this module provides the training they share: ``fit``, the
+The runs (settings in ``scno.config``, data, saving) are ``exec/train_model.py`` and
+``exec/tune_model.py``; this module provides the training they share: ``fit``, the
 ``Trainer`` that records its history, and the history as table rows.
 """
 

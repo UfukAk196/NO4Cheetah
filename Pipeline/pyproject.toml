@@ -29,7 +29,7 @@ dependencies = [
 where = ["src"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["exec/tests"]
 
 [tool.ruff]
 line-length = 100

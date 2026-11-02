@@ -5,10 +5,11 @@ __pycache__/
 .ipynb_checkpoints/
 
 # Erzeugte Daten und Ergebnisse (nur im Pipeline-Ordner, NICHT src/scno/data/!)
-/Neural Operator Pipeline/data/
-/Neural Operator Pipeline/outputs/
-wandb/
-*.h5
-*.pt
-*.pth
-/Neural Operator Pipeline/fno-*.out
+/Pipeline/data/
+#wandb/
+#*.h5
+#*.pt
+#*.pth
+#*.log
+#/Pipeline/scripts/fno*.err
+#/Pipeline/scripts/fno*.out

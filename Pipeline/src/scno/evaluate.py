@@ -12,7 +12,7 @@ Four questions are answered here:
      measure and show it instead of just claiming it.
 
 The evaluation run itself (loading the model, writing the table) is
-``scripts/evaluate_model.py``.
+``exec/evaluate_model.py``.
 """
 
 from __future__ import annotations

@@ -1,0 +1,93 @@
+_wandb:
+    value:
+        cli_version: 0.30.0
+        e:
+            ogi5yqj6umc1b4nrwpidm6dwattmlxnv:
+                codePath: Pipeline\scripts\train_model.py
+                codePathLocal: scripts\train_model.py
+                cpu_count: 24
+                cpu_count_logical: 32
+                cudaVersion: "11.4"
+                disk:
+                    /:
+                        total: "69271023616"
+                        used: "7552282624"
+                email: ufuk.akkaya@desy.de
+                executable: C:\Users\akkaya\AppData\Local\miniforge3\envs\no4cheetah\python.exe
+                git:
+                    commit: 19c50f6ffbc5cf3de1aaf245d961c73f56e1e798
+                    remote: https://github.com/UfukAk196/NO4Cheetah.git
+                gpu: NVIDIA RTX A2000 12GB
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Ampere
+                      name: NVIDIA RTX A2000 12GB
+                      uuid: GPU-02bfa70c-f101-bc8d-64f1-102f8d1bb3bd
+                host: ZM1PCX41304
+                memory:
+                    total: "31661895680"
+                os: Windows-11-10.0.26200-SP0
+                program: D:\Masterarbeit NO-Surrogate for SC simulations\Neural Operator for Cheetah\Pipeline\scripts\train_model.py
+                python: CPython 3.12.15
+                root: D:\Masterarbeit NO-Surrogate for SC simulations\Neural Operator for Cheetah\Pipeline
+                startedAt: "2026-10-29T12:19:21.354588Z"
+                writerId: ogi5yqj6umc1b4nrwpidm6dwattmlxnv
+        m: []
+        python_version: 3.12.15
+        t:
+            "1":
+                - 1
+            "2":
+                - 1
+            "3":
+                - 16
+                - 61
+            "4": 3.12.15
+            "5": 0.30.0
+            "8":
+                - 3
+            "12": 0.30.0
+            "13": windows-amd64
+data:
+    value:
+        batch_size: 4
+        data_root: D:\Masterarbeit NO-Surrogate for SC simulations\Neural Operator for Cheetah\Pipeline\data
+        n_tests:
+            - 4
+            - 4
+            - 4
+        n_train: 16
+        nondim: true
+        num_workers: 0
+        seed: 0
+        test_batch_sizes:
+            - 4
+            - 4
+            - 4
+        test_resolutions:
+            - 16
+            - 32
+            - 64
+        train_resolution: 16
+loss:
+    value:
+        gradient_weight: 1
+        physics_weight: 1
+model:
+    value:
+        domain_padding: 0.25
+        factorization: null
+        hidden_channels: 16
+        in_channels: 4
+        n_layers: 3
+        n_modes:
+            - 16
+            - 16
+            - 16
+        out_channels: 1
+        rank: 1
+training:
+    value:
+        epochs: 1000
+        learning_rate: 0.001
+        weight_decay: 0.0001
