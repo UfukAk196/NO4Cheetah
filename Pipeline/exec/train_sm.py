@@ -86,11 +86,11 @@ for index in range(3):
     data = data_processor.preprocess(data, batched=False)
 
     # Input
-    x = data["x"]
+    x = data["x"].to("cpu")
     # Ground-truth output
-    y = data["y"]
+    y = data["y"].to("cpu")
     # Model prediction
-    out = model(x.unsqueeze(0))
+    out = model(x.unsqueeze(0)).to("cpu")
 
     # Plot input
     ax = fig.add_subplot(3, 3, index * 3 + 1)
@@ -128,11 +128,11 @@ for index in range(3):
     data = data_processor.preprocess(data, batched=False)
 
     # Input at higher-resolution
-    x = data["x"]
+    x = data["x"].to("cpu")
     # Ground-truth output at higher-resolution
-    y = data["y"]
+    y = data["y"].to("cpu")
     # Model prediction at higher-resolution
-    out = model(x.unsqueeze(0))
+    out = model(x.unsqueeze(0)).to("cpu")
 
     # Plot input at higher-resolution
     ax = fig.add_subplot(3, 3, index * 3 + 1)

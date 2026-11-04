@@ -2,14 +2,34 @@ import os
 from pathlib import Path
 from typing import Union, List
 
+import h5py
+import torch
 from torch.utils.data import DataLoader
-from neuralop.data.datasets.pt_dataset import PTDataset
+from neuralop.data.datasets.hdf5_dataset import H5pyDataset
+from neuralop.data.transforms.data_processors import DefaultDataProcessor
+from neuralop.data.transforms.normalizers import UnitGaussianNormalizer
 
-from scno.data.dataset import missing_files
-from .generate import generate_cheetah_sc_pt
+from .generate_sm import dataset_path, generate_cheetah_sc
 
 
-class CheetahDataset(PTDataset):
+def missing_files(
+    root_dir: Union[str, Path], train_resolution: int, test_resolutions: List[int]
+) -> List[str]:
+    """Names of missing .h5 files (one training file + one per test resolution)."""
+    paths = [dataset_path(root_dir, "train", train_resolution)]
+    paths += [dataset_path(root_dir, "test", res) for res in test_resolutions]
+    return [p.name for p in paths if not p.exists()]
+
+
+def _add_channel(t: torch.Tensor) -> torch.Tensor:
+    """Add the channel dim that ``H5pyDataset`` does not add.
+
+    Module-level (not a lambda) so it can be pickled for ``num_workers > 0`` on Windows.
+    """
+    return t.unsqueeze(0)
+
+
+class CheetahDataset:
     """
     CheetahDataset stores data from the Cheetah simulation. Input and output are both
     3d fields of charge density rho and potential field phi respectively with
@@ -85,12 +105,14 @@ class CheetahDataset(PTDataset):
         if not root_dir.exists():
             root_dir.mkdir(parents=True)
 
-        # List of resolutions needed for dataset object
-        resolutions = set(test_resolutions + [train_resolution])
+        if subsampling_rate is not None:
+            raise NotImplementedError(
+                "H5pyDataset subsamples only 2 axes, which is wrong for 3D data"
+            )
 
         # generate data if requested and missing
         if generate:
-            generate_cheetah_sc_pt(
+            generate_cheetah_sc(
                 root=root_dir,
                 n_train=n_train,
                 n_tests=n_tests,
@@ -100,23 +122,68 @@ class CheetahDataset(PTDataset):
                 ranges=ranges,
             )
 
-        # once generated/if files already exist, init PTDataset
-        super().__init__(
-            root_dir=root_dir,
-            n_train=n_train,
-            n_tests=n_tests,
-            dataset_name="cheetah_sc",
-            batch_size=batch_size,
-            test_batch_sizes=test_batch_sizes,
-            train_resolution=train_resolution,
-            test_resolutions=test_resolutions,
-            encode_input=encode_input,
-            encode_output=encode_output,
-            encoding=encoding,
-            channel_dim=channel_dim,
-            input_subsampling_rate=subsampling_rate,
-            output_subsampling_rate=subsampling_rate,
+        # H5pyDataset's resolution map is built for the 1024^2 Navier-Stokes data;
+        # 1024 -> subsample_step 1, i.e. no subsampling, which is what we want.
+        self._train_db = H5pyDataset(
+            dataset_path(root_dir, "train", train_resolution),
+            resolution=1024,
+            transform_x=_add_channel,
+            transform_y=_add_channel,
+            n_samples=n_train,
         )
+
+        self._test_dbs = {}
+        for res, n_test in zip(test_resolutions, n_tests):
+            self._test_dbs[res] = H5pyDataset(
+                dataset_path(root_dir, "test", res),
+                resolution=1024,
+                transform_x=_add_channel,
+                transform_y=_add_channel,
+                n_samples=n_test,
+            )
+
+        # Fit the optional encoders on the training data (as in PTDataset).
+        in_normalizer = out_normalizer = None
+        if encode_input or encode_output:
+            with h5py.File(dataset_path(root_dir, "train", train_resolution), "r") as f:
+                x_train = torch.from_numpy(f["x"][:n_train]).unsqueeze(channel_dim)
+                y_train = torch.from_numpy(f["y"][:n_train]).unsqueeze(channel_dim)
+        if encode_input:
+            in_normalizer = self._fit_normalizer(x_train, encoding, channel_dim)
+        if encode_output:
+            out_normalizer = self._fit_normalizer(y_train, encoding, channel_dim)
+
+        self._data_processor = DefaultDataProcessor(
+            in_normalizer=in_normalizer, out_normalizer=out_normalizer
+        )
+
+    @staticmethod
+    def _fit_normalizer(
+        data: torch.Tensor, encoding: str, channel_dim: int
+    ) -> UnitGaussianNormalizer:
+        """As in neuralop's ``PTDataset``: channel-wise or pixel-wise."""
+        if encoding == "channel-wise":
+            reduce_dims = list(range(data.ndim))
+            reduce_dims.pop(channel_dim)  # keep the mean per channel
+        elif encoding == "pixel-wise":
+            reduce_dims = [0]
+        else:
+            raise ValueError(f"unknown encoding: {encoding}")
+        normalizer = UnitGaussianNormalizer(dim=reduce_dims)
+        normalizer.fit(data)
+        return normalizer
+
+    @property
+    def train_db(self):
+        return self._train_db
+
+    @property
+    def test_dbs(self):
+        return self._test_dbs
+
+    @property
+    def data_processor(self):
+        return self._data_processor
 
 
 example_data_root = Path("data")

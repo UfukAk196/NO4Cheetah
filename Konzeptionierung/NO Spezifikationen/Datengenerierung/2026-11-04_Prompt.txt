@@ -1,0 +1,1 @@
+Bc my main issue is, with the way the code is structured I have no overview, how allt the normalization/standardization/nondimensionlization fuzz is going y'know? And my goal is to aim for standardization w/o centering for now.
