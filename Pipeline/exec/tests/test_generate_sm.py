@@ -1,0 +1,65 @@
+"""Acceptance test for the lean .pt generator (``generate_sm.py``).
+
+Checks:
+- a small run (n_train=4, n_tests=[2, 2], res 16/32) creates the .pt files
+- ``x``/``y`` shapes (N, res, res, res), dtype float32, no NaN/Inf
+- train and test samples do not overlap
+- a second call on existing data is a no-op
+"""
+
+from __future__ import annotations
+
+import torch
+
+from scno.data.generate_sm import DATASET_NAME, dataset_path, generate_cheetah_sc
+
+
+def _generate(tmp_path, ranges, seed=7):
+    return generate_cheetah_sc(
+        root=tmp_path,
+        n_train=4,
+        n_tests=[2, 2],
+        train_resolution=16,
+        test_resolutions=[16, 32],
+        seed=seed,
+        ranges=ranges,
+    )
+
+
+def test_generate_writes_files(tmp_path, small_ranges):
+    written = _generate(tmp_path, small_ranges)
+
+    expected_names = {
+        f"{DATASET_NAME}_train_16.pt",
+        f"{DATASET_NAME}_test_16.pt",
+        f"{DATASET_NAME}_test_32.pt",
+    }
+    got_names = {p.name for p in written}
+    assert got_names == expected_names, f"expected files: {expected_names - got_names}"
+    for name in expected_names:
+        assert (tmp_path / name).exists()
+
+
+def test_file_contents_and_shapes(tmp_path, small_ranges):
+    _generate(tmp_path, small_ranges)
+
+    for kind, res, n in (("train", 16, 4), ("test", 16, 2), ("test", 32, 2)):
+        data = torch.load(dataset_path(tmp_path, kind, res))
+        for key in ("x", "y"):
+            assert data[key].shape == (n, res, res, res), (key, data[key].shape)
+            assert data[key].dtype == torch.float32
+            assert data[key].isfinite().all()
+
+
+def test_train_and_test_do_not_overlap(tmp_path, small_ranges):
+    _generate(tmp_path, small_ranges)
+
+    train = torch.load(dataset_path(tmp_path, "train", 16))["x"]
+    test = torch.load(dataset_path(tmp_path, "test", 16))["x"]
+    assert not torch.equal(train[:2], test)
+
+
+def test_second_call_is_noop(tmp_path, small_ranges):
+    _generate(tmp_path, small_ranges)
+    again = _generate(tmp_path, small_ranges)
+    assert again == []

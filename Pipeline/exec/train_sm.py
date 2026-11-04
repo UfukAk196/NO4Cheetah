@@ -5,8 +5,10 @@ import sys
 from neuralop.models import TFNO
 from neuralop import Trainer
 from neuralop.training import AdamW
-from scno.data.dataset_sm import load_cheetah_sc
 from neuralop import LpLoss, H1Loss
+
+from scno.data.dataset_sm import load_cheetah_sc
+from scno.data.sampling import DEFAULT_RANGES
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -17,7 +19,7 @@ train_loader, test_loaders, data_processor = load_cheetah_sc(
     test_resolutions=[32, 64],
     test_batch_sizes=[32, 32],
     seed=0,
-    ranges=None,
+    ranges=DEFAULT_RANGES,
 )
 data_processor = data_processor.to(device)
 

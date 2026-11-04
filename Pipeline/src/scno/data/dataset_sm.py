@@ -5,8 +5,16 @@ from typing import Union, List
 from torch.utils.data import DataLoader
 from neuralop.data.datasets.pt_dataset import PTDataset
 
-from scno.data.dataset import missing_files
-from .generate import generate_cheetah_sc_pt
+from .generate_sm import dataset_path, generate_cheetah_sc
+
+
+def missing_files(
+    root_dir: Union[str, Path], train_resolution: int, test_resolutions: List[int]
+) -> List[str]:
+    """Names of missing .pt files (one training file + one per test resolution)."""
+    paths = [dataset_path(root_dir, "train", train_resolution)]
+    paths += [dataset_path(root_dir, "test", res) for res in test_resolutions]
+    return [p.name for p in paths if not p.exists()]
 
 
 class CheetahDataset(PTDataset):
@@ -90,7 +98,7 @@ class CheetahDataset(PTDataset):
 
         # generate data if requested and missing
         if generate:
-            generate_cheetah_sc_pt(
+            generate_cheetah_sc(
                 root=root_dir,
                 n_train=n_train,
                 n_tests=n_tests,
