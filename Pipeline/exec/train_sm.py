@@ -81,7 +81,7 @@ trainer.train(
     training_loss=train_loss,
     eval_losses=eval_losses,
     save_best= "32_h1",
-    save_dir = MODEL_DIR,
+    save_dir = MODELS_DIR,
 )
 
 test_samples = test_loaders[32].dataset
