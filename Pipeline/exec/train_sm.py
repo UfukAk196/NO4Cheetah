@@ -5,8 +5,9 @@ import sys
 from neuralop.models import TFNO
 from neuralop import Trainer
 from neuralop.training import AdamW
-from scno.data.dataset_sm import load_cheetah_sc
 from neuralop import LpLoss, H1Loss
+
+from scno.data.dataset_sm import load_cheetah_sc
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -44,7 +45,7 @@ else:
         optimizer, factor=1.0, total_iters=0)
 
 l2loss = LpLoss(d=3, p=2)  # L2 loss for function values
-h1loss = H1Loss(d=3)  # H1 loss includes gradient information
+h1loss = H1Loss(d=3, periodic_in_x=False, periodic_in_y=False, periodic_in_z=False)  # H1 loss includes gradient information
 
 train_loss = h1loss
 eval_losses = {"h1": h1loss, "l2": l2loss}
@@ -94,7 +95,7 @@ for index in range(3):
 
     # Plot input
     ax = fig.add_subplot(3, 3, index * 3 + 1)
-    ax.imshow(x[0], cmap="gray")
+    ax.imshow(x[0, :, :, x.shape[-1]//2], cmap="gray")
     if index == 0:
         ax.set_title("Input rho")
     plt.xticks([], [])
@@ -116,7 +117,7 @@ for index in range(3):
     plt.xticks([], [])
     plt.yticks([], [])
 
-fig.suptitle("TFNO predictions on 16x16 Cheetah Space Charge Kick", y=0.98)
+fig.suptitle("TFNO predictions on 32x32 Cheetah Space Charge Kick", y=0.98)
 plt.tight_layout()
 fig.show()
 
@@ -136,7 +137,7 @@ for index in range(3):
 
     # Plot input at higher-resolution
     ax = fig.add_subplot(3, 3, index * 3 + 1)
-    ax.imshow(x[0], cmap="gray")
+    ax.imshow(x[0, :, :, x.shape[-1]//2], cmap="gray")
     if index == 0:
         ax.set_title("Input rho at 64x64")
     plt.xticks([], [])
