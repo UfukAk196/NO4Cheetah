@@ -8,7 +8,7 @@ from neuralop.training import AdamW
 from neuralop import LpLoss, H1Loss
 
 from scno.data.dataset_sm import load_cheetah_sc
-from scno.config import FIGURES_DIR, MODEL_DIR, SEED
+from scno.config import FIGURES_DIR, MODELS_DIR, SEED
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
