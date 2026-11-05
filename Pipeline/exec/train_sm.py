@@ -92,11 +92,14 @@ for index in range(3):
     data = data_processor.preprocess(data, batched=False)
 
     # Input
-    x = data["x"].to("cpu")
+    x = data["x"].to(device)
     # Ground-truth output
     y = data["y"].to("cpu")
     # Model prediction
     out = model(x.unsqueeze(0)).to("cpu")
+    # Input back to cpu for plotting
+    x = x.to("cpu")
+
 
     # Plot input
     ax = fig.add_subplot(3, 3, index * 3 + 1)
@@ -108,7 +111,7 @@ for index in range(3):
 
     # Plot ground-truth output
     ax = fig.add_subplot(3, 3, index * 3 + 2)
-    ax.imshow(y.squeeze())
+    ax.imshow(y[0, :, :, y.shape[-1]//2].squeeze())
     if index == 0:
         ax.set_title("Ground-truth output phi")
     plt.xticks([], [])
@@ -116,7 +119,7 @@ for index in range(3):
 
     # Plot model prediction
     ax = fig.add_subplot(3, 3, index * 3 + 3)
-    ax.imshow(out.squeeze().detach().numpy())
+    ax.imshow(out[0, :, :, out.shape[-1]//2].squeeze().detach().numpy())
     if index == 0:
         ax.set_title("Model prediction phi")
     plt.xticks([], [])
@@ -139,11 +142,13 @@ for index in range(3):
     data = data_processor.preprocess(data, batched=False)
 
     # Input at higher-resolution
-    x = data["x"].to("cpu")
+    x = data["x"].to(device)
     # Ground-truth output at higher-resolution
     y = data["y"].to("cpu")
     # Model prediction at higher-resolution
     out = model(x.unsqueeze(0)).to("cpu")
+    # Input back to cpu for plotting
+    x = x.to("cpu")
 
     # Plot input at higher-resolution
     ax = fig.add_subplot(3, 3, index * 3 + 1)
@@ -155,7 +160,7 @@ for index in range(3):
 
     # Plot ground-truth output at higher-resolution
     ax = fig.add_subplot(3, 3, index * 3 + 2)
-    ax.imshow(y.squeeze())
+    ax.imshow(y[0, :, :, y.shape[-1]//2].squeeze())
     if index == 0:
         ax.set_title("Ground-truth output phi at 64x64")
     plt.xticks([], [])
@@ -163,7 +168,7 @@ for index in range(3):
 
     # Plot model prediction at higher-resolution
     ax = fig.add_subplot(3, 3, index * 3 + 3)
-    ax.imshow(out.squeeze().detach().numpy())
+    ax.imshow(out[0, :, :, out.shape[-1]//2].squeeze().detach().numpy())
     if index == 0:
         ax.set_title("TFNO prediction phi at 64x64")
     plt.xticks([], [])
