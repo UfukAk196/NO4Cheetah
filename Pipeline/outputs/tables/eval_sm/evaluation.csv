@@ -1,0 +1,17 @@
+quantity,value
+accuracy.potential_rel_l2.mean,0.5642717480659485
+accuracy.potential_rel_l2.median,0.579694926738739
+accuracy.potential_rel_l2.p95,1.0105528831481934
+accuracy.potential_rel_l2.max,3.6801867485046387
+accuracy.potential_rel_l2.n,100
+accuracy.force_rel_l2.mean,0.5625554323196411
+accuracy.force_rel_l2.median,0.5767287015914917
+accuracy.force_rel_l2.p95,0.9718608856201172
+accuracy.force_rel_l2.max,3.5187981128692627
+accuracy.force_rel_l2.n,100
+resolution.res_32.grid,"(32, 32, 32)"
+resolution.res_32.potential_rel_l2_mean,0.5642717480659485
+resolution.res_32.force_rel_l2_mean,0.5625554323196411
+resolution.res_64.grid,"(64, 64, 64)"
+resolution.res_64.potential_rel_l2_mean,0.5478954911231995
+resolution.res_64.force_rel_l2_mean,0.5429197549819946

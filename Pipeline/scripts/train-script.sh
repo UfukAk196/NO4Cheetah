@@ -24,6 +24,6 @@ echo "Python: $PY"
 export MPLBACKEND=Agg               # headless matplotlib: plt.show() must not block on a compute node
 
 cd "$SLURM_SUBMIT_DIR"             # run from the submit dir, so the relative paths below resolve
-[ -f exec/train_model.py ] || { echo "Submit from Pipeline/: sbatch scripts/train-script.sh" >&2; exit 1; }
+[ -f exec/train_sm.py ] || { echo "Submit from Pipeline/: sbatch scripts/train-script.sh" >&2; exit 1; }
 
-"$PY" exec/train_model.py      # train, generating missing data first
+"$PY" exec/train_sm.py      # train, generating missing data first
