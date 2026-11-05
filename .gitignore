@@ -6,7 +6,8 @@ __pycache__/
 
 # Erzeugte Daten und Ergebnisse (nur im Pipeline-Ordner, NICHT src/scno/data/!)
 /Pipeline/data/
-wandb/
+/Pipeline/outputs/studies/wandb/
+/Pipeline/outputs/models/checkpoints/
 *.log
 *.tmp
 /Pipeline/scripts/fno*.err

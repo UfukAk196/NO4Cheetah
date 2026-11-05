@@ -61,12 +61,19 @@ def predict(model, batch: dict, data_processor=None) -> torch.Tensor:
 
 
 @torch.no_grad()
-def evaluate(model, dataset, data_processor=None, batch_size: int = 4) -> dict:
+def evaluate(
+    model, dataset, data_processor=None, batch_size: int = 4, samples: list | None = None
+) -> dict:
     """Relative L2 errors of potential and force on ``dataset`` (``return_meta=True``),
-    in the units the model was trained on (phi_hat or phi [V])."""
+    plus absolute values of the potential (max |phi|, mean, max |error|), all in the
+    units the model was trained on (phi_hat or phi [V]).
+
+    If ``samples`` is a list, one row per sample with these numbers is appended to it.
+    """
     loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
     per_kind = defaultdict(lambda: {"field": [], "grad": []})
     field_errors, grad_errors = [], []
+    absolute = defaultdict(list)
 
     model.eval()
     for batch in loader:
@@ -77,6 +84,24 @@ def evaluate(model, dataset, data_processor=None, batch_size: int = 4) -> dict:
             ge = float(gradient_error(pred[i : i + 1], target[i : i + 1]))
             field_errors.append(fe)
             grad_errors.append(ge)
+            values = {
+                "gt_max_abs": float(target[i].abs().max()),
+                "pred_max_abs": float(pred[i].abs().max()),
+                "gt_mean": float(target[i].mean()),
+                "pred_mean": float(pred[i].mean()),
+                "max_abs_error": float((pred[i] - target[i]).abs().max()),
+            }
+            for k, v in values.items():
+                absolute[k].append(v)
+            if samples is not None:
+                samples.append(
+                    {
+                        "sample": len(field_errors) - 1,
+                        "potential_rel_l2": fe,
+                        "force_rel_l2": ge,
+                        **values,
+                    }
+                )
             # The lean dataset (dataset_sm) has no meta fields, hence no breakdown.
             if "kind" in batch:
                 kind = DISTRIBUTIONS[int(batch["kind"][i])]
@@ -96,6 +121,7 @@ def evaluate(model, dataset, data_processor=None, batch_size: int = 4) -> dict:
     report = {
         "potential_rel_l2": stats(field_errors),
         "force_rel_l2": stats(grad_errors),
+        "potential_abs": {k: stats(v) for k, v in absolute.items()},
     }
     if per_kind:
         report["per_distribution"] = {

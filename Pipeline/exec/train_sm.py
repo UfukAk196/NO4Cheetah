@@ -82,11 +82,11 @@ trainer.train(
     training_loss=train_loss,
     eval_losses=eval_losses,
     save_best= "32_h1",
-    save_dir = MODELS_DIR,
+    save_dir = MODELS_DIR / "checkpoints",
 )
 
-# Plot the best checkpoint (save_best), not the last-epoch model.
-model = TFNO.from_checkpoint(MODELS_DIR, "best_model", map_location=device).to(device)
+model = TFNO.from_checkpoint(MODELS_DIR / "checkpoints", "best_model", map_location=device).to(device)
+model.save_checkpoint(MODELS_DIR, "final_model")
 model.eval()
 
 test_samples = test_loaders[32].dataset

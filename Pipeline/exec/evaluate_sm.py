@@ -11,7 +11,8 @@ fields, so there is no per-distribution breakdown and no gradient consistency ch
 resolution study is the evaluation on the test sets at 32 (trained) and 64 (zero-shot).
 
 Writes only to ``outputs/``:
-    tables/sm/evaluation.csv      accuracy per test resolution
+    tables/sm/evaluation.csv      accuracy and absolute phi values [V] per test resolution
+    tables/sm/samples.csv         the same numbers per test sample
     figures/sm/beam_<res>_<i>.png phase space of the first test beams
                                   (Cheetah ``ParticleBeam.plot_distribution``)
     figures/sm/phi_<res>_<i>.png  phi GT vs. Pred of these samples, same scale
@@ -43,6 +44,7 @@ DATA_SM = {
 }
 SAVE_NAME = "best_model"  # Trainer(save_best=...) writes best_model_*.pt/.pkl
 N_PLOTS = 3
+KEPT_STATS = ("mean", "max")  # of evaluate()'s stats; median, p95 and n are dropped
 
 
 def flatten(report: dict, prefix: str = "") -> list[dict]:
@@ -68,13 +70,25 @@ def main() -> int:
     _, test_loaders, data_processor = load_cheetah_sc(**DATA_SM)
     data_processor = data_processor.to(device)
 
-    report = {
-        f"res_{res}": evaluate(model, loader.dataset, data_processor)
-        for res, loader in test_loaders.items()
-    }
+    report, samples = {}, []
+    for res, loader in test_loaders.items():
+        rows = []
+        report[f"res_{res}"] = evaluate(model, loader.dataset, data_processor, samples=rows)
+        samples += [{"res": res, **row} for row in rows]
     table = TABLES_DIR / "sm" / "evaluation.csv"
-    save_csv(flatten(report), table)
+    rows = [r for r in flatten(report) if r["quantity"].rsplit(".", 1)[-1] in KEPT_STATS]
+    save_csv(rows, table)
     print(f"Evaluation saved: {table}")
+    table = TABLES_DIR / "sm" / "samples.csv"
+    save_csv(samples, table)
+    print(f"Per-sample values saved: {table}")
+    for row in samples[:N_PLOTS]:
+        print(
+            f"  res {row['res']} sample {row['sample']}: "
+            f"max|phi| GT {row['gt_max_abs']:.4g} V, Pred {row['pred_max_abs']:.4g} V | "
+            f"mean GT {row['gt_mean']:.4g} V, Pred {row['pred_mean']:.4g} V | "
+            f"max|err| {row['max_abs_error']:.4g} V"
+        )
 
     model.eval()
     for j, (res, loader) in enumerate(test_loaders.items()):
