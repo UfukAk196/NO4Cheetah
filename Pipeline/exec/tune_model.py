@@ -1,12 +1,11 @@
 """
-Distributed Optuna hyperparameter search for the FNO of ``train_model.py``
-(settings in ``scno.config``).
+Distributed Optuna hyperparameter search for the TFNO of ``train_model.py``.
 
-Minimizes the Sobolev (H1) test loss at the training resolution, the metric the
-neuralop ``Trainer`` reports as ``"<train_resolution>_h1"``. Every trial trains with
-``scno.train.fit`` (same code path as a normal training run) and settings drawn by
-``suggest``; unpromising trials are stopped early by the Hyperband pruner, which sees
-the metric at every evaluation.
+Minimizes the H1 test loss at the training resolution, the metric the neuralop
+``Trainer`` reports as ``"<train_resolution>_h1"``. Every trial builds TFNO, AdamW and
+the ``Trainer`` like ``train_model.py``, with the settings drawn by ``suggest``;
+unpromising trials are stopped early by the Hyperband pruner, which sees the metric at
+every evaluation. All settings are at the top of this file.
 
 Any number of workers (processes, Slurm array tasks on several nodes) share one study
 through a journal file on the shared filesystem; ``scripts/tune-script.sh`` submits them
@@ -16,7 +15,7 @@ only to ``outputs/studies/optuna/<RUN>/``:
     <DATE>_trials_<NN>.csv           one row per trial (``report``)
     optuna_*.png                     history, intermediate values, importances,
                                      parallel coordinates (``report``)
-No model is saved per trial: copy the best parameters into ``scno.config`` and train.
+No model is saved per trial: copy the best parameters into ``train_model.py`` and train.
 
 Call:
     python exec/tune_model.py create       new study, prints its run ID
@@ -29,31 +28,27 @@ import sys
 from pathlib import Path
 
 import numpy as np
-
 import optuna
+import pandas as pd
+import torch
+from neuralop import H1Loss, LpLoss, Trainer
+from neuralop.models import TFNO
+from neuralop.training import AdamW
 from optuna.storages import JournalStorage
 from optuna.storages.journal import JournalFileBackend, JournalFileOpenLock
 from optuna.study import MaxTrialsCallback
 from optuna.trial import TrialState
 
-from scno.config import (
-    DATA,
-    DEVICE,
-    LOSS,
-    MODEL,
-    N_TRIALS,
-    OPTUNA_DIR,
-    RUN_DIRS,
-    SEED,
-    TRAINING,
-    TUNE_EPOCHS,
-    TUNE_EVAL_INTERVAL,
-    WANDB,
-)
+from scno.config import OPTUNA_DIR, RUN_DIRS, DATA, SEED
 from scno.data.dataset import load_cheetah_sc
 from scno.evaluate import _save_figures
-from scno.train import HistoryTrainer, fit
-from scno.utils.common import existing_runs, new_run_id, pick_device, save_csv, set_seed
+from scno.utils.common import existing_runs, new_run_id
+
+N_TRIALS = 100  # finished (complete + pruned) trials over all workers
+TUNE_EPOCHS = 200  # max_resource of the Hyperband pruner
+TUNE_EVAL_INTERVAL = 10  # epochs between evaluations = pruning checks
+
+# Data as in train_model.py
 
 METRIC = f"{DATA['train_resolution']}_h1"
 
@@ -94,15 +89,15 @@ def load_study(run: str, create: bool = False) -> optuna.Study:
     return optuna.load_study(**kwargs)
 
 
-def suggest(trial: optuna.Trial) -> tuple[dict, dict, dict]:
-    """Search space: ``MODEL``, ``LOSS`` and ``TRAINING`` with the tuned entries replaced.
+def suggest(trial: optuna.Trial) -> tuple[dict, dict]:
+    """Search space: TFNO kwargs and training settings.
 
-    ``n_modes`` is capped at the Nyquist limit of the training grid; the gradient weight
-    is tuned because the kick is the gradient of phi (``physics_weight`` stays 0).
+    ``n_modes`` is capped at the Nyquist limit of the training grid.
     """
     n_modes = trial.suggest_int("n_modes", 4, DATA["train_resolution"] // 2)
     model_kwargs = {
-        **MODEL,
+        "in_channels": 1,
+        "out_channels": 1,
         "n_modes": (n_modes,) * 3,
         "hidden_channels": trial.suggest_categorical("hidden_channels", [16, 32, 64]),
         "n_layers": trial.suggest_int("n_layers", 2, 6),
@@ -110,13 +105,7 @@ def suggest(trial: optuna.Trial) -> tuple[dict, dict, dict]:
             "domain_padding", [0.0, 0.125, 0.25, 0.5]
         ),
     }
-    loss_kwargs = {
-        **LOSS,
-        "gradient_weight": trial.suggest_float("gradient_weight", 0.1, 10.0, log=True),
-    }
     training = {
-        **TRAINING,
-        # +1: the Trainer evaluates at epochs 0, k, 2k, ..., so the last epoch is one too.
         "epochs": trial.suggest_int("epochs", 1.0e3, 1.0e5, log=True),
         "learning_rate": trial.suggest_float("learning_rate", 1.0e-4, 1.0e-2, log=True),
         "weight_decay": trial.suggest_float("weight_decay", 1.0e-6, 1.0e-3, log=True),
@@ -124,51 +113,59 @@ def suggest(trial: optuna.Trial) -> tuple[dict, dict, dict]:
     # other hyperparams to be tuned: regulization technique, loss function (Sobolev vs MAE vs MSE),
     # drop-out rate (Neurons/ hidden layers or data), data size, grid size, batch size, batch normalization parameters,
     # normalization/ scaling function, activation functions, optimization algorithm
-    return model_kwargs, loss_kwargs, training
-
-
-class PruningTrainer(HistoryTrainer):
-    """``HistoryTrainer`` that reports ``METRIC`` to the trial at every evaluation and
-    stops the training (``optuna.TrialPruned``) when the pruner says so."""
-
-    def __init__(self, *args, trial: optuna.Trial, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.trial = trial
-
-    def log_eval(self, epoch, eval_metrics):
-        super().log_eval(epoch=epoch, eval_metrics=eval_metrics)
-        self.trial.report(float(eval_metrics[METRIC]), epoch)
-        if self.trial.should_prune():
-            raise optuna.TrialPruned()
+    return model_kwargs, training
 
 
 def work(run: str) -> None:
-    device = pick_device(DEVICE)
-    # Loaded once per worker, not per trial. generate=False: the data exists already
-    # (`generate`), parallel workers must not write the same HDF5 files.
-    train_loader, test_loaders, data_processor = load_cheetah_sc(
-        **{**DATA, "generate": False}
-    )
-    # Tuning only needs the training resolution; the others would only cost time.
-    res = DATA["train_resolution"]
-    loaders = (train_loader, {res: test_loaders[res]}, data_processor)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    # Loaded once per worker, not per trial. The data exists already (`generate`), so
+    # load_cheetah_sc does not write anything here.
+    train_loader, test_loaders, data_processor = load_cheetah_sc(**DATA)
+    data_processor = data_processor.to(device)
+    h1loss = H1Loss(d=3, periodic_in_x=False, periodic_in_y=False, periodic_in_z=False)
+    l2loss = LpLoss(d=3, p=2)
 
     def objective(trial: optuna.Trial) -> float:
-        set_seed(SEED + trial.number)
-        model_kwargs, loss_kwargs, training = suggest(trial)
-        _, trainer = fit(
-            loaders,
-            device,
-            model_kwargs,
-            loss_kwargs,
-            training,
-            TUNE_EVAL_INTERVAL,
-            nondim=DATA["nondim"],
-            wandb_log=WANDB,
-            trainer_cls=PruningTrainer,
-            trial=trial,
+        torch.manual_seed(SEED + trial.number)
+        model_kwargs, training = suggest(trial)
+        model = TFNO(**model_kwargs).to(device)
+        optimizer = AdamW(
+            model.parameters(), lr=training["learning_rate"], weight_decay=training["weight_decay"]
         )
-        return trainer.history["eval"][METRIC][-1]
+        scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=1.0, total_iters=0)
+        trainer = Trainer(
+            model=model,
+            n_epochs=training["epochs"],
+            device=device,
+            data_processor=data_processor,
+            wandb_log=False,
+            eval_interval=TUNE_EVAL_INTERVAL,
+            use_distributed=False,
+            verbose=True,  # log_eval is only called with verbose=True
+        )
+
+        # Pruning: the Trainer's own log_eval is called as usual, then METRIC is
+        # reported to the trial, which may stop the training.
+        log_eval, last = trainer.log_eval, {}
+
+        def report_eval(epoch, eval_metrics):
+            log_eval(epoch=epoch, eval_metrics=eval_metrics)
+            last[METRIC] = float(eval_metrics[METRIC])
+            trial.report(last[METRIC], epoch)
+            if trial.should_prune():
+                raise optuna.TrialPruned()
+
+        trainer.log_eval = report_eval
+        trainer.train(
+            train_loader=train_loader,
+            test_loaders=test_loaders,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            regularizer=False,
+            training_loss=h1loss,
+            eval_losses={"h1": h1loss, "l2": l2loss},
+        )
+        return last[METRIC]
 
     load_study(run).optimize(
         objective,
@@ -193,7 +190,9 @@ def report(run: str) -> None:
         }
         for t in trials
     ]
-    print(f"Trials saved: {save_csv(rows, study_file(run, "trials.csv"))}")
+    path = study_file(run, "trials.csv")
+    pd.DataFrame(rows).to_csv(path, index=False)
+    print(f"Trials saved: {path}")
 
     plots = optuna.visualization.matplotlib
     axes = {

@@ -1,4 +1,4 @@
-"""Lean HDF5 generator for ``dataset_sm.CheetahDataset`` (neuralop ``H5pyDataset``).
+"""HDF5 generator for ``dataset.CheetahDataset`` (neuralop ``H5pyDataset``).
 
 Writes exactly the files ``H5pyDataset`` reads:
     {root}/cheetah_sc_train_{train_res}.h5   and   {root}/cheetah_sc_test_{res}.h5
@@ -6,11 +6,7 @@ Writes exactly the files ``H5pyDataset`` reads:
 Each file holds ``x`` (rho) and ``y`` (phi), both ``(N, nx, ny, nz)`` float32 with no
 channel dim, plus a ``params`` group (cheap, makes every sample reproducible). The
 physical fields are stored as they come out of Cheetah -- no nondimensionalization,
-no metadata. Loading and encoding are done by ``dataset_sm.py``.
-
-This is the minimal counterpart to ``generate.py`` (which adds nondimensionalization
-metadata, chunking, a tmp-file dance and the global index stream). It imports only
-``torch``, ``numpy``, ``h5py``, ``tqdm`` and ``cheetah``.
+no metadata. Loading and encoding are done by ``dataset.py``.
 """
 
 from __future__ import annotations
@@ -26,8 +22,7 @@ from tqdm import tqdm
 
 DATASET_NAME = "cheetah_sc"
 
-# Copy of ``sampling.DEFAULT_RANGES`` (same values). Kept here so this module stays
-# self-contained; ``train_sm`` can switch its import to this one in a single line.
+# Beam parameter bounds: sigmas log-uniform, the rest uniform (``_draw_params``).
 DEFAULT_RANGES: dict[str, dict[str, float]] = {
     "sigma_x": {"min": 5.0e-6, "max": 1.5e-3},
     "sigma_y": {"min": 5.0e-6, "max": 1.5e-3},

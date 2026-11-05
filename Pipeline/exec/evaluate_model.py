@@ -1,87 +1,71 @@
 """
-Evaluates the model trained by ``train_sm.py`` with the functions of ``scno.evaluate``.
+Evaluates the model trained by ``train_model.py`` with the functions of ``scno.evaluate``:
+trained resolution (32) vs. zero-shot super-resolution (64).
 
-Loads the best checkpoint the neuralop ``Trainer`` wrote to ``outputs/models/``
-(``best_model_state_dict.pt`` + ``best_model_metadata.pkl``, overwritten by every run of
-``train_sm.py``, so there are no run IDs) with ``TFNO.from_checkpoint`` and uses the data
-settings of ``train_sm.py`` (``DATA_SM`` below).
+Loads ``outputs/models/final_model_*`` (``TFNO.from_checkpoint``) and the data processor
+fitted in training (``final_model_data_processor.pt``), so the normalization is exactly
+the one of the training run. ``train_model.py`` calls ``main(run)`` itself at the end.
 
-Compared to ``evaluate_model.py`` the lean dataset (``scno.data.dataset_sm``) has no meta
-fields, so there is no per-distribution breakdown and no gradient consistency check. The
-resolution study is the evaluation on the test sets at 32 (trained) and 64 (zero-shot).
+Writes only to ``outputs/`` (``RUN`` = the given run, default: the latest one):
+    tables/<RUN>/evaluation.csv      rel. L2 of phi and force, absolute phi [V]; mean and
+                                     max over the test samples, per test resolution
+    tables/<RUN>/samples.csv         the same numbers per test sample
+    figures/<RUN>/beam_<res>_<i>.png phase space of the first test beams
+                                     (Cheetah ``ParticleBeam.plot_distribution``)
+    figures/<RUN>/phi_<res>_<i>.png  phi GT vs. Pred of these samples, same scale
+                                     (``plot_field_comparison``, also via Cheetah)
 
-Writes only to ``outputs/``:
-    tables/sm/evaluation.csv      accuracy and absolute phi values [V] per test resolution
-    tables/sm/samples.csv         the same numbers per test sample
-    figures/sm/beam_<res>_<i>.png phase space of the first test beams
-                                  (Cheetah ``ParticleBeam.plot_distribution``)
-    figures/sm/phi_<res>_<i>.png  phi GT vs. Pred of these samples, same scale
-                                  (``plot_field_comparison``, also via Cheetah)
-
-Call: python exec/evaluate_sm.py
+Call: python exec/evaluate_model.py [RUN]   e.g. RUN = 2026-11-05_02
 """
 
+import sys
+
 import h5py
+import pandas as pd
 import torch
 from cheetah.accelerator import SpaceChargeKick
 from neuralop.models import TFNO
 
-from scno.config import DEVICE, FIGURES_DIR, MODELS_DIR, SEED, TABLES_DIR
-from scno.data.dataset_sm import load_cheetah_sc
-from scno.data.generate_sm import _build_beam, _grid, dataset_path
+from scno.config import DATA_DIR, FIGURES_DIR, MODELS_DIR, TABLES_DIR ,DATA, SEED
+from scno.data.dataset import load_cheetah_sc
+from scno.data.generate import _build_beam, _grid, dataset_path
 from scno.evaluate import _save_figures, evaluate, plot_field_comparison, predict
-from scno.utils.common import pick_device, save_csv
+from scno.utils.common import existing_runs
 
-# Must match train_sm.py: the output normalizer is refitted on the same training data.
-DATA_SM = {
-    "n_train": 1000,
-    "batch_size": 64,
-    "n_tests": [100, 50],
-    "test_resolutions": [32, 64],
-    "test_batch_sizes": [32, 32],
-    "seed": SEED,
-    "ranges": None,
-}
-SAVE_NAME = "best_model"  # Trainer(save_best=...) writes best_model_*.pt/.pkl
 N_PLOTS = 3
-KEPT_STATS = ("mean", "max")  # of evaluate()'s stats; median, p95 and n are dropped
 
+def main(run: str | None = None) -> int:
+    if run is None:
+        runs = existing_runs(FIGURES_DIR, TABLES_DIR)
+        if not runs:
+            raise FileNotFoundError("No run found, run train_model.py first.")
+        run = runs[-1]
+    print(f"Run: {run}")
+    figures_dir, tables_dir = FIGURES_DIR / run, TABLES_DIR / run
+    tables_dir.mkdir(parents=True, exist_ok=True)
 
-def flatten(report: dict, prefix: str = "") -> list[dict]:
-    """Nested report -> rows ``{"quantity": "a.b.c", "value": ...}``."""
-    rows = []
-    for key, value in report.items():
-        name = f"{prefix}{key}"
-        if isinstance(value, dict):
-            rows += flatten(value, f"{name}.")
-        else:
-            rows.append({"quantity": name, "value": value})
-    return rows
-
-
-def main() -> int:
-    figures_dir = FIGURES_DIR / "sm"
-    device = pick_device(DEVICE)
-    model = TFNO.from_checkpoint(MODELS_DIR, SAVE_NAME, map_location=device).to(device)
-    manifest = MODELS_DIR / "manifest.pt"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = TFNO.from_checkpoint(MODELS_DIR, "final_model", map_location=device).to(device)
+    data_processor = torch.load(
+        MODELS_DIR / "final_model_data_processor.pt", map_location=device, weights_only=False
+    )
+    manifest = MODELS_DIR / "checkpoints" / "manifest.pt"
     if manifest.exists():
-        print(f"Checkpoint epoch: {torch.load(manifest).get('epoch')}")
+        print(f"Best checkpoint at epoch: {torch.load(manifest).get('epoch')}")
 
-    _, test_loaders, data_processor = load_cheetah_sc(**DATA_SM)
-    data_processor = data_processor.to(device)
+    _, test_loaders, _ = load_cheetah_sc(**DATA, encode_output=False)
 
     report, samples = {}, []
     for res, loader in test_loaders.items():
         rows = []
         report[f"res_{res}"] = evaluate(model, loader.dataset, data_processor, samples=rows)
         samples += [{"res": res, **row} for row in rows]
-    table = TABLES_DIR / "sm" / "evaluation.csv"
-    rows = [r for r in flatten(report) if r["quantity"].rsplit(".", 1)[-1] in KEPT_STATS]
-    save_csv(rows, table)
-    print(f"Evaluation saved: {table}")
-    table = TABLES_DIR / "sm" / "samples.csv"
-    save_csv(samples, table)
-    print(f"Per-sample values saved: {table}")
+    # Rows "res_<res>.<quantity>.<mean|max>", value
+    pd.json_normalize(report).T.to_csv(
+        tables_dir / "evaluation.csv", header=["value"], index_label="quantity"
+    )
+    pd.DataFrame(samples).to_csv(tables_dir / "samples.csv", index=False)
+    print(f"Evaluation saved: {tables_dir / 'evaluation.csv'}, {tables_dir / 'samples.csv'}")
     for row in samples[:N_PLOTS]:
         print(
             f"  res {row['res']} sample {row['sample']}: "
@@ -95,9 +79,9 @@ def main() -> int:
         dataset = loader.dataset
         sck = SpaceChargeKick(effect_length=torch.tensor(0.0), grid_shape=(res, res, res))
         # Test file j was generated with seed SEED + 1 + j and torch.manual_seed(seed + i)
-        # per sample (generate_sm), so the beams behind the model input rho are rebuilt
+        # per sample (generate.py), so the beams behind the model input rho are rebuilt
         # exactly; their cell size is not stored in the file.
-        with h5py.File(dataset_path("data", "test", res), "r") as f:
+        with h5py.File(dataset_path(DATA_DIR, "test", res), "r") as f:
             params = [
                 {k: f["params"][k][i] for k in f["params"]}
                 for i in range(min(N_PLOTS, len(dataset)))
@@ -125,4 +109,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1] if len(sys.argv) > 1 else None))

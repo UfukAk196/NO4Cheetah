@@ -1,6 +1,6 @@
-"""Acceptance test for ``dataset_sm.CheetahDataset`` (neuralop ``H5pyDataset``).
+"""Acceptance test for ``dataset.CheetahDataset`` (``CheetahH5Dataset`` per file).
 
-Checks that the .h5 files from ``generate_sm`` load through H5pyDataset with the
+Checks that the .h5 files from ``generate`` load as 3D grids with the
 expected channel dimension and normalizer shapes, and that a minimal training step
 runs end to end.
 """
@@ -12,8 +12,8 @@ from neuralop import LpLoss, Trainer
 from neuralop.models import TFNO
 from neuralop.training import AdamW
 
-from scno.data.dataset_sm import CheetahDataset, load_cheetah_sc
-from scno.data.generate_sm import generate_cheetah_sc
+from scno.data.dataset import CheetahDataset, load_cheetah_sc
+from scno.data.generate import generate_cheetah_sc
 
 
 def _make_data(tmp_path, ranges):
@@ -31,7 +31,8 @@ def _make_data(tmp_path, ranges):
 def test_dataset_channel_dim(tmp_path, small_ranges):
     _make_data(tmp_path, small_ranges)
 
-    ds = CheetahDataset(tmp_path, 4, [2, 2], 2, [1, 1], 16, [16, 32], generate=False)
+    # The files hold enough samples, so CheetahDataset generates nothing.
+    ds = CheetahDataset(tmp_path, 4, [2, 2], 16, [16, 32])
     assert ds.train_db[0]["x"].shape == (1, 16, 16, 16)
     assert ds.train_db[0]["y"].shape == (1, 16, 16, 16)
     assert len(ds.test_dbs[32]) == 2
@@ -45,13 +46,10 @@ def test_normalizer_shapes(tmp_path, small_ranges):
         tmp_path,
         4,
         [2, 2],
-        2,
-        [1, 1],
         16,
         [16, 32],
         encode_input=True,
         encode_output=True,
-        generate=False,
     )
     # channel-wise: one mean/std per channel, broadcast over the spatial dims
     assert ds.data_processor.in_normalizer.mean.shape == (1, 1, 1, 1, 1)

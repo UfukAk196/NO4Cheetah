@@ -1,6 +1,5 @@
-import os
 from pathlib import Path
-from typing import Union, List
+from typing import List, Union
 
 import h5py
 import torch
@@ -9,72 +8,77 @@ from neuralop.data.datasets.hdf5_dataset import H5pyDataset
 from neuralop.data.transforms.data_processors import DefaultDataProcessor
 from neuralop.data.transforms.normalizers import UnitGaussianNormalizer
 
-from .generate_sm import dataset_path, generate_cheetah_sc
+from scno.config import DATA_DIR
+
+from .generate import dataset_path, generate_cheetah_sc
 
 
-def missing_files(
-    root_dir: Union[str, Path], train_resolution: int, test_resolutions: List[int]
-) -> List[str]:
-    """Names of missing .h5 files (one training file + one per test resolution)."""
-    paths = [dataset_path(root_dir, "train", train_resolution)]
-    paths += [dataset_path(root_dir, "test", res) for res in test_resolutions]
-    return [p.name for p in paths if not p.exists()]
+class CheetahH5Dataset(H5pyDataset):
+    """One .h5 file of ``generate.py``: sample ``{"x": rho, "y": phi}``, each of shape
+    (1, res, res, res), i.e. with the channel dim the model expects.
 
-
-def _add_channel(t: torch.Tensor) -> torch.Tensor:
-    """Add the channel dim that ``H5pyDataset`` does not add.
-
-    Module-level (not a lambda) so it can be pickled for ``num_workers > 0`` on Windows.
+    neuralop's ``H5pyDataset`` is written for 2D data: its ``resolution`` argument only
+    picks a subsampling step for the first two spatial axes of the 1024^2 Navier-Stokes
+    files. Here the grids are loaded as stored, so ``__init__`` and ``__getitem__`` are
+    replaced; the lazy h5 file handle (``data``) and ``__len__`` are inherited.
     """
-    return t.unsqueeze(0)
+
+    def __init__(self, data_path: Union[Path, str], n_samples: int = None):
+        self.data_path = data_path
+        self._data = None
+        if n_samples is None:
+            with h5py.File(str(data_path), "r") as f:
+                n_samples = f["x"].shape[0]
+        self.n_samples = n_samples
+
+    def __getitem__(self, idx: int) -> dict:
+        assert idx < self.n_samples, f"sample {idx} of a dataset with {self.n_samples} samples"
+        x = torch.tensor(self.data["x"][idx], dtype=torch.float32).unsqueeze(0)
+        y = torch.tensor(self.data["y"][idx], dtype=torch.float32).unsqueeze(0)
+        return {"x": x, "y": y}
 
 
 class CheetahDataset:
     """
-    CheetahDataset stores data from the Cheetah simulation. Input and output are both
-    3d fields of charge density rho and potential field phi respectively with
-    three channels of data, each for one component x, y, z (in case of rho) and tau (in case of phi).
+    CheetahDataset stores data from the Cheetah simulation: input is the 3D charge
+    density rho, output the 3D potential phi, both on the same (res, res, res) grid with
+    one channel, in physical units as written by ``generate.py``.
 
+    Missing .h5 files are generated first (``generate_cheetah_sc`` only writes files that
+    are absent or hold too few samples, so on existing data this is a no-op).
 
     Parameters
     ----------
     root_dir : Union[Path, str]
-        root at which to download data files
+        folder of the .h5 files
     n_train : int
         number of train instances
     n_tests : List[int]
         number of test instances per test dataset
-    batch_size : int
-        batch size of training set
-    test_batch_sizes : List[int]
-        batch size of test sets
     train_resolution : int
         resolution of data for training set
     test_resolutions : List[int], optional
-        resolution of data for testing sets, by default [16,32]
+        resolution of data for testing sets, by default [32, 64]
     encode_input : bool, optional
-        whether to normalize inputs in provided DataProcessor,
-        by default False
+        whether to normalize the input rho in the DataProcessor, by default False
     encode_output : bool, optional
-        whether to normalize outputs in provided DataProcessor,
-        by default True
+        whether to normalize the output phi in the DataProcessor, by default True
     encoding : str, optional
-        parameter for input/output normalization. Whether
-        to normalize by channel ("channel-wise") or
-        by pixel ("pixel-wise"), default "channel-wise"
+        "channel-wise": one mean/std per channel over all samples and grid points,
+        "pixel-wise": one mean/std per grid point over all samples;
+        default "channel-wise"
     channel_dim : int, optional
         dimension of saved tensors to index data channels, by default 1
-    subsampling_rate : int or List[int], optional
-        rate at which to subsample each input dimension, by default None
-    download : bool, optional
-        whether to download data if not present, by default True
+    seed : int, optional
+        seed of the data generation, by default 0
+    ranges : dict, optional
+        beam parameter bounds of the data generation, by default ``DEFAULT_RANGES``
 
     Attributes
     ----------
     train_db: torch.utils.data.Dataset of training examples
-    test_db:  ""                       of test examples
-    data_processor: neuralop.data.transforms.DataProcessor to process data examples
-        optional, default is None
+    test_dbs: dict ``{res: Dataset}`` of test examples
+    data_processor: neuralop.data.transforms.DefaultDataProcessor with the fitted normalizers
     """
 
     def __init__(
@@ -82,67 +86,38 @@ class CheetahDataset:
         root_dir: Union[Path, str],
         n_train: int,
         n_tests: List[int],
-        batch_size: int,
-        test_batch_sizes: List[int],
         train_resolution: int,
-        test_resolutions: int = [32, 64],
+        test_resolutions: List[int] = [32, 64],
         encode_input: bool = False,
         encode_output: bool = True,
         encoding="channel-wise",
         channel_dim=1,
-        subsampling_rate=None,
-        generate: bool = True,
         seed=0,
         ranges=None,
     ):
-        """Initialize the CheetahDataset.
-
-        See class docstring for detailed parameter descriptions.
-        """
-        # convert root dir to Path
-        if isinstance(root_dir, str):
-            root_dir = Path(root_dir)
-        if not root_dir.exists():
-            root_dir.mkdir(parents=True)
-
-        if subsampling_rate is not None:
-            raise NotImplementedError(
-                "H5pyDataset subsamples only 2 axes, which is wrong for 3D data"
-            )
-
-        # generate data if requested and missing
-        if generate:
-            generate_cheetah_sc(
-                root=root_dir,
-                n_train=n_train,
-                n_tests=n_tests,
-                train_resolution=train_resolution,
-                test_resolutions=test_resolutions,
-                seed=seed,
-                ranges=ranges,
-            )
-
-        # H5pyDataset's resolution map is built for the 1024^2 Navier-Stokes data;
-        # 1024 -> subsample_step 1, i.e. no subsampling, which is what we want.
-        self._train_db = H5pyDataset(
-            dataset_path(root_dir, "train", train_resolution),
-            resolution=1024,
-            transform_x=_add_channel,
-            transform_y=_add_channel,
-            n_samples=n_train,
+        root_dir = Path(root_dir)
+        generate_cheetah_sc(
+            root=root_dir,
+            n_train=n_train,
+            n_tests=n_tests,
+            train_resolution=train_resolution,
+            test_resolutions=test_resolutions,
+            seed=seed,
+            ranges=ranges,
         )
 
-        self._test_dbs = {}
-        for res, n_test in zip(test_resolutions, n_tests):
-            self._test_dbs[res] = H5pyDataset(
-                dataset_path(root_dir, "test", res),
-                resolution=1024,
-                transform_x=_add_channel,
-                transform_y=_add_channel,
-                n_samples=n_test,
-            )
+        self._train_db = CheetahH5Dataset(
+            dataset_path(root_dir, "train", train_resolution), n_samples=n_train
+        )
+        self._test_dbs = {
+            res: CheetahH5Dataset(dataset_path(root_dir, "test", res), n_samples=n_test)
+            for res, n_test in zip(test_resolutions, n_tests)
+        }
 
-        # Fit the optional encoders on the training data (as in PTDataset).
+        # Normalization (neuralop UnitGaussianNormalizer): z = (field - mean) / std, with
+        # mean/std fitted on the training data only. The DataProcessor applies it to x
+        # (encode_input) before the model and, in training, to y (encode_output); in eval
+        # mode it decodes the model output back to phi [V].
         in_normalizer = out_normalizer = None
         if encode_input or encode_output:
             with h5py.File(dataset_path(root_dir, "train", train_resolution), "r") as f:
@@ -161,7 +136,7 @@ class CheetahDataset:
     def _fit_normalizer(
         data: torch.Tensor, encoding: str, channel_dim: int
     ) -> UnitGaussianNormalizer:
-        """As in neuralop's ``PTDataset``: channel-wise or pixel-wise."""
+        """As in neuralop's ``PTDataset``: the dims mean/std are reduced over."""
         if encoding == "channel-wise":
             reduce_dims = list(range(data.ndim))
             reduce_dims.pop(channel_dim)  # keep the mean per channel
@@ -186,54 +161,42 @@ class CheetahDataset:
         return self._data_processor
 
 
-example_data_root = Path("data")
-
-# load cheetah sc data for backwards compatibility
 def load_cheetah_sc(
     n_train,
     n_tests,
     batch_size,
     test_batch_sizes,
-    data_root=example_data_root,
+    data_root=DATA_DIR,
     train_resolution=32,
     test_resolutions=[32, 64],
     encode_input=False,
     encode_output=True,
     encoding="channel-wise",
     channel_dim=1,
-    subsampling_rate=None,
     num_workers=0,
     seed=0,
     ranges=None,
 ):
-
-    if missing_files(data_root, train_resolution, test_resolutions):
-        generate = True
-    else:
-        generate = False
-        
+    """``(train_loader, test_loaders, data_processor)`` as neuralop's ``load_*`` functions;
+    the arguments are those of ``CheetahDataset`` plus the batch sizes."""
     dataset = CheetahDataset(
         root_dir=data_root,
         n_train=n_train,
         n_tests=n_tests,
-        batch_size=batch_size,
-        test_batch_sizes=test_batch_sizes,
         train_resolution=train_resolution,
         test_resolutions=test_resolutions,
         encode_input=encode_input,
         encode_output=encode_output,
         encoding=encoding,
         channel_dim=channel_dim,
-        subsampling_rate=subsampling_rate,
-        generate=generate,
         seed=seed,
         ranges=ranges,
     )
 
-    # return dataloaders for backwards compat
     train_loader = DataLoader(
         dataset.train_db,
         batch_size=batch_size,
+        shuffle=True,
         num_workers=num_workers,
         pin_memory=True,
         persistent_workers=False,

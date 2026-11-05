@@ -1,4 +1,4 @@
-"""Acceptance test for the lean HDF5 generator (``generate_sm.py``).
+"""Acceptance test for the lean HDF5 generator (``generate.py``).
 
 Checks:
 - a small run (n_train=4, n_tests=[2, 2], res 16/32) creates the .h5 files
@@ -12,7 +12,7 @@ from __future__ import annotations
 import h5py
 import numpy as np
 
-from scno.data.generate_sm import DATASET_NAME, dataset_path, generate_cheetah_sc
+from scno.data.generate import DATASET_NAME, dataset_path, generate_cheetah_sc
 
 
 def _generate(tmp_path, ranges, seed=7):

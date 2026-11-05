@@ -1,28 +1,54 @@
-import torch
-import matplotlib.pyplot as plt
+"""
+Trains the TFNO on the Cheetah space-charge dataset with the neuralop ``Trainer``.
+
+All hyperparameters are set below, top to bottom: data, model, optimizer, scheduler,
+losses, epochs. Missing data files are generated on the first run.
+
+Every run gets an ID ``<date>_<NN>`` and writes to ``outputs/``:
+    models/checkpoints/                    Trainer checkpoint of the best "32_h1" epoch
+    models/final_model_*                   that best model (state dict + init kwargs)
+    models/final_model_data_processor.pt   the fitted normalizer, for evaluate_model.py
+    figures/<RUN>/loss_curves.png          loss curves (plot_losses)
+    tables/<RUN>/history.csv               losses at the logged epochs
+    + the evaluation of evaluate_model.py (trained vs. zero-shot resolution) in the
+      same run folders
+
+Call: python exec/train_model.py
+"""
+
 import sys
+from collections import defaultdict
 
+import pandas as pd
+import torch
+from neuralop import H1Loss, LpLoss, Trainer
 from neuralop.models import TFNO
-from neuralop import Trainer
 from neuralop.training import AdamW
-from neuralop import LpLoss, H1Loss
 
-from scno.data.dataset_sm import load_cheetah_sc
-from scno.config import FIGURES_DIR, MODELS_DIR, SEED
-from scno.evaluate import predict
+from evaluate_model import main as evaluate_run
+from scno.config import FIGURES_DIR, MODELS_DIR, RUN_DIRS, TABLES_DIR, SEED, DATA
+from scno.data.dataset import load_cheetah_sc
+from scno.evaluate import plot_losses
+from scno.utils.common import new_run_id
 
+run = new_run_id(*RUN_DIRS)
+print(f"Run: {run}")
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
+# Data; normalization: phi -> (phi - mean) / std over the training samples and the grid
+# (encode_output=True, encoding="channel-wise" are the defaults of load_cheetah_sc).
 train_loader, test_loaders, data_processor = load_cheetah_sc(
-    n_train=1000,
-    batch_size=64,
-    n_tests=[100, 50],
-    test_resolutions=[32, 64],
-    test_batch_sizes=[32, 32],
+    n_train=DATA["n_train"],
+    batch_size=DATA["batch_size"],
+    n_tests=DATA["n_tests"],
+    test_resolutions=DATA["test_resolutions"],
+    test_batch_sizes=DATA["test_batch_sizes"],
     seed=SEED,
     ranges=None,
 )
 data_processor = data_processor.to(device)
+
+torch.manual_seed(SEED)
 
 model = TFNO(
     n_modes=(5, 5, 5),
@@ -73,6 +99,29 @@ trainer = Trainer(
     verbose=True,  # Print training progress
 )
 
+# Loss history: the Trainer only prints its metrics, so its own log_training / log_eval
+# are called as usual and their arguments are recorded on the way. Both run every
+# eval_interval epochs.
+history = {"train": defaultdict(list), "eval": defaultdict(list)}
+log_training, log_eval = trainer.log_training, trainer.log_eval
+
+
+def record_training(**kwargs):
+    log_training(**kwargs)
+    history["train"]["epoch"].append(kwargs["epoch"])
+    for key in ("avg_loss", "train_err", "lr"):
+        history["train"][key].append(float(kwargs[key]))
+
+
+def record_eval(epoch, eval_metrics):
+    log_eval(epoch=epoch, eval_metrics=eval_metrics)
+    history["eval"]["epoch"].append(epoch)
+    for key, value in eval_metrics.items():
+        history["eval"][key].append(float(value))
+
+
+trainer.log_training, trainer.log_eval = record_training, record_eval
+
 trainer.train(
     train_loader=train_loader,
     test_loaders=test_loaders,
@@ -87,96 +136,13 @@ trainer.train(
 
 model = TFNO.from_checkpoint(MODELS_DIR / "checkpoints", "best_model", map_location=device).to(device)
 model.save_checkpoint(MODELS_DIR, "final_model")
-model.eval()
+torch.save(data_processor, MODELS_DIR / "final_model_data_processor.pt")
 
-test_samples = test_loaders[32].dataset
+plot_losses(history, save_dir=FIGURES_DIR / run)
+(TABLES_DIR / run).mkdir(parents=True, exist_ok=True)
+pd.DataFrame(history["train"]).merge(pd.DataFrame(history["eval"]), on="epoch", how="outer").to_csv(
+    TABLES_DIR / run / "history.csv", index=False
+)
 
-fig = plt.figure(figsize=(7, 7))
-for index in range(3):
-    data = test_samples[index]
-
-    # Input rho and ground-truth output phi, both in physical units
-    x = data["x"]
-    y = data["y"].to("cpu")
-    # Model prediction, decoded to physical units by predict (data processor in eval mode)
-    with torch.no_grad():
-        out = predict(model, torch.utils.data.default_collate([data]), data_processor)[0].to("cpu")
-    x = x.to("cpu")
-
-    # Plot input
-    ax = fig.add_subplot(3, 3, index * 3 + 1)
-    ax.imshow(x[0, :, :, x.shape[-1]//2], cmap="gray")
-    if index == 0:
-        ax.set_title("Input rho")
-    plt.xticks([], [])
-    plt.yticks([], [])
-
-    # Plot ground-truth output
-    ax = fig.add_subplot(3, 3, index * 3 + 2)
-    ax.imshow(y[0, :, :, y.shape[-1]//2].squeeze())
-    if index == 0:
-        ax.set_title("Ground-truth output phi")
-    plt.xticks([], [])
-    plt.yticks([], [])
-
-    # Plot model prediction
-    ax = fig.add_subplot(3, 3, index * 3 + 3)
-    ax.imshow(out[0, :, :, out.shape[-1]//2].squeeze().detach().numpy())
-    if index == 0:
-        ax.set_title("Model prediction phi")
-    plt.xticks([], [])
-    plt.yticks([], [])
-
-fig.suptitle("TFNO predictions on 32x32 Cheetah Space Charge Kick", y=0.98)
-plt.tight_layout()
-fig.show()
-
-save_dir = FIGURES_DIR
-save_dir.mkdir(parents=True, exist_ok=True)
-path = save_dir / "predictions_32x32.png"
-fig.savefig(path, dpi=300)
-
-test_samples = test_loaders[64].dataset
-
-fig = plt.figure(figsize=(7, 7))
-for index in range(3):
-    data = test_samples[index]
-
-    # Input rho and ground-truth output phi at higher-resolution, physical units
-    x = data["x"]
-    y = data["y"].to("cpu")
-    # Model prediction at higher-resolution, decoded to physical units
-    with torch.no_grad():
-        out = predict(model, torch.utils.data.default_collate([data]), data_processor)[0].to("cpu")
-    x = x.to("cpu")
-
-    # Plot input at higher-resolution
-    ax = fig.add_subplot(3, 3, index * 3 + 1)
-    ax.imshow(x[0, :, :, x.shape[-1]//2], cmap="gray")
-    if index == 0:
-        ax.set_title("Input rho at 64x64")
-    plt.xticks([], [])
-    plt.yticks([], [])
-
-    # Plot ground-truth output at higher-resolution
-    ax = fig.add_subplot(3, 3, index * 3 + 2)
-    ax.imshow(y[0, :, :, y.shape[-1]//2].squeeze())
-    if index == 0:
-        ax.set_title("Ground-truth output phi")
-    plt.xticks([], [])
-    plt.yticks([], [])
-
-    # Plot model prediction at higher-resolution
-    ax = fig.add_subplot(3, 3, index * 3 + 3)
-    ax.imshow(out[0, :, :, out.shape[-1]//2].squeeze().detach().numpy())
-    if index == 0:
-        ax.set_title("TFNO prediction phi")
-    plt.xticks([], [])
-    plt.yticks([], [])
-
-fig.suptitle("Zero-shot super-resolution: 32x32 → 64x64", y=0.98)
-plt.tight_layout()
-fig.show()
-
-path = save_dir / "predictions_64x64.png"
-fig.savefig(path, dpi=300)
+# Trained resolution (32) vs. zero-shot super-resolution (64): tables and figures
+evaluate_run(run)
