@@ -77,9 +77,11 @@ def evaluate(model, dataset, data_processor=None, batch_size: int = 4) -> dict:
             ge = float(gradient_error(pred[i : i + 1], target[i : i + 1]))
             field_errors.append(fe)
             grad_errors.append(ge)
-            kind = DISTRIBUTIONS[int(batch["kind"][i])]
-            per_kind[kind]["field"].append(fe)
-            per_kind[kind]["grad"].append(ge)
+            # The lean dataset (dataset_sm) has no meta fields, hence no breakdown.
+            if "kind" in batch:
+                kind = DISTRIBUTIONS[int(batch["kind"][i])]
+                per_kind[kind]["field"].append(fe)
+                per_kind[kind]["grad"].append(ge)
 
     def stats(values):
         t = torch.tensor(values)
@@ -91,14 +93,16 @@ def evaluate(model, dataset, data_processor=None, batch_size: int = 4) -> dict:
             "n": len(values),
         }
 
-    return {
+    report = {
         "potential_rel_l2": stats(field_errors),
         "force_rel_l2": stats(grad_errors),
-        "per_distribution": {
+    }
+    if per_kind:
+        report["per_distribution"] = {
             k: {"potential": stats(v["field"]), "force": stats(v["grad"])}
             for k, v in sorted(per_kind.items())
-        },
-    }
+        }
+    return report
 
 
 @torch.no_grad()

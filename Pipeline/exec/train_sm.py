@@ -9,6 +9,7 @@ from neuralop import LpLoss, H1Loss
 
 from scno.data.dataset_sm import load_cheetah_sc
 from scno.config import FIGURES_DIR, MODELS_DIR, SEED
+from scno.evaluate import predict
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -84,22 +85,23 @@ trainer.train(
     save_dir = MODELS_DIR,
 )
 
+# Plot the best checkpoint (save_best), not the last-epoch model.
+model = TFNO.from_checkpoint(MODELS_DIR, "best_model", map_location=device).to(device)
+model.eval()
+
 test_samples = test_loaders[32].dataset
 
 fig = plt.figure(figsize=(7, 7))
 for index in range(3):
     data = test_samples[index]
-    data = data_processor.preprocess(data, batched=False)
 
-    # Input
-    x = data["x"].to(device)
-    # Ground-truth output
+    # Input rho and ground-truth output phi, both in physical units
+    x = data["x"]
     y = data["y"].to("cpu")
-    # Model prediction
-    out = model(x.unsqueeze(0)).to("cpu")
-    # Input back to cpu for plotting
+    # Model prediction, decoded to physical units by predict (data processor in eval mode)
+    with torch.no_grad():
+        out = predict(model, torch.utils.data.default_collate([data]), data_processor)[0].to("cpu")
     x = x.to("cpu")
-
 
     # Plot input
     ax = fig.add_subplot(3, 3, index * 3 + 1)
@@ -139,15 +141,13 @@ test_samples = test_loaders[64].dataset
 fig = plt.figure(figsize=(7, 7))
 for index in range(3):
     data = test_samples[index]
-    data = data_processor.preprocess(data, batched=False)
 
-    # Input at higher-resolution
-    x = data["x"].to(device)
-    # Ground-truth output at higher-resolution
+    # Input rho and ground-truth output phi at higher-resolution, physical units
+    x = data["x"]
     y = data["y"].to("cpu")
-    # Model prediction at higher-resolution
-    out = model(x.unsqueeze(0)).to("cpu")
-    # Input back to cpu for plotting
+    # Model prediction at higher-resolution, decoded to physical units
+    with torch.no_grad():
+        out = predict(model, torch.utils.data.default_collate([data]), data_processor)[0].to("cpu")
     x = x.to("cpu")
 
     # Plot input at higher-resolution
@@ -162,7 +162,7 @@ for index in range(3):
     ax = fig.add_subplot(3, 3, index * 3 + 2)
     ax.imshow(y[0, :, :, y.shape[-1]//2].squeeze())
     if index == 0:
-        ax.set_title("Ground-truth output phi at 64x64")
+        ax.set_title("Ground-truth output phi")
     plt.xticks([], [])
     plt.yticks([], [])
 
@@ -170,7 +170,7 @@ for index in range(3):
     ax = fig.add_subplot(3, 3, index * 3 + 3)
     ax.imshow(out[0, :, :, out.shape[-1]//2].squeeze().detach().numpy())
     if index == 0:
-        ax.set_title("TFNO prediction phi at 64x64")
+        ax.set_title("TFNO prediction phi")
     plt.xticks([], [])
     plt.yticks([], [])
 

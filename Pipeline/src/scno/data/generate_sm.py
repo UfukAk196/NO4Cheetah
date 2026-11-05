@@ -58,9 +58,9 @@ def _draw_params(rng: np.random.Generator, ranges: dict) -> dict:
     return p
 
 
-def _simulate(params: dict, sck: SpaceChargeKick) -> tuple[torch.Tensor, torch.Tensor]:
-    """(rho, phi) for one sample, mirroring ``SpaceChargeKick.track`` blocks 2-7."""
-    beam = ParticleBeam.from_parameters(
+def _build_beam(params: dict) -> ParticleBeam:
+    """Beam (batch (1,)) of one sample; seed ``torch`` before for a reproducible beam."""
+    return ParticleBeam.from_parameters(
         num_particles=int(params["n_particles"]),
         sigma_x=torch.tensor([float(params["sigma_x"])]),
         sigma_y=torch.tensor([float(params["sigma_y"])]),
@@ -68,6 +68,10 @@ def _simulate(params: dict, sck: SpaceChargeKick) -> tuple[torch.Tensor, torch.T
         energy=torch.tensor([float(params["energy"])]),
         total_charge=torch.tensor([float(params["total_charge"])]),
     )
+
+
+def _grid(beam: ParticleBeam, sck: SpaceChargeKick) -> tuple[torch.Tensor, torch.Tensor]:
+    """(grid_dimensions, cell_size), both (1, 3), as in ``SpaceChargeKick.track``."""
     grid_dimensions = torch.stack(
         [
             sck.grid_extent_x * beam.sigma_x,
@@ -83,6 +87,13 @@ def _simulate(params: dict, sck: SpaceChargeKick) -> tuple[torch.Tensor, torch.T
             sck.grid_shape, device=grid_dimensions.device, dtype=grid_dimensions.dtype
         )
     )
+    return grid_dimensions, cell_size
+
+
+def _simulate(params: dict, sck: SpaceChargeKick) -> tuple[torch.Tensor, torch.Tensor]:
+    """(rho, phi) for one sample, mirroring ``SpaceChargeKick.track`` blocks 2-7."""
+    beam = _build_beam(params)
+    grid_dimensions, cell_size = _grid(beam, sck)
     xp = beam.to_xyz_pxpypz()
 
     nx, ny, nz = sck.grid_shape
