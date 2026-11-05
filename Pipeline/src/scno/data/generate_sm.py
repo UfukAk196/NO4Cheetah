@@ -88,7 +88,7 @@ def _simulate(params: dict, sck: SpaceChargeKick) -> tuple[torch.Tensor, torch.T
     nx, ny, nz = sck.grid_shape
     rho = sck._array_rho(beam, xp, cell_size, grid_dimensions)[..., :nx, :ny, :nz][0]
     phi = sck._solve_poisson_equation(beam, xp, cell_size, grid_dimensions)[0]
-    return rho.float(), phi.float()
+    return rho.float(), phi.float() # TODO: maybe also return the grid_dimensions and cell_size for normalization and/ or loss calculation
 
 
 def _write_split(

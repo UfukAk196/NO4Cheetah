@@ -8,6 +8,7 @@ from neuralop.training import AdamW
 from neuralop import LpLoss, H1Loss
 
 from scno.data.dataset_sm import load_cheetah_sc
+from scno.config import FIGURES_DIR, MODEL_DIR, SEED
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -17,7 +18,7 @@ train_loader, test_loaders, data_processor = load_cheetah_sc(
     n_tests=[100, 50],
     test_resolutions=[32, 64],
     test_batch_sizes=[32, 32],
-    seed=0,
+    seed=SEED,
     ranges=None,
 )
 data_processor = data_processor.to(device)
@@ -58,13 +59,15 @@ print(f"\n * Train: {train_loss}")
 print(f"\n * Test: {eval_losses}")
 sys.stdout.flush()
 
+epochs = 100  # TODO: goal: 10000
+
 trainer = Trainer(
     model=model,
-    n_epochs=100,       # TODO: goal: 10000
+    n_epochs=epochs,
     device=device,
     data_processor=data_processor,
     wandb_log=False,  # Enable Weights & Biases logging for this tutorial
-    eval_interval=10,  # Evaluate every 10 epochs
+    eval_interval=epochs//10,  # Evaluate every 10 epochs
     use_distributed=False,  # Single GPU/CPU training
     verbose=True,  # Print training progress
 )
@@ -77,6 +80,8 @@ trainer.train(
     regularizer=False,
     training_loss=train_loss,
     eval_losses=eval_losses,
+    save_best= "32_h1",
+    save_dir = MODEL_DIR,
 )
 
 test_samples = test_loaders[32].dataset
@@ -121,6 +126,11 @@ fig.suptitle("TFNO predictions on 32x32 Cheetah Space Charge Kick", y=0.98)
 plt.tight_layout()
 fig.show()
 
+save_dir = FIGURES_DIR
+save_dir.mkdir(parents=True, exist_ok=True)
+path = save_dir / "predictions_32x32.png"
+fig.savefig(path, dpi=300)
+
 test_samples = test_loaders[64].dataset
 
 fig = plt.figure(figsize=(7, 7))
@@ -162,3 +172,6 @@ for index in range(3):
 fig.suptitle("Zero-shot super-resolution: 32x32 → 64x64", y=0.98)
 plt.tight_layout()
 fig.show()
+
+path = save_dir / "predictions_64x64.png"
+fig.savefig(path, dpi=300)

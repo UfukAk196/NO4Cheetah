@@ -60,11 +60,7 @@ DATA = {
 
 # Keyword arguments of neuralop.models.TFNO.
 MODEL = {
-    "n_modes": (
-        5,
-        5,
-        5,
-    ),  # kept Fourier modes per axis; less according to optuna research from 2026-10-28.    TODO: try more according to best-practices (e.g 16)
+    "n_modes": (5, 5, 5,),  # kept Fourier modes per axis; less according to optuna research from 2026-10-28.    TODO: try more according to best-practices (e.g 16)
     # Derived from DATA["in_channel_type"] below, so the model always matches the data.
     "in_channels": INPUT_CHANNELS[DATA["in_channel_type"]],
     "out_channels": 1,  # phi_hat                                                                               TODO: try unnormalized/ -scaled
