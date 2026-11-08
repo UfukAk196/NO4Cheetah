@@ -22,3 +22,9 @@ def new_run_id(*dirs: str | Path) -> str:
     today = date.today().isoformat()
     numbers = [int(run[11:]) for run in existing_runs(*dirs) if run.startswith(today)]
     return f"{today}_{max(numbers, default=0) + 1:02d}"
+
+def print_data_settings(data: dict) -> None:
+    """Print the data settings in a readable way."""
+    print("Data settings:")
+    for key, value in data.items():
+        print(f"  {key}: {value}")  

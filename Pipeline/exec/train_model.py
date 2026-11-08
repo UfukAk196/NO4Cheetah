@@ -29,10 +29,11 @@ from evaluate_model import main as evaluate_run
 from scno.config import FIGURES_DIR, MODELS_DIR, RUN_DIRS, TABLES_DIR, SEED, DATA
 from scno.data.dataset import load_cheetah_sc
 from scno.evaluate import plot_losses
-from scno.utils.common import new_run_id
+from scno.utils.common import new_run_id, print_data_settings
 
 run = new_run_id(*RUN_DIRS)
 print(f"Run: {run}")
+print_data_settings(DATA)
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Data; normalization: phi -> (phi - mean) / std over the training samples and the grid
@@ -74,6 +75,7 @@ else:
 
 l2loss = LpLoss(d=3, p=2)  # L2 loss for function values
 h1loss = H1Loss(d=3, periodic_in_x=False, periodic_in_y=False, periodic_in_z=False)  # H1 loss includes gradient information
+# TODO: h1 loss 
 
 train_loss = h1loss
 eval_losses = {"h1": h1loss, "l2": l2loss}
@@ -86,7 +88,8 @@ print(f"\n * Train: {train_loss}")
 print(f"\n * Test: {eval_losses}")
 sys.stdout.flush()
 
-epochs = 100  # TODO: goal: 10000
+epochs = 10000  # TODO: goal: 10000
+eval_intv_div = 10 if epochs < 1000 else 100 # log every x epochs
 
 trainer = Trainer(
     model=model,
@@ -94,7 +97,7 @@ trainer = Trainer(
     device=device,
     data_processor=data_processor,
     wandb_log=False,  # Enable Weights & Biases logging for this tutorial
-    eval_interval=epochs//10,  # Evaluate every 10 epochs
+    eval_interval=epochs//eval_intv_div,
     use_distributed=False,  # Single GPU/CPU training
     verbose=True,  # Print training progress
 )
@@ -104,7 +107,6 @@ trainer = Trainer(
 # eval_interval epochs.
 history = {"train": defaultdict(list), "eval": defaultdict(list)}
 log_training, log_eval = trainer.log_training, trainer.log_eval
-
 
 def record_training(**kwargs):
     log_training(**kwargs)
