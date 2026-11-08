@@ -145,6 +145,3 @@ plot_losses(history, save_dir=FIGURES_DIR / run)
 pd.DataFrame(history["train"]).merge(pd.DataFrame(history["eval"]), on="epoch", how="outer").to_csv(
     TABLES_DIR / run / "history.csv", index=False
 )
-
-# Trained resolution (32) vs. zero-shot super-resolution (64): tables and figures
-evaluate_run(run)
