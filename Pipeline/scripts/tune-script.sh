@@ -1,7 +1,7 @@
 #!/bin/bash -l
-#SBATCH --job-name=fno-tune
-#SBATCH --output=scripts/fno-tune-%A_%a.out
-#SBATCH --error=scripts/fno-tune-%A_%a.err
+#SBATCH --job-name=fno_tune
+#SBATCH --output=scripts/fno_tune_%A_%a.out
+#SBATCH --error=scripts/fno_tune_%A_%a.err
 #SBATCH --partition=maxgpu
 #SBATCH --constraint=A100
 #SBATCH --nodes=1

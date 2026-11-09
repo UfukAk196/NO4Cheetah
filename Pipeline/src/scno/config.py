@@ -38,9 +38,9 @@ SEED = 0
 DATA = {
     "n_train": 1000,
     "batch_size": 64,
-    "n_tests": [100],
+    "n_tests": [125, 125],
     "train_resolution": 32,
-    "test_resolutions": [32],  # tuning only needs the training resolution
-    "test_batch_sizes": [32],
+    "test_resolutions": [32, 64],  # tuning only needs the training resolution
+    "test_batch_sizes": [32, 32],
     "seed": SEED,
 }

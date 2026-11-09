@@ -52,16 +52,16 @@ data_processor = data_processor.to(device)
 torch.manual_seed(SEED)
 
 model = TFNO(
-    n_modes=(5, 5, 5),
+    n_modes=(8, 8, 8),
     in_channels=1,
     out_channels=1,
-    hidden_channels=32,
+    hidden_channels=23,
     n_layers=3,
-    domain_padding=0.125,
+    domain_padding=0.5,
 )
 model = model.to(device)
 
-optimizer = AdamW(model.parameters(), lr=2.0e-4, weight_decay=4.0e-6)
+optimizer = AdamW(model.parameters(), lr=3.23e-3, weight_decay=8.21e-4)
 
 b_scheduler = False
 if b_scheduler:
@@ -75,7 +75,6 @@ else:
 
 l2loss = LpLoss(d=3, p=2)  # L2 loss for function values
 h1loss = H1Loss(d=3, periodic_in_x=False, periodic_in_y=False, periodic_in_z=False)  # H1 loss includes gradient information
-# TODO: h1 loss 
 
 train_loss = h1loss
 eval_losses = {"h1": h1loss, "l2": l2loss}
@@ -88,7 +87,7 @@ print(f"\n * Train: {train_loss}")
 print(f"\n * Test: {eval_losses}")
 sys.stdout.flush()
 
-epochs = 10000  # TODO: goal: 10000
+epochs = 5000  # TODO: goal: 10000
 eval_intv_div = 10 if epochs < 1000 else 100 # log every x epochs
 
 trainer = Trainer(
