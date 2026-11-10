@@ -63,7 +63,7 @@ model = model.to(device)
 
 optimizer = AdamW(model.parameters(), lr=3.23e-3, weight_decay=8.21e-4)
 
-b_scheduler = False
+b_scheduler = True
 if b_scheduler:
     # Option A: (Scheduler in-use)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(

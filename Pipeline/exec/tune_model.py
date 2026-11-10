@@ -31,6 +31,7 @@ import numpy as np
 import optuna
 import pandas as pd
 import torch
+import traceback
 from neuralop import H1Loss, LpLoss, Trainer
 from neuralop.models import TFNO
 from neuralop.training import AdamW
@@ -99,8 +100,8 @@ def suggest(trial: optuna.Trial) -> tuple[dict, dict]:
         "in_channels": 1,
         "out_channels": 1,
         "n_modes": (n_modes,) * 3,
-        "hidden_channels": trial.suggest_categorical("hidden_channels", [2, 3, 5, 8, 10, 12, 16, 32, 64]),
-        "n_layers": trial.suggest_int("n_layers", 1, 50),
+        "hidden_channels": trial.suggest_categorical("hidden_channels", [2, 3, 5, 8, 10, 12, 16, 32]),
+        "n_layers": trial.suggest_int("n_layers", 1, 32),
         "domain_padding": trial.suggest_categorical(
             "domain_padding", [0.0, 0.01, 0.125, 0.25, 0.5, 1.0]
         ),
@@ -128,50 +129,60 @@ def work(run: str) -> None:
 
     def objective(trial: optuna.Trial) -> float:
         torch.manual_seed(SEED + trial.number)
-        model_kwargs, training = suggest(trial)
+        try:
+            model_kwargs, training = suggest(trial)
+            model = TFNO(**model_kwargs).to(device)
+            optimizer = AdamW(
+                model.parameters(), lr=training["learning_rate"], weight_decay=training["weight_decay"]
+            )
+            scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=1.0, total_iters=0)
+            trainer = Trainer(
+                model=model,
+                n_epochs=training["epochs"],
+                device=device,
+                data_processor=data_processor,
+                wandb_log=False,
+                eval_interval=TUNE_EVAL_INTERVAL,
+                use_distributed=False,
+                verbose=True,  # log_eval is only called with verbose=True
+            )
     
-        model = TFNO(**model_kwargs).to(device)
-        optimizer = AdamW(
-            model.parameters(), lr=training["learning_rate"], weight_decay=training["weight_decay"]
-        )
-        scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=1.0, total_iters=0)
-        trainer = Trainer(
-            model=model,
-            n_epochs=training["epochs"],
-            device=device,
-            data_processor=data_processor,
-            wandb_log=False,
-            eval_interval=TUNE_EVAL_INTERVAL,
-            use_distributed=False,
-            verbose=True,  # log_eval is only called with verbose=True
-        )
-
-        # Pruning: the Trainer's own log_eval is called as usual, then METRIC is
-        # reported to the trial, which may stop the training.
-        log_eval, last = trainer.log_eval, {}
-
-        def report_eval(epoch, eval_metrics):
-            log_eval(epoch=epoch, eval_metrics=eval_metrics)
-            last[METRIC] = float(eval_metrics[METRIC])
-            trial.report(last[METRIC], epoch)
-            if trial.should_prune():
-                raise optuna.TrialPruned()
-
-        trainer.log_eval = report_eval
-        trainer.train(
-            train_loader=train_loader,
-            test_loaders=test_loaders,
-            optimizer=optimizer,
-            scheduler=scheduler,
-            regularizer=False,
-            training_loss=h1loss,
-            eval_losses={"h1": h1loss, "l2": l2loss},
-        )
+            # Pruning: the Trainer's own log_eval is called as usual, then METRIC is
+            # reported to the trial, which may stop the training.
+            log_eval, last = trainer.log_eval, {}
+    
+            def report_eval(epoch, eval_metrics):
+                log_eval(epoch=epoch, eval_metrics=eval_metrics)
+                last[METRIC] = float(eval_metrics[METRIC])
+                trial.report(last[METRIC], epoch)
+                if trial.should_prune():
+                    raise optuna.TrialPruned()
+    
+            trainer.log_eval = report_eval
+            trainer.train(
+                train_loader=train_loader,
+                test_loaders=test_loaders,
+                optimizer=optimizer,
+                scheduler=scheduler,
+                regularizer=False,
+                training_loss=h1loss,
+                eval_losses={"h1": h1loss, "l2": l2loss},
+            )
+        except optuna.TrialPruned:
+            raise
+        except Exception as err:
+            tb = traceback.format_exc()
+            trial.set_user_attr("error", tb)
+            trial.set_user_attr("error_type", type(err).__name__)
+            print(f"[trial {trial.number}] {trial.params}\n{tb}")
+            raise
             
+                
         return last[METRIC]
 
     load_study(run).optimize(
         objective,
+        catch=(RuntimeError, Exception),
         callbacks=[MaxTrialsCallback(N_TRIALS, states=(TrialState.COMPLETE, TrialState.PRUNED))],
     )
 
@@ -208,6 +219,12 @@ def report(run: str) -> None:
         axes["optuna_importances"] = plots.plot_param_importances(study)
         print(f"Best {METRIC} = {study.best_value:.4g} (trial {study.best_trial.number}):")
         print(f"  {study.best_params}")
+
+    for t in study.trials:
+        if t.state == TrialState.FAIL:
+            print(t.number, t.system_attrs.get("fail_reason"))
+            print(t.params)
+            print(t.user_attrs.get("error"))
 
     def _figure_of(ax):
         # plot_rank/plot_slice/plot_contour return an ndarray of Axes for >1 param

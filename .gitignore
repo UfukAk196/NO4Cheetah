@@ -4,11 +4,10 @@ __pycache__/
 *.venv/
 .ipynb_checkpoints/
 
-# Erzeugte Daten und Ergebnisse (nur im Pipeline-Ordner, NICHT src/scno/data/!)
 /Pipeline/data/
 /Pipeline/outputs/studies/wandb/
 /Pipeline/outputs/models/checkpoints/
 *.log
 *.tmp
-/Pipeline/scripts/fno*.err
-/Pipeline/scripts/fno*.out
+*.err
+*.out
