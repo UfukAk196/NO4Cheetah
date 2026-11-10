@@ -48,7 +48,7 @@ def main(run: str | None = None) -> int:
     model = TFNO.from_checkpoint(MODELS_DIR, "final_model", map_location=device).to(device)
     data_processor = torch.load(
         MODELS_DIR / "final_model_data_processor.pt", map_location=device, weights_only=False
-    )
+    ).to(device)
     manifest = MODELS_DIR / "checkpoints" / "manifest.pt"
     if manifest.exists():
         print(f"Best checkpoint at epoch: {torch.load(manifest).get('epoch')}")

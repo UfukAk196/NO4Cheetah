@@ -255,43 +255,34 @@ def plot_central_cut(
     title="",
     name="central_cuts",
     tag="",
-    save_dir=None,
+    save_dir=None
 ):
-    
-    fig = plt.figure(figsize=(7, 7))
+    """Central cuts (x-y, x-tau, y-tau planes through the grid centre) of 3D fields
+    (nx, ny, nz). phi fields share a symmetric colour scale with the first phi field."""
+    fields = {k: f.detach().cpu().double().numpy() for k, f in fields.items()}
+    cuts = (
+        ("x", "y",   lambda f: f[:, :, f.shape[2] // 2]),
+        ("x", "tau", lambda f: f[:, f.shape[1] // 2, :]),
+        ("y", "tau", lambda f: f[f.shape[0] // 2, :, :]),
+    )
+    phi_keys = [k for k in fields if k.startswith("phi")]
+    vmax_phi = max(abs(fields[k]).max() for k in phi_keys) if phi_keys else None
 
-    fields = {k: f.detach().cpu().double() for k, f in fields.items()}
-    # Input
-    x = fields["rho"]
-    # Ground-truth output
-    y_gt = fields["phi GT"]
-    # Model prediction
-    y_pred = fields["phi Pred"]
-
-    # Plot input
-    ax = fig.add_subplot(3, 1)
-    ax.imshow(x[0], cmap="gray")
-    ax.set_title("Input rho [C/m^3]")
-    plt.xticks([], [])
-    plt.yticks([], [])
-
-    # Plot ground-truth output
-    ax = fig.add_subplot(3, 2)
-    ax.imshow(y_gt.squeeze())
-    ax.set_title("Ground-truth phi [V]")
-    plt.xticks([], [])
-    plt.yticks([], [])
-
-    # Plot model prediction
-    ax = fig.add_subplot(3, 3)
-    ax.imshow(y_pred.squeeze().detach().numpy())
-    ax.set_title("Model prediction phi [V]")
-    plt.xticks([], [])
-    plt.yticks([], [])
-
-    fig.suptitle(title, y=0.98)
+    fig, axs = plt.subplots(len(fields), 3, figsize=(12, 3.8 * len(fields)), squeeze=False)
+    for r, (label, f) in enumerate(fields.items()):
+        vmax = vmax_phi if label in phi_keys else abs(f).max()
+        for c, (h, v, cut) in enumerate(cuts):
+            ax = axs[r, c]
+            # .T: first array index -> horizontal axis
+            im = ax.imshow(cut(f).T, origin="lower", cmap="RdBu_r", vmin=-vmax, vmax=vmax)
+            ax.set_xlabel(h)
+            ax.set_ylabel(v)
+            ax.set_title(f"{label}: {h}-{v} cut")
+        fig.colorbar(im, ax=axs[r].tolist(), shrink=0.8)
+    fig.suptitle(title)
     _save_figures({name: fig}, save_dir, tag)
     return fig
+
 
 def plot_losses(history, save_dir=None, tag=""):
     """Plots training and evaluation loss curves from ``history``, the arguments of
