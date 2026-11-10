@@ -46,7 +46,7 @@ from scno.evaluate import _save_figures
 from scno.utils.common import existing_runs, new_run_id, print_data_settings
 
 N_TRIALS = 100  # finished (complete + pruned) trials over all workers
-TUNE_EPOCHS = 200  # max_resource of the Hyperband pruner
+TUNE_EPOCHS = int(1e6)  # max_resource of the Hyperband pruner
 TUNE_EVAL_INTERVAL = 10  # epochs between evaluations = pruning checks
 
 # Data as in train_model.py
@@ -100,14 +100,13 @@ def suggest(trial: optuna.Trial) -> tuple[dict, dict]:
         "in_channels": 1,
         "out_channels": 1,
         "n_modes": (n_modes,) * 3,
-        "hidden_channels": trial.suggest_categorical("hidden_channels", [2, 3, 5, 8, 10, 12, 16, 32]),
-        "n_layers": trial.suggest_int("n_layers", 1, 32),
+        "hidden_channels": trial.suggest_int("hidden_channels", 2, 32, log=True),
+        "n_layers": trial.suggest_int("n_layers", 1, 12),
         "domain_padding": trial.suggest_categorical(
-            "domain_padding", [0.0, 0.01, 0.125, 0.25, 0.5, 1.0]
+            "domain_padding", [0.01, 0.125, 0.25, 0.5, 1.0]
         ),
     }
-    training = {
-        "epochs": trial.suggest_int("epochs", 1.0e3, 1.0e5, log=True),
+    training = {    # set epochs high (1e6) and add early stopping (e.g. after 10 epochs)
         "learning_rate": trial.suggest_float("learning_rate", 1.0e-4, 1.0e-1, log=True),
         "weight_decay": trial.suggest_float("weight_decay", 1.0e-6, 1.0e-2, log=True),
     }

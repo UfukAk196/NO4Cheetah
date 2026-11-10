@@ -24,6 +24,7 @@ import torch
 from neuralop import H1Loss, LpLoss, Trainer
 from neuralop.models import TFNO
 from neuralop.training import AdamW
+from neuralop.utils import count_model_params
 
 from evaluate_model import main as evaluate_run
 from scno.config import FIGURES_DIR, MODELS_DIR, RUN_DIRS, TABLES_DIR, SEED, DATA
@@ -61,6 +62,11 @@ model = TFNO(
 )
 model = model.to(device)
 
+# Count and display the number of parameters
+n_params = count_model_params(model)
+print(f"\nOur model has {n_params} parameters.")
+sys.stdout.flush()
+
 optimizer = AdamW(model.parameters(), lr=3.23e-3, weight_decay=8.21e-4)
 
 b_scheduler = True
@@ -87,7 +93,7 @@ print(f"\n * Train: {train_loss}")
 print(f"\n * Test: {eval_losses}")
 sys.stdout.flush()
 
-epochs = 5000  # TODO: goal: 10000
+epochs = 5000  # TODO: goal: 10000; better 2000, since overfitting starts after 2500 (for 1000:250 datas); more epochs possible with more data
 eval_intv_div = 10 if epochs < 1000 else 100 # log every x epochs
 
 trainer = Trainer(
