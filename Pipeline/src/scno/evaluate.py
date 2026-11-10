@@ -1,18 +1,17 @@
 """
 Evaluation -- the numbers that really count in the thesis.
 
-Four questions are answered here:
+Three questions are answered here:
 
   1. How well does the model hit the potential?       (relative L2)
-  2. How well does it hit the forces?                 (gradient error)
+  2. How well does it hit the forces?                 (relative L2 of the gradient)
      This is the decisive quantity: the kick is a gradient.
-  3. Does it hold across distribution families?       (breakdown by kind)
-  4. Does it survive a different resolution?          (zero-shot super-resolution)
+  3. Does it survive a different resolution?          (zero-shot super-resolution)
      That is the unique selling point of neural operators compared to CNNs -- so
      measure and show it instead of just claiming it.
 
-The evaluation run itself (loading the model, writing the table) is
-``exec/evaluate_model.py``.
+The errors are neuralop's ``LpLoss`` and ``FiniteDiff``. The evaluation run itself
+(loading the model, writing the tables) is ``exec/evaluate_model.py``.
 """
 
 from __future__ import annotations
@@ -27,19 +26,19 @@ import torch
 from cheetah.particles import ParticleBeam
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
+from neuralop.losses import LpLoss
+from neuralop.losses.differentiation import FiniteDiff
 
 from scno.config import FIGURES_DIR
-from scno.data.dataset import CheetahDataset
-from scno.data.generate import DISTRIBUTIONS
-from scno.models.exact import ExactOperator
-from scno.utils.losses import field_error, gradient_error
-from scno.utils.normalization import input_channels
 
-
-def _device(model: torch.nn.Module) -> torch.device:
-    """Device of a model; CPU for one without tensors (``ExactOperator``)."""
-    tensor = next(itertools.chain(model.parameters(), model.buffers()), None)
-    return tensor.device if tensor is not None else torch.device("cpu")
+# Relative L2 per sample over (nx, ny, nz) resp. (3, nx, ny, nz) for the gradient.
+# Open boundaries: one-sided differences at the edges instead of periodic wrapping;
+# grid spacing 1, since it drops out of the relative error.
+_FIELD_L2 = LpLoss(d=3, p=2, reduction="sum")
+_GRADIENT_L2 = LpLoss(d=4, p=2, reduction="sum")
+_FINITE_DIFF = FiniteDiff(
+    dim=3, h=1.0, periodic_in_x=False, periodic_in_y=False, periodic_in_z=False
+)
 
 
 def predict(model, batch: dict, data_processor=None) -> torch.Tensor:
@@ -53,7 +52,7 @@ def predict(model, batch: dict, data_processor=None) -> torch.Tensor:
     ``postprocess`` without ``data_dict``.)
     """
     if data_processor is None:
-        return model(batch["x"].to(_device(model)))
+        return model(batch["x"].to(next(model.parameters()).device))
     data_processor.eval()
     sample = data_processor.preprocess(dict(batch))
     out, _ = data_processor.postprocess(model(sample["x"]), sample)
@@ -61,112 +60,55 @@ def predict(model, batch: dict, data_processor=None) -> torch.Tensor:
 
 
 @torch.no_grad()
-def evaluate(model, dataset, data_processor=None, batch_size: int = 4) -> dict:
-    """Relative L2 errors of potential and force on ``dataset`` (``return_meta=True``),
-    in the units the model was trained on (phi_hat or phi [V])."""
+def evaluate(
+    model, dataset, data_processor=None, batch_size: int = 4, samples: list | None = None
+) -> dict:
+    """Relative L2 errors of potential and force on ``dataset``, plus absolute values of
+    the potential (max |phi|, mean, max |error|), all in the units of ``y`` (phi [V]).
+
+    If ``samples`` is a list, one row per sample with these numbers is appended to it.
+    """
     loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
-    per_kind = defaultdict(lambda: {"field": [], "grad": []})
     field_errors, grad_errors = [], []
+    absolute = defaultdict(list)
 
     model.eval()
     for batch in loader:
         pred = predict(model, batch, data_processor)
         target = batch["y"].to(pred.device)
         for i in range(pred.shape[0]):
-            fe = float(field_error(pred[i : i + 1], target[i : i + 1]))
-            ge = float(gradient_error(pred[i : i + 1], target[i : i + 1]))
+            p, t = pred[i : i + 1], target[i : i + 1]
+            fe = float(_FIELD_L2.rel(p, t))
+            ge = float(_GRADIENT_L2.rel(_FINITE_DIFF.gradient(p), _FINITE_DIFF.gradient(t)))
             field_errors.append(fe)
             grad_errors.append(ge)
-            kind = DISTRIBUTIONS[int(batch["kind"][i])]
-            per_kind[kind]["field"].append(fe)
-            per_kind[kind]["grad"].append(ge)
+            values = {
+                "gt_max_abs": float(target[i].abs().max()),
+                "pred_max_abs": float(pred[i].abs().max()),
+                "gt_mean": float(target[i].mean()),
+                "pred_mean": float(pred[i].mean()),
+                "max_abs_error": float((pred[i] - target[i]).abs().max()),
+            }
+            for k, v in values.items():
+                absolute[k].append(v)
+            if samples is not None:
+                samples.append(
+                    {
+                        "sample": len(field_errors) - 1,
+                        "potential_rel_l2": fe,
+                        "force_rel_l2": ge,
+                        **values,
+                    }
+                )
 
     def stats(values):
         t = torch.tensor(values)
-        return {
-            "mean": float(t.mean()),
-            "median": float(t.median()),
-            "p95": float(t.quantile(0.95)),
-            "max": float(t.max()),
-            "n": len(values),
-        }
+        return {"mean": float(t.mean()), "max": float(t.max())}
 
     return {
         "potential_rel_l2": stats(field_errors),
         "force_rel_l2": stats(grad_errors),
-        "per_distribution": {
-            k: {"potential": stats(v["field"]), "force": stats(v["grad"])}
-            for k, v in sorted(per_kind.items())
-        },
-    }
-
-
-@torch.no_grad()
-def resolution_study(
-    model,
-    data_path,
-    nondim: bool,
-    data_processor=None,
-    factors=(1, 2),
-    batch_size: int = 2,
-) -> dict:
-    """Trained on one resolution, tested on several.
-
-    factor=2 means half the resolution per axis. An FNO can do this without
-    retraining because it works in Fourier space -- a CNN cannot.
-    """
-    out = {}
-    for f in factors:
-        ds = CheetahDataset(data_path, downsample=f, nondim=nondim)
-        res = evaluate(model, ds, data_processor, batch_size=batch_size)
-        out[f"downsample_{f}"] = {
-            "grid": tuple(s // f for s in ds.grid_shape),
-            "potential_rel_l2_mean": res["potential_rel_l2"]["mean"],
-            "force_rel_l2_mean": res["force_rel_l2"]["mean"],
-        }
-    return out
-
-
-def gradient_consistency(model, dataset, data_processor=None, num_samples: int = 4) -> dict:
-    """Checks whether gradients *through* the model are usable.
-
-    That is exactly what this thesis is about: the surrogate must not only compute
-    correctly but also differentiate correctly -- otherwise it is useless for
-    gradient-based optimization of beam parameters.
-
-    d(objective)/d(density) is compared once through the network and once through the
-    exact solver (``ExactOperator`` in hat units). The cosine similarity of the two
-    gradient fields is reported: 1.0 means the same direction, and the direction is
-    what an optimizer actually uses. For a raw model (``nondim=False``) the gradient is
-    taken w.r.t. rho instead of rho_hat; per sample the two differ only by a constant
-    factor, so the cosine stays comparable.
-    """
-    model.eval()
-    exact = ExactOperator().to(_device(model))
-    similarities, magnitudes = [], []
-
-    for i in range(min(num_samples, len(dataset))):
-        item = dataset[i]
-        x = item["x"][None].to(_device(model)).requires_grad_(True)
-        # Scalar objective: mean square of the potential -- a stand-in for any quantity
-        # one later optimizes for.
-        pred = predict(model, {"x": x, "y": item["y"][None]}, data_processor)
-        grad_model = torch.autograd.grad(pred.square().mean(), x)[0][:, 0]
-
-        x_ref = input_channels(item["rho_hat"][None], item["normalized_extent"][None])
-        x_ref = x_ref.double().to(_device(exact)).requires_grad_(True)
-        grad_ref = torch.autograd.grad(exact(x_ref).square().mean(), x_ref)[0][:, 0]
-
-        a = grad_model.flatten().double()
-        b = grad_ref.flatten().to(a.device)
-        similarities.append(float(torch.nn.functional.cosine_similarity(a, b, dim=0)))
-        magnitudes.append(float(a.norm() / (b.norm() + 1e-30)))
-
-    return {
-        "cosine_similarity_mean": float(torch.tensor(similarities).mean()),
-        "cosine_similarity_min": float(torch.tensor(similarities).min()),
-        "magnitude_ratio_mean": float(torch.tensor(magnitudes).mean()),
-        "n": len(similarities),
+        "potential_abs": {k: stats(v) for k, v in absolute.items()},
     }
 
 
@@ -206,7 +148,12 @@ def field_to_beam(field, cell_size, k: float) -> ParticleBeam | None:
 
 
 def plot_field_comparison(
-    fields: dict, cell_size, title="", name="fields", tag="", save_dir=None,
+    fields: dict,
+    cell_size,
+    title="",
+    name="fields",
+    tag="",
+    save_dir=None,
     max_particles: int = 2_000_000,
 ):
     """Grid fields (e.g. ``{"phi GT": gt, "phi Pred": pred}``) side by side through
@@ -247,7 +194,10 @@ def plot_field_comparison(
 
     cmap = "RdBu_r"
     fig, axs = plt.subplots(
-        3, 3 * len(fields), figsize=(7 * len(fields) + 1, 6), gridspec_kw={"wspace": 0.45}
+        3,
+        3 * len(fields),
+        figsize=(7 * len(fields) + 1, 6),
+        gridspec_kw={"wspace": 0.45},
     )
     meshes, lines = [], []
     for b, (label, field) in enumerate(fields.items()):
@@ -300,9 +250,47 @@ def plot_field_comparison(
     _save_figures({name: fig}, save_dir, tag)
     return fig
 
+def plot_central_cut(
+    fields: dict,
+    title="",
+    name="central_cuts",
+    tag="",
+    save_dir=None
+):
+    """Central cuts (x-y, x-tau, y-tau planes through the grid centre) of 3D fields
+    (nx, ny, nz). phi fields share a symmetric colour scale with the first phi field."""
+    fields = {k: f.detach().cpu().double().numpy() for k, f in fields.items()}
+    cuts = (
+        ("x", "y",   lambda f: f[:, :, f.shape[2] // 2]),
+        ("x", "tau", lambda f: f[:, f.shape[1] // 2, :]),
+        ("y", "tau", lambda f: f[f.shape[0] // 2, :, :]),
+    )
+    phi_keys = [k for k in fields if k.startswith("phi")]
+    vmax_phi = max(abs(fields[k]).max() for k in phi_keys) if phi_keys else None
+
+    fig, axs = plt.subplots(len(fields), 3, figsize=(12, 3.8 * len(fields)), squeeze=False)
+    for r, (label, f) in enumerate(fields.items()):
+        vmax = vmax_phi if label in phi_keys else abs(f).max()
+        for c, (h, v, cut) in enumerate(cuts):
+            ax = axs[r, c]
+            # .T: first array index -> horizontal axis
+            im = ax.imshow(cut(f).T, origin="lower", cmap="RdBu_r", vmin=-vmax, vmax=vmax)
+            ax.set_xlabel(h)
+            ax.set_ylabel(v)
+            ax.set_title(f"{label}: {h}-{v} cut")
+        fig.colorbar(im, ax=axs[r].tolist(), shrink=0.8)
+    fig.suptitle(title)
+    _save_figures({name: fig}, save_dir, tag)
+    return fig
+
 
 def plot_losses(history, save_dir=None, tag=""):
-    """Plots training and evaluation loss curves from ``HistoryTrainer.history``.
+    """Plots training and evaluation loss curves from ``history``, the arguments of
+    neuralop's ``Trainer.log_training`` / ``log_eval`` collected per call (see
+    ``exec/train_model.py``):
+
+        history["train"] = {"epoch": [...], "avg_loss": [...], "train_err": [...], "lr": [...]}
+        history["eval"]  = {"epoch": [...], "<res>_h1": [...], "<res>_l2": [...]}
 
     Three panels:
       1. Training loss (avg_loss, train_err) over the epochs (log y).
@@ -320,7 +308,10 @@ def plot_losses(history, save_dir=None, tag=""):
     ax = axs[0]
     if train_hist.get("epoch"):
         ax.plot(
-            train_hist["epoch"], train_hist["avg_loss"], label="avg_loss", color="tab:blue"
+            train_hist["epoch"],
+            train_hist["avg_loss"],
+            label="avg_loss",
+            color="tab:blue",
         )
         ax.plot(
             train_hist["epoch"],
@@ -384,4 +375,3 @@ def plot_losses(history, save_dir=None, tag=""):
     _save_figures({"loss_curves": fig}, save_dir, tag)
     plt.show()
     return fig
-
