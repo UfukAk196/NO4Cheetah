@@ -1,8 +1,0 @@
-/home/akkaya/.conda/envs/no4cheetah/lib/python3.12/site-packages/torch/nn/modules/module.py:1794: UserWarning: FNO.forward() received unexpected keyword arguments: ['y']. These arguments will be ignored.
-  return forward_call(*args, **kwargs)
-[I 2026-11-01 22:51:12,237] Trial 0 finished with value: 1.6667119264602661 and parameters: {'n_modes': 12, 'hidden_channels': 16, 'n_layers': 6, 'domain_padding': 0.0, 'gradient_weight': 0.8455990495353182, 'epochs': 7221, 'learning_rate': 0.00179347306536284, 'weight_decay': 1.3251461796207506e-05}. Best is trial 4 with value: 1.6647348403930664.
-[I 2026-11-01 22:51:50,681] Trial 74 pruned. 
-[I 2026-11-01 22:51:54,365] Trial 75 pruned. 
-[I 2026-11-01 22:52:07,402] Trial 76 pruned. 
-[I 2026-11-01 22:52:12,154] Trial 77 pruned. 
-[I 2026-11-01 22:52:51,052] Trial 78 pruned. 

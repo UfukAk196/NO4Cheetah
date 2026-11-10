@@ -6,7 +6,7 @@
 #SBATCH --constraint=A100
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --time=01:00:00
+#SBATCH --time=24:00:00
 
 # usage, from Pipeline/ (logs go to scripts/, relative to the submit dir):
 #    sbatch scripts/train-script.sh

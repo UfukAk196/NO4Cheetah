@@ -1,0 +1,15 @@
+quantity,value
+res_32.potential_rel_l2.mean,0.5735031366348267
+res_32.potential_rel_l2.max,3.680488348007202
+res_32.force_rel_l2.mean,0.5663465857505798
+res_32.force_rel_l2.max,3.696078300476074
+res_32.potential_abs.gt_max_abs.mean,31475.494140625
+res_32.potential_abs.gt_max_abs.max,84453.078125
+res_32.potential_abs.pred_max_abs.mean,15723.794921875
+res_32.potential_abs.pred_max_abs.max,39727.62890625
+res_32.potential_abs.gt_mean.mean,13509.7421875
+res_32.potential_abs.gt_mean.max,36105.41015625
+res_32.potential_abs.pred_mean.mean,6708.96630859375
+res_32.potential_abs.pred_mean.max,17232.115234375
+res_32.potential_abs.max_abs_error.mean,19070.990234375
+res_32.potential_abs.max_abs_error.max,63390.2734375
