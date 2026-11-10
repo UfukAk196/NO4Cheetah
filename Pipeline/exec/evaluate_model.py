@@ -29,7 +29,7 @@ from neuralop.models import TFNO
 from scno.config import DATA_DIR, FIGURES_DIR, MODELS_DIR, TABLES_DIR ,DATA, SEED
 from scno.data.dataset import load_cheetah_sc
 from scno.data.generate import _build_beam, _grid, dataset_path
-from scno.evaluate import _save_figures, evaluate, plot_field_comparison, predict
+from scno.evaluate import _save_figures, evaluate, plot_field_comparison, plot_central_cut, predict
 from scno.utils.common import existing_runs
 
 N_PLOTS = 3
@@ -103,6 +103,12 @@ def main(run: str | None = None) -> int:
                 cell_size,
                 title=f"Test sample {i} @ {res}: phi projections",
                 name=f"phi_{res}_{i}",
+                save_dir=figures_dir,
+            )
+            plot_central_cut(
+                fields={"rho": item["x"][0], "phi GT": item["y"][0], "phi Pred": pred[0, 0]},
+                title=f"Test sample {i} @ {res}: central cuts",
+                name=f"central_cut_{res}_{i}",
                 save_dir=figures_dir,
             )
     return 0

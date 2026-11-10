@@ -250,6 +250,48 @@ def plot_field_comparison(
     _save_figures({name: fig}, save_dir, tag)
     return fig
 
+def plot_central_cut(
+    fields: dict,
+    title="",
+    name="central_cuts",
+    tag="",
+    save_dir=None,
+):
+    
+    fig = plt.figure(figsize=(7, 7))
+
+    fields = {k: f.detach().cpu().double() for k, f in fields.items()}
+    # Input
+    x = fields["rho"]
+    # Ground-truth output
+    y_gt = fields["phi GT"]
+    # Model prediction
+    y_pred = fields["phi Pred"]
+
+    # Plot input
+    ax = fig.add_subplot(3, 1)
+    ax.imshow(x[0], cmap="gray")
+    ax.set_title("Input rho [C/m^3]")
+    plt.xticks([], [])
+    plt.yticks([], [])
+
+    # Plot ground-truth output
+    ax = fig.add_subplot(3, 2)
+    ax.imshow(y_gt.squeeze())
+    ax.set_title("Ground-truth phi [V]")
+    plt.xticks([], [])
+    plt.yticks([], [])
+
+    # Plot model prediction
+    ax = fig.add_subplot(3, 3)
+    ax.imshow(y_pred.squeeze().detach().numpy())
+    ax.set_title("Model prediction phi [V]")
+    plt.xticks([], [])
+    plt.yticks([], [])
+
+    fig.suptitle(title, y=0.98)
+    _save_figures({name: fig}, save_dir, tag)
+    return fig
 
 def plot_losses(history, save_dir=None, tag=""):
     """Plots training and evaluation loss curves from ``history``, the arguments of
