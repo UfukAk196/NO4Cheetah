@@ -1,8 +1,10 @@
 from pathlib import Path
-from typing import List, Union
+from typing import List, Sequence, Union
 
 import h5py
+import numpy as np
 import torch
+from scipy.constants import c, e, m_e
 from torch.utils.data import DataLoader
 from neuralop.data.datasets.hdf5_dataset import H5pyDataset
 from neuralop.data.transforms.data_processors import DefaultDataProcessor
@@ -12,10 +14,40 @@ from scno.config import DATA_DIR
 
 from .generate import dataset_path, generate_cheetah_sc
 
+ELECTRON_MASS_EV = m_e * c**2 / e  # as cheetah's ``Species("electron").mass_eV``
+
+# Beam parameters that can be added to rho as constant input channels (``input_params``),
+# each computed from the ``params`` group of a file: (N,) arrays -> (N,). Besides rho,
+# ``SpaceChargeKick._solve_poisson_equation`` depends only on the cell size (sigmas) and
+# gamma (energy). Sigmas are log-uniform in the data, hence their log.
+FEATURES = {
+    "log_sigma_x": lambda p: np.log(p["sigma_x"]),
+    "log_sigma_y": lambda p: np.log(p["sigma_y"]),
+    "log_sigma_tau": lambda p: np.log(p["sigma_tau"]),
+    "gamma": lambda p: p["energy"] / ELECTRON_MASS_EV,  # as ``beam.relativistic_gamma``
+}
+
+
+def compute_features(
+    path: Union[Path, str], input_params: Sequence[str], n_samples: int = None
+) -> np.ndarray | None:
+    """The ``input_params`` of the first ``n_samples`` samples of a file, (N, k) float32,
+    in raw (not normalized) units; ``None`` if ``input_params`` is empty."""
+    if not input_params:
+        return None
+    unknown = set(input_params) - set(FEATURES)
+    if unknown:
+        raise ValueError(f"unknown input_params {sorted(unknown)}, known: {list(FEATURES)}")
+    with h5py.File(str(path), "r") as f:
+        params = {k: f["params"][k][:n_samples] for k in f["params"]}
+    return np.stack([FEATURES[k](params) for k in input_params], axis=-1).astype("float32")
+
 
 class CheetahH5Dataset(H5pyDataset):
-    """One .h5 file of ``generate.py``: sample ``{"x": rho, "y": phi}``, each of shape
-    (1, res, res, res), i.e. with the channel dim the model expects.
+    """One .h5 file of ``generate.py``: sample ``{"x": [rho, *features], "y": phi}``, of
+    shapes (1 + k, res, res, res) and (1, res, res, res), i.e. with the channel dim the
+    model expects. Each of the k beam parameters in ``features`` (one row per sample,
+    see ``compute_features``) becomes a constant channel.
 
     neuralop's ``H5pyDataset`` is written for 2D data: its ``resolution`` argument only
     picks a subsampling step for the first two spatial axes of the 1024^2 Navier-Stokes
@@ -23,26 +55,37 @@ class CheetahH5Dataset(H5pyDataset):
     replaced; the lazy h5 file handle (``data``) and ``__len__`` are inherited.
     """
 
-    def __init__(self, data_path: Union[Path, str], n_samples: int = None):
+    def __init__(
+        self,
+        data_path: Union[Path, str],
+        n_samples: int = None,
+        features: np.ndarray | None = None,
+    ):
         self.data_path = data_path
         self._data = None
         if n_samples is None:
             with h5py.File(str(data_path), "r") as f:
-                n_samples = f["x"].shape[0]
+                n_samples = f["rho"].shape[0]
         self.n_samples = n_samples
+        self.features = None if features is None else torch.from_numpy(features)
 
     def __getitem__(self, idx: int) -> dict:
         assert idx < self.n_samples, f"sample {idx} of a dataset with {self.n_samples} samples"
-        x = torch.tensor(self.data["x"][idx], dtype=torch.float32).unsqueeze(0)
-        y = torch.tensor(self.data["y"][idx], dtype=torch.float32).unsqueeze(0)
-        return {"x": x, "y": y}
+        rho = torch.tensor(self.data["rho"][idx], dtype=torch.float32).unsqueeze(0)
+        phi = torch.tensor(self.data["phi"][idx], dtype=torch.float32).unsqueeze(0)
+        if self.features is None:
+            return {"x": rho, "y": phi}
+        # one constant (res, res, res) channel per beam parameter, behind rho
+        channels = self.features[idx][:, None, None, None].expand(-1, *rho.shape[1:])
+        return {"x": torch.cat([rho, channels]), "y": phi}
 
 
 class CheetahDataset:
     """
     CheetahDataset stores data from the Cheetah simulation: input is the 3D charge
-    density rho, output the 3D potential phi, both on the same (res, res, res) grid with
-    one channel, in physical units as written by ``generate.py``.
+    density rho plus optionally beam parameters as constant channels (``input_params``),
+    output the 3D potential phi, all on the same (res, res, res) grid, in physical units
+    as written by ``generate.py``.
 
     Missing .h5 files are generated first (``generate_cheetah_sc`` only writes files that
     are absent or hold too few samples, so on existing data this is a no-op).
@@ -59,8 +102,10 @@ class CheetahDataset:
         resolution of data for training set
     test_resolutions : List[int], optional
         resolution of data for testing sets, by default [32, 64]
+    input_params : Sequence[str], optional
+        names in ``FEATURES`` added as input channels behind rho, by default () (rho only)
     encode_input : bool, optional
-        whether to normalize the input rho in the DataProcessor, by default False
+        whether to normalize all input channels in the DataProcessor, by default True
     encode_output : bool, optional
         whether to normalize the output phi in the DataProcessor, by default True
     encoding : str, optional
@@ -88,7 +133,8 @@ class CheetahDataset:
         n_tests: List[int],
         train_resolution: int,
         test_resolutions: List[int] = [32, 64],
-        encode_input: bool = False,
+        input_params: Sequence[str] = (),
+        encode_input: bool = True,
         encode_output: bool = True,
         encoding="channel-wise",
         channel_dim=1,
@@ -106,13 +152,15 @@ class CheetahDataset:
             ranges=ranges,
         )
 
-        self._train_db = CheetahH5Dataset(
-            dataset_path(root_dir, "train", train_resolution), n_samples=n_train
-        )
-        self._test_dbs = {
-            res: CheetahH5Dataset(dataset_path(root_dir, "test", res), n_samples=n_test)
-            for res, n_test in zip(test_resolutions, n_tests)
-        }
+        train_path = dataset_path(root_dir, "train", train_resolution)
+        train_features = compute_features(train_path, input_params, n_train)
+        self._train_db = CheetahH5Dataset(train_path, n_samples=n_train, features=train_features)
+        self._test_dbs = {}
+        for res, n_test in zip(test_resolutions, n_tests):
+            path = dataset_path(root_dir, "test", res)
+            self._test_dbs[res] = CheetahH5Dataset(
+                path, n_samples=n_test, features=compute_features(path, input_params, n_test)
+            )
 
         # Normalization (neuralop UnitGaussianNormalizer): z = (field - mean) / std, with
         # mean/std fitted on the training data only. The DataProcessor applies it to x
@@ -120,11 +168,15 @@ class CheetahDataset:
         # mode it decodes the model output back to phi [V].
         in_normalizer = out_normalizer = None
         if encode_input or encode_output:
-            with h5py.File(dataset_path(root_dir, "train", train_resolution), "r") as f:
-                x_train = torch.from_numpy(f["x"][:n_train]).unsqueeze(channel_dim)
-                y_train = torch.from_numpy(f["y"][:n_train]).unsqueeze(channel_dim)
+            with h5py.File(train_path, "r") as f:
+                x_train = torch.from_numpy(f["rho"][:n_train]).unsqueeze(channel_dim)
+                y_train = torch.from_numpy(f["phi"][:n_train]).unsqueeze(channel_dim)
         if encode_input:
             in_normalizer = self._fit_normalizer(x_train, encoding, channel_dim)
+            if train_features is not None:
+                in_normalizer = self._append_features(
+                    in_normalizer, train_features, encoding, channel_dim
+                )
         if encode_output:
             out_normalizer = self._fit_normalizer(y_train, encoding, channel_dim)
 
@@ -133,20 +185,52 @@ class CheetahDataset:
         )
 
     @staticmethod
-    def _fit_normalizer(
-        data: torch.Tensor, encoding: str, channel_dim: int
-    ) -> UnitGaussianNormalizer:
+    def _reduce_dims(ndim: int, encoding: str, channel_dim: int) -> list[int]:
         """As in neuralop's ``PTDataset``: the dims mean/std are reduced over."""
         if encoding == "channel-wise":
-            reduce_dims = list(range(data.ndim))
+            reduce_dims = list(range(ndim))
             reduce_dims.pop(channel_dim)  # keep the mean per channel
         elif encoding == "pixel-wise":
             reduce_dims = [0]
         else:
             raise ValueError(f"unknown encoding: {encoding}")
-        normalizer = UnitGaussianNormalizer(dim=reduce_dims)
+        return reduce_dims
+
+    @classmethod
+    def _fit_normalizer(
+        cls, data: torch.Tensor, encoding: str, channel_dim: int
+    ) -> UnitGaussianNormalizer:
+        normalizer = UnitGaussianNormalizer(dim=cls._reduce_dims(data.ndim, encoding, channel_dim))
         normalizer.fit(data)
         return normalizer
+
+    @classmethod
+    def _append_features(
+        cls,
+        rho_normalizer: UnitGaussianNormalizer,
+        features: np.ndarray,
+        encoding: str,
+        channel_dim: int,
+    ) -> UnitGaussianNormalizer:
+        """Normalizer of all input channels [rho, *features]: rho's mean/std plus one
+        mean/std per feature over the training samples. A constant channel has the same
+        mean/std over samples x grid, so this equals fitting on the stacked inputs, which
+        would load the training set (1 + k) times."""
+        shape = [1] * rho_normalizer.mean.ndim
+        shape[0], shape[channel_dim] = features.shape
+        feature_normalizer = cls._fit_normalizer(
+            torch.from_numpy(features).reshape(shape), encoding, channel_dim
+        )
+        spatial = list(rho_normalizer.mean.shape)
+        spatial[channel_dim] = features.shape[1]  # per grid point for "pixel-wise"
+        mean, std = (
+            torch.cat(
+                [getattr(rho_normalizer, s), getattr(feature_normalizer, s).expand(spatial)],
+                dim=channel_dim,
+            )
+            for s in ("mean", "std")
+        )
+        return UnitGaussianNormalizer(mean=mean, std=std, dim=rho_normalizer.dim)
 
     @property
     def train_db(self):
@@ -169,7 +253,8 @@ def load_cheetah_sc(
     data_root=DATA_DIR,
     train_resolution=32,
     test_resolutions=[32, 64],
-    encode_input=False,
+    input_params=(),
+    encode_input=True,
     encode_output=True,
     encoding="channel-wise",
     channel_dim=1,
@@ -185,6 +270,7 @@ def load_cheetah_sc(
         n_tests=n_tests,
         train_resolution=train_resolution,
         test_resolutions=test_resolutions,
+        input_params=input_params,
         encode_input=encode_input,
         encode_output=encode_output,
         encoding=encoding,

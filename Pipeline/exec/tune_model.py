@@ -97,7 +97,7 @@ def suggest(trial: optuna.Trial) -> tuple[dict, dict]:
     """
     n_modes = trial.suggest_int("n_modes", 3, DATA["train_resolution"] // 2)
     model_kwargs = {
-        "in_channels": 1,
+        "in_channels": 1 + len(DATA["input_params"]),  # rho + one channel per beam parameter
         "out_channels": 1,
         "n_modes": (n_modes,) * 3,
         "hidden_channels": trial.suggest_int("hidden_channels", 2, 32, log=True),

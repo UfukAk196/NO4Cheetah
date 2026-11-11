@@ -46,8 +46,8 @@ def test_file_contents_and_shapes(tmp_path, small_ranges):
 
     for kind, res, n in (("train", 16, 4), ("test", 16, 2), ("test", 32, 2)):
         with h5py.File(dataset_path(tmp_path, kind, res), "r") as f:
-            assert set(f.keys()) == {"x", "y", "params"}
-            for key in ("x", "y"):
+            assert set(f.keys()) == {"rho", "phi", "params"}
+            for key in ("rho", "phi"):
                 assert f[key].shape == (n, res, res, res), (key, f[key].shape)
                 assert f[key].dtype == np.float32
                 assert np.isfinite(f[key][:]).all()
@@ -57,9 +57,9 @@ def test_train_and_test_do_not_overlap(tmp_path, small_ranges):
     _generate(tmp_path, small_ranges)
 
     with h5py.File(dataset_path(tmp_path, "train", 16), "r") as f:
-        train = f["x"][:2]
+        train = f["rho"][:2]
     with h5py.File(dataset_path(tmp_path, "test", 16), "r") as f:
-        test = f["x"][:]
+        test = f["rho"][:]
     assert not np.array_equal(train, test)
 
 

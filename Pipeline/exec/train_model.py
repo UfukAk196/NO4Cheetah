@@ -37,14 +37,16 @@ print(f"Run: {run}")
 print_data_settings(DATA)
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# Data; normalization: phi -> (phi - mean) / std over the training samples and the grid
-# (encode_output=True, encoding="channel-wise" are the defaults of load_cheetah_sc).
+# Data; input x = [rho, *DATA["input_params"]]. Normalization: every input channel and phi
+# -> (field - mean) / std over the training samples and the grid (encode_input=True,
+# encode_output=True, encoding="channel-wise" are the defaults of load_cheetah_sc).
 train_loader, test_loaders, data_processor = load_cheetah_sc(
     n_train=DATA["n_train"],
     batch_size=DATA["batch_size"],
     n_tests=DATA["n_tests"],
     test_resolutions=DATA["test_resolutions"],
     test_batch_sizes=DATA["test_batch_sizes"],
+    input_params=DATA["input_params"],
     seed=SEED,
     ranges=None,
 )
@@ -54,7 +56,7 @@ torch.manual_seed(SEED)
 
 model = TFNO(
     n_modes=(8, 8, 8),
-    in_channels=1,
+    in_channels=1 + len(DATA["input_params"]),  # rho + one channel per beam parameter
     out_channels=1,
     hidden_channels=23,
     n_layers=3,

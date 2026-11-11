@@ -53,6 +53,12 @@ def main(run: str | None = None) -> int:
     if manifest.exists():
         print(f"Best checkpoint at epoch: {torch.load(manifest).get('epoch')}")
 
+    in_channels = 1 + len(DATA["input_params"])
+    if model.in_channels != in_channels:
+        raise ValueError(
+            f"model has {model.in_channels} input channels, DATA['input_params'] "
+            f"{DATA['input_params']} gives {in_channels}: config changed since training?"
+        )
     _, test_loaders, _ = load_cheetah_sc(**DATA, encode_output=False)
 
     report, samples = {}, []

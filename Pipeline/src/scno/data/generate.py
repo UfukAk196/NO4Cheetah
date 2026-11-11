@@ -3,7 +3,7 @@
 Writes exactly the files ``H5pyDataset`` reads:
     {root}/cheetah_sc_train_{train_res}.h5   and   {root}/cheetah_sc_test_{res}.h5
 
-Each file holds ``x`` (rho) and ``y`` (phi), both ``(N, nx, ny, nz)`` float32 with no
+Each file holds ``rho`` and ``phi``, both ``(N, nx, ny, nz)`` float32 with no
 channel dim, plus a ``params`` group (cheap, makes every sample reproducible). The
 physical fields are stored as they come out of Cheetah -- no nondimensionalization,
 no metadata. Loading and encoding are done by ``dataset.py``.
@@ -90,11 +90,13 @@ def _simulate(params: dict, sck: SpaceChargeKick) -> tuple[torch.Tensor, torch.T
     beam = _build_beam(params)
     grid_dimensions, cell_size = _grid(beam, sck)
     xp = beam.to_xyz_pxpypz()
+    #TODO: gamma = beam.relativistic_gamma
 
     nx, ny, nz = sck.grid_shape
     rho = sck._array_rho(beam, xp, cell_size, grid_dimensions)[..., :nx, :ny, :nz][0]
     phi = sck._solve_poisson_equation(beam, xp, cell_size, grid_dimensions)[0]
-    return rho.float(), phi.float() # TODO: maybe also return the grid_dimensions and cell_size for normalization and/ or loss calculation
+    return rho.float(), phi.float() #TODO:, cell_size.float(), gamma.float() try params from dataset first before experimenting with cell_size and gamma as inputs for TFNO
+                                    #TODO: maybe also return the grid_dimensions and cell_size for normalization and/ or loss calculation
 
 
 def _write_split(
@@ -109,8 +111,11 @@ def _write_split(
     sck = SpaceChargeKick(effect_length=torch.tensor(0.0), grid_shape=(res, res, res))
     rng = np.random.default_rng(seed)
 
-    x = torch.empty((n, res, res, res), dtype=torch.float32)
-    y = torch.empty((n, res, res, res), dtype=torch.float32)
+    _rho = torch.empty((n, res, res, res), dtype=torch.float32)
+    _phi = torch.empty((n, res, res, res), dtype=torch.float32)
+    #TODO:_cell_size = torch.empty((n, 3), dtype=torch.float32)
+    #TODO:_gamma = torch.empty((n,), dtype=torch.float32)
+
     params = {
         k: np.empty(n, dtype="float64") for k in _UNIFORM_KEYS + _LOG_UNIFORM_KEYS
     }
@@ -119,16 +124,20 @@ def _write_split(
         p = _draw_params(rng, ranges)
         torch.manual_seed(seed + i)  # reproducible beam per sample
         rho, phi = _simulate(p, sck)
+        #TODO: rho, phi, cell_size, gamma = _simulate(p, sck)
         if not (rho.isfinite().all() and phi.isfinite().all()):
             raise ValueError(f"NaN/Inf in sample {i} ({path.name}, params={p})")
-        x[i], y[i] = rho, phi
+        _rho[i], _phi[i] = rho, phi
+        #TODO: _cell_size[i], _gamma[i] = cell_size, gamma
         for k in params:
             params[k][i] = p[k]
 
     path.parent.mkdir(parents=True, exist_ok=True)
     with h5py.File(path, "w") as f:
-        f.create_dataset("x", data=x.numpy())
-        f.create_dataset("y", data=y.numpy())
+        f.create_dataset("rho", data=_rho.numpy())
+        f.create_dataset("phi", data=_phi.numpy())
+        #TODO:f.create_dataset("cell_size", data=_cell_size.numpy())
+        #TODO:f.create_dataset("gamma", data=_gamma.numpy())
         group = f.create_group("params")
         for k, v in params.items():
             group.create_dataset(
@@ -143,7 +152,7 @@ def _has_samples(path: Path, n: int) -> bool:
         return False
     try:
         with h5py.File(path, "r") as f:
-            return f["x"].shape[0] >= n
+            return f["rho"].shape[0] >= n
     except Exception:
         return False
 

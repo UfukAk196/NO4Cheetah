@@ -43,4 +43,9 @@ DATA = {
     "test_resolutions": [32, 64],  # tuning only needs the training resolution
     "test_batch_sizes": [32, 32],
     "seed": SEED,
+    # Beam parameters added to rho as constant input channels (``scno.data.dataset.FEATURES``);
+    # () = rho only. Ablation sets, e.g.: ("gamma",), ("log_sigma_x", "log_sigma_y"),
+    # ("log_sigma_x", "log_sigma_y", "log_sigma_tau"),
+    # ("log_sigma_x", "log_sigma_y", "log_sigma_tau", "gamma")
+    "input_params": (),
 }
