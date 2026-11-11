@@ -47,7 +47,7 @@ from scno.utils.common import existing_runs, new_run_id, print_data_settings
 
 N_TRIALS = 100  # finished (complete + pruned) trials over all workers
 TUNE_EPOCHS = int(1e6)  # max_resource of the Hyperband pruner
-TUNE_EVAL_INTERVAL = 10  # epochs between evaluations = pruning checks
+TUNE_EVAL_INTERVAL = 10 if epochs < 1000 else 100 # log every x epochs
 
 # Data as in train_model.py
 
@@ -100,10 +100,10 @@ def suggest(trial: optuna.Trial) -> tuple[dict, dict]:
         "in_channels": 1,
         "out_channels": 1,
         "n_modes": (n_modes,) * 3,
-        "hidden_channels": trial.suggest_int("hidden_channels", 2, 32, log=True),
+        "hidden_channels": trial.suggest_int("hidden_channels", 2, 16, log=True),
         "n_layers": trial.suggest_int("n_layers", 1, 12),
         "domain_padding": trial.suggest_categorical(
-            "domain_padding", [0.01, 0.125, 0.25, 0.5, 1.0]
+            "domain_padding", [0.125, 0.25, 0.5]
         ),
     }
     training = {    # set epochs high (1e6) and add early stopping (e.g. after 10 epochs)
@@ -137,7 +137,7 @@ def work(run: str) -> None:
             scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=1.0, total_iters=0)
             trainer = Trainer(
                 model=model,
-                n_epochs=training["epochs"],
+                n_epochs=TUNE_EPOCHS,
                 device=device,
                 data_processor=data_processor,
                 wandb_log=False,

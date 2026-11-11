@@ -49,16 +49,22 @@ train_loader, test_loaders, data_processor = load_cheetah_sc(
     ranges=None,
 )
 data_processor = data_processor.to(device)
-
 torch.manual_seed(SEED)
 
+"""
+2026-11-09_02 Optuna study best results:
+domain padding = 0.125, epochs 39740 -> 40000
+hidden channels = 12, learning rate = 2.81e-3,
+n_layers = 2, n_modes = 13, weight decay = 1.6767e-6
+"""
+
 model = TFNO(
-    n_modes=(8, 8, 8),
+    n_modes=(13, 13, 13),
     in_channels=1,
     out_channels=1,
-    hidden_channels=23,
-    n_layers=3,
-    domain_padding=0.5,
+    hidden_channels=12,
+    n_layers=2,
+    domain_padding=0.125,
 )
 model = model.to(device)
 
@@ -67,7 +73,7 @@ n_params = count_model_params(model)
 print(f"\nOur model has {n_params} parameters.")
 sys.stdout.flush()
 
-optimizer = AdamW(model.parameters(), lr=3.23e-3, weight_decay=8.21e-4)
+optimizer = AdamW(model.parameters(), lr=2.81e-3, weight_decay=1.6767e-6)
 
 b_scheduler = True
 if b_scheduler:
