@@ -29,6 +29,7 @@ from pathlib import Path
 
 import numpy as np
 import optuna
+import optuna.visualization as vis   # Plotly backend
 import pandas as pd
 import torch
 import traceback
@@ -47,7 +48,7 @@ from scno.utils.common import existing_runs, new_run_id, print_data_settings
 
 N_TRIALS = 100  # finished (complete + pruned) trials over all workers
 TUNE_EPOCHS = int(1e6)  # max_resource of the Hyperband pruner
-TUNE_EVAL_INTERVAL = 10 if epochs < 1000 else 100 # log every x epochs
+TUNE_EVAL_INTERVAL = 10 if TUNE_EPOCHS < 1000 else 100 # log every x epochs
 
 # Data as in train_model.py
 
@@ -103,7 +104,7 @@ def suggest(trial: optuna.Trial) -> tuple[dict, dict]:
         "hidden_channels": trial.suggest_int("hidden_channels", 2, 16, log=True),
         "n_layers": trial.suggest_int("n_layers", 1, 12),
         "domain_padding": trial.suggest_categorical(
-            "domain_padding", [0.125, 0.25, 0.5]
+            "domain_padding", [0.125, 0.15, 0.2, 0.25, 0.3, 0.33]
         ),
     }
     training = {    # set epochs high (1e6) and add early stopping (e.g. after 10 epochs)
@@ -182,7 +183,7 @@ def work(run: str) -> None:
     load_study(run).optimize(
         objective,
         catch=(RuntimeError, Exception),
-        callbacks=[MaxTrialsCallback(N_TRIALS, states=(TrialState.COMPLETE, TrialState.PRUNED))],
+        callbacks=[MaxTrialsCallback(N_TRIALS, states=(TrialState.COMPLETE, TrialState.PRUNED, TrialState.FAIL))],
     )
 
     report(run)
@@ -206,31 +207,43 @@ def report(run: str) -> None:
     path = study_file(run, "trials.csv")
     pd.DataFrame(rows).to_csv(path, index=False)
     print(f"Trials saved: {path}")
-
-    plots = optuna.visualization.matplotlib
-    axes = {
-        "optuna_rank": plots.plot_rank(study),
-        "optuna_history": plots.plot_optimization_history(study),
-        "optuna_intermediate": plots.plot_intermediate_values(study),
-        "optuna_parallel": plots.plot_parallel_coordinate(study),
+    
+    def _save_plotly(figs: dict, save_dir: Path, width=1000, height=600, scale=2):
+        save_dir.mkdir(parents=True, exist_ok=True)
+        for name, fig in figs.items():
+            fig.update_layout(width=width, height=height, template="plotly_white")
+            fig.write_html(save_dir / f"{name}.html", include_plotlyjs="cdn")  # interactive
+            try:
+                fig.write_image(save_dir / f"{name}.png", scale=scale)  # 2000x1200 px
+                fig.write_image(save_dir / f"{name}.pdf")                # vector, for LaTeX
+            except Exception as err:
+                print(f"Static export of {name} failed ({err}); HTML saved.")
+    
+    # in report(), instead of the matplotlib block:
+    n_complete = len(study.get_trials(states=(TrialState.COMPLETE,)))
+    top = list(optuna.importance.get_param_importances(study))[:4] if n_complete > 1 else None
+    
+    figs = {
+        "optuna_history": vis.plot_optimization_history(study),
+        "optuna_intermediate": vis.plot_intermediate_values(study),
+        "optuna_parallel": vis.plot_parallel_coordinate(study, params=top),
+        "optuna_rank": vis.plot_rank(study, params=top),
     }
-    if len(study.get_trials(states=(TrialState.COMPLETE,))) > 1:  # importances need >= 2
-        axes["optuna_importances"] = plots.plot_param_importances(study)
-        print(f"Best {METRIC} = {study.best_value:.4g} (trial {study.best_trial.number}):")
-        print(f"  {study.best_params}")
+    if n_complete > 1:
+        figs["optuna_importances"] = vis.plot_param_importances(study)
+    
+    figs["optuna_history"].update_yaxes(type="log")
+    figs["optuna_intermediate"].update_yaxes(type="log").update_layout(showlegend=False)
+    
+    _save_plotly(figs, OPTUNA_DIR / run)
+    # the rank grid needs a square canvas:
+    _save_plotly({"optuna_rank": figs["optuna_rank"]}, OPTUNA_DIR / run, width=1000, height=1000)
 
     for t in study.trials:
         if t.state == TrialState.FAIL:
             print(t.number, t.system_attrs.get("fail_reason"))
             print(t.params)
             print(t.user_attrs.get("error"))
-
-    def _figure_of(ax):
-        # plot_rank/plot_slice/plot_contour return an ndarray of Axes for >1 param
-        return np.ravel(ax)[0].figure
-
-    _save_figures({name: _figure_of(ax) for name, ax in axes.items()}, save_dir=OPTUNA_DIR / run)
-
 
 def main(command: str, run: str | None = None) -> int:
     if command == "create":
