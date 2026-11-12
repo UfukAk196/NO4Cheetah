@@ -13,6 +13,7 @@ dependencies = [
     "scipy>=1.11",
     "h5py>=3.10",
     "matplotlib>=3.8",
+    "plotly"
     "tqdm",
     # Own fork, unchanged Cheetah; locally: pip install -e "../../Cheetah repos/cheetah-accelerator"
     "cheetah-accelerator @ git+https://github.com/UfukAk196/cheetah.git",

@@ -29,6 +29,7 @@ from pathlib import Path
 
 import numpy as np
 import optuna
+import optuna.visualization as vis   # Plotly backend
 import pandas as pd
 import torch
 import traceback
@@ -45,9 +46,11 @@ from scno.data.dataset import load_cheetah_sc
 from scno.evaluate import _save_figures
 from scno.utils.common import existing_runs, new_run_id, print_data_settings
 
+TUNE_N_TRAIN = 1000
+TUNE_N_TESTS = [125, 125]
 N_TRIALS = 100  # finished (complete + pruned) trials over all workers
 TUNE_EPOCHS = int(1e6)  # max_resource of the Hyperband pruner
-TUNE_EVAL_INTERVAL = 10  # epochs between evaluations = pruning checks
+TUNE_EVAL_INTERVAL = 10 if TUNE_EPOCHS < 1000 else 100 # log every x epochs
 
 # Data as in train_model.py
 
@@ -100,10 +103,10 @@ def suggest(trial: optuna.Trial) -> tuple[dict, dict]:
         "in_channels": 1 + len(DATA["input_params"]),  # rho + one channel per beam parameter
         "out_channels": 1,
         "n_modes": (n_modes,) * 3,
-        "hidden_channels": trial.suggest_int("hidden_channels", 2, 32, log=True),
+        "hidden_channels": trial.suggest_int("hidden_channels", 2, 16, log=True),
         "n_layers": trial.suggest_int("n_layers", 1, 12),
         "domain_padding": trial.suggest_categorical(
-            "domain_padding", [0.01, 0.125, 0.25, 0.5, 1.0]
+            "domain_padding", [0.125, 0.15, 0.2, 0.25]
         ),
     }
     training = {    # set epochs high (1e6) and add early stopping (e.g. after 10 epochs)
@@ -121,67 +124,71 @@ def work(run: str) -> None:
     # Loaded once per worker, not per trial. The data exists already (`generate`), so
     # load_cheetah_sc does not write anything here.
     print_data_settings(DATA)
-    train_loader, test_loaders, data_processor = load_cheetah_sc(**DATA)
+    train_loader, test_loaders, data_processor = load_cheetah_sc(
+        **{DATA,
+           "n_train": TUNE_N_TRAIN,
+           "n_tests": TUNE_N_TESTS
+        }
+    )
     data_processor = data_processor.to(device)
     h1loss = H1Loss(d=3, periodic_in_x=False, periodic_in_y=False, periodic_in_z=False)
     l2loss = LpLoss(d=3, p=2)
 
     def objective(trial: optuna.Trial) -> float:
         torch.manual_seed(SEED + trial.number)
-        try:
-            model_kwargs, training = suggest(trial)
-            model = TFNO(**model_kwargs).to(device)
-            optimizer = AdamW(
-                model.parameters(), lr=training["learning_rate"], weight_decay=training["weight_decay"]
-            )
-            scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=1.0, total_iters=0)
-            trainer = Trainer(
-                model=model,
-                n_epochs=training["epochs"],
-                device=device,
-                data_processor=data_processor,
-                wandb_log=False,
-                eval_interval=TUNE_EVAL_INTERVAL,
-                use_distributed=False,
-                verbose=True,  # log_eval is only called with verbose=True
-            )
-    
-            # Pruning: the Trainer's own log_eval is called as usual, then METRIC is
-            # reported to the trial, which may stop the training.
-            log_eval, last = trainer.log_eval, {}
-    
-            def report_eval(epoch, eval_metrics):
-                log_eval(epoch=epoch, eval_metrics=eval_metrics)
-                last[METRIC] = float(eval_metrics[METRIC])
-                trial.report(last[METRIC], epoch)
-                if trial.should_prune():
-                    raise optuna.TrialPruned()
-    
-            trainer.log_eval = report_eval
-            trainer.train(
-                train_loader=train_loader,
-                test_loaders=test_loaders,
-                optimizer=optimizer,
-                scheduler=scheduler,
-                regularizer=False,
-                training_loss=h1loss,
-                eval_losses={"h1": h1loss, "l2": l2loss},
-            )
-        except optuna.TrialPruned:
-            raise
-        except Exception as err:
-            tb = traceback.format_exc()
-            trial.set_user_attr("error", tb)
-            trial.set_user_attr("error_type", type(err).__name__)
-            print(f"[trial {trial.number}] {trial.params}\n{tb}")
-            raise
+        model_kwargs, training = suggest(trial)
+        model = TFNO(**model_kwargs).to(device)
+        optimizer = AdamW(
+            model.parameters(), lr=training["learning_rate"], weight_decay=training["weight_decay"]
+        )
+        
+        b_scheduler = False
+        if b_scheduler:
+            # Option A: (Scheduler in-use)
+            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer, patience=5, factor=0.5)
+        else:
+            # Option B: (Scheduler deactivated)
+            scheduler = torch.optim.lr_scheduler.ConstantLR(
+                optimizer, factor=1.0, total_iters=0)
             
+        trainer = Trainer(
+            model=model,
+            n_epochs=TUNE_EPOCHS,
+            device=device,
+            data_processor=data_processor,
+            wandb_log=False,
+            eval_interval=TUNE_EVAL_INTERVAL,
+            use_distributed=False,
+            verbose=True,  # log_eval is only called with verbose=True
+        )
+
+        # Pruning: the Trainer's own log_eval is called as usual, then METRIC is
+        # reported to the trial, which may stop the training.
+        log_eval, last = trainer.log_eval, {}
+
+        def report_eval(epoch, eval_metrics):
+            log_eval(epoch=epoch, eval_metrics=eval_metrics)
+            last[METRIC] = float(eval_metrics[METRIC])
+            trial.report(last[METRIC], epoch)
+            if trial.should_prune():
+                raise optuna.TrialPruned()
+
+        trainer.log_eval = report_eval
+        trainer.train(
+            train_loader=train_loader,
+            test_loaders=test_loaders,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            regularizer=False,
+            training_loss=h1loss,
+            eval_losses={"h1": h1loss, "l2": l2loss},
+        )          
                 
         return last[METRIC]
 
     load_study(run).optimize(
         objective,
-        catch=(RuntimeError, Exception),
         callbacks=[MaxTrialsCallback(N_TRIALS, states=(TrialState.COMPLETE, TrialState.PRUNED))],
     )
 
@@ -206,31 +213,43 @@ def report(run: str) -> None:
     path = study_file(run, "trials.csv")
     pd.DataFrame(rows).to_csv(path, index=False)
     print(f"Trials saved: {path}")
-
-    plots = optuna.visualization.matplotlib
-    axes = {
-        "optuna_rank": plots.plot_rank(study),
-        "optuna_history": plots.plot_optimization_history(study),
-        "optuna_intermediate": plots.plot_intermediate_values(study),
-        "optuna_parallel": plots.plot_parallel_coordinate(study),
+    
+    def _save_plotly(figs: dict, save_dir: Path, width=1000, height=600, scale=2):
+        save_dir.mkdir(parents=True, exist_ok=True)
+        for name, fig in figs.items():
+            fig.update_layout(width=width, height=height, template="plotly_white")
+            fig.write_html(save_dir / f"{name}.html", include_plotlyjs="cdn")  # interactive
+            try:
+                fig.write_image(save_dir / f"{name}.png", scale=scale)  # 2000x1200 px
+                fig.write_image(save_dir / f"{name}.pdf")                # vector, for LaTeX
+            except Exception as err:
+                print(f"Static export of {name} failed ({err}); HTML saved.")
+    
+    # in report(), instead of the matplotlib block:
+    n_complete = len(study.get_trials(states=(TrialState.COMPLETE,)))
+    top = list(optuna.importance.get_param_importances(study))[:4] if n_complete > 1 else None
+    
+    figs = {
+        "optuna_history": vis.plot_optimization_history(study),
+        "optuna_intermediate": vis.plot_intermediate_values(study),
+        "optuna_parallel": vis.plot_parallel_coordinate(study, params=top),
+        "optuna_rank": vis.plot_rank(study, params=top),
     }
-    if len(study.get_trials(states=(TrialState.COMPLETE,))) > 1:  # importances need >= 2
-        axes["optuna_importances"] = plots.plot_param_importances(study)
-        print(f"Best {METRIC} = {study.best_value:.4g} (trial {study.best_trial.number}):")
-        print(f"  {study.best_params}")
+    if n_complete > 1:
+        figs["optuna_importances"] = vis.plot_param_importances(study)
+    
+    figs["optuna_history"].update_yaxes(type="log")
+    figs["optuna_intermediate"].update_yaxes(type="log").update_layout(showlegend=False)
+    
+    _save_plotly(figs, OPTUNA_DIR / run)
+    # the rank grid needs a square canvas:
+    _save_plotly({"optuna_rank": figs["optuna_rank"]}, OPTUNA_DIR / run, width=1000, height=1000)
 
     for t in study.trials:
         if t.state == TrialState.FAIL:
             print(t.number, t.system_attrs.get("fail_reason"))
             print(t.params)
             print(t.user_attrs.get("error"))
-
-    def _figure_of(ax):
-        # plot_rank/plot_slice/plot_contour return an ndarray of Axes for >1 param
-        return np.ravel(ax)[0].figure
-
-    _save_figures({name: _figure_of(ax) for name, ax in axes.items()}, save_dir=OPTUNA_DIR / run)
-
 
 def main(command: str, run: str | None = None) -> int:
     if command == "create":

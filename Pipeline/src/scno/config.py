@@ -36,9 +36,9 @@ SEED = 0
 
 # Data settings
 DATA = {
-    "n_train": 1000,
+    "n_train": 10000,
     "batch_size": 64,
-    "n_tests": [125, 125],
+    "n_tests": [1250, 1250],
     "train_resolution": 32,
     "test_resolutions": [32, 64],  # tuning only needs the training resolution
     "test_batch_sizes": [32, 32],
@@ -47,5 +47,5 @@ DATA = {
     # () = rho only. Ablation sets, e.g.: ("gamma",), ("log_sigma_x", "log_sigma_y"),
     # ("log_sigma_x", "log_sigma_y", "log_sigma_tau"),
     # ("log_sigma_x", "log_sigma_y", "log_sigma_tau", "gamma")
-    "input_params": (),
+    "input_params": ("log_sigma_x", "log_sigma_y", "log_sigma_tau", "gamma"),
 }

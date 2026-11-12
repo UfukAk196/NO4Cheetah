@@ -55,12 +55,12 @@ data_processor = data_processor.to(device)
 torch.manual_seed(SEED)
 
 model = TFNO(
-    n_modes=(8, 8, 8),
+    n_modes=(5, 5, 5),
     in_channels=1 + len(DATA["input_params"]),  # rho + one channel per beam parameter
     out_channels=1,
-    hidden_channels=23,
+    hidden_channels=16,
     n_layers=3,
-    domain_padding=0.5,
+    domain_padding=0.25,
 )
 model = model.to(device)
 
@@ -69,7 +69,7 @@ n_params = count_model_params(model)
 print(f"\nOur model has {n_params} parameters.")
 sys.stdout.flush()
 
-optimizer = AdamW(model.parameters(), lr=3.23e-3, weight_decay=8.21e-4)
+optimizer = AdamW(model.parameters(), lr=1.0e-3, weight_decay=1.0e-3)
 
 b_scheduler = True
 if b_scheduler:

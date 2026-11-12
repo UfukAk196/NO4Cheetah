@@ -17,6 +17,8 @@ module load maxwell conda/3.9          # pytorch-Modul raus
 . conda-init
 conda activate no4cheetah
 
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
 PY="$CONDA_PREFIX/bin/python"          # Python fest verdrahten, egal was im PATH rumfliegt
 echo "Python: $PY"
 "$PY" -c "import optuna, torch; print(optuna.__version__, torch.__version__, torch.cuda.is_available())"
