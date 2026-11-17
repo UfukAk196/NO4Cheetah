@@ -21,9 +21,9 @@ ELECTRON_MASS_EV = m_e * c**2 / e  # as cheetah's ``Species("electron").mass_eV`
 # ``SpaceChargeKick._solve_poisson_equation`` depends only on the cell size (sigmas) and
 # gamma (energy). Sigmas are log-uniform in the data, hence their log.
 FEATURES = {
-    "log_sigma_x": lambda p: np.log(p["sigma_x"]),
-    "log_sigma_y": lambda p: np.log(p["sigma_y"]),
-    "log_sigma_tau": lambda p: np.log(p["sigma_tau"]),
+    "sigma_x": lambda p: p["sigma_x"],
+    "sigma_y": lambda p: p["sigma_y"],
+    "sigma_tau": lambda p: p["sigma_tau"],
     "gamma": lambda p: p["energy"] / ELECTRON_MASS_EV,  # as ``beam.relativistic_gamma``
 }
 

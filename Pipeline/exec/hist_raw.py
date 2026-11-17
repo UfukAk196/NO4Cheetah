@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from scno.config import RUN_DIRS, SEED, DATA
+from scno.config import SEED, DATA
 from scno.data.dataset import load_cheetah_sc
 from scno.utils.common import print_data_settings
 
@@ -34,14 +34,16 @@ df = pd.DataFrame(feats.numpy(), columns=DATA["input_params"])
 
 # get panda dataframes from for input features
 # np.exp on sigmas, since they are log
-df_sigma_x = df["log_sigma_x"]
-df_sigma_y = df["log_sigma_y"]
-df_sigma_tau = df["log_sigma_tau"]
+df_sigma_x = df["sigma_x"]
+df_sigma_y = df["sigma_y"]
+df_sigma_tau = df["sigma_tau"]
 # get gamma directly
 df_gamma = df["gamma"]
 
+
 # machine epsilon
 eps = np.finfo(np.float32).eps   # ≈ 1.19e-7
+
 # prepare rho for log operations
 rho = test_loaders[DATA["test_resolutions"][0]].dataset.data["rho"][:]    # tensor of shape (1250, 32, 32, 32)
 rho_plus_eps = rho.flatten() + eps                    # shifts every value by eps
