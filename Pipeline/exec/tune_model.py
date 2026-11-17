@@ -125,10 +125,14 @@ def work(run: str) -> None:
     # load_cheetah_sc does not write anything here.
     print_data_settings(DATA)
     train_loader, test_loaders, data_processor = load_cheetah_sc(
-        **{DATA,
-           "n_train": TUNE_N_TRAIN,
-           "n_tests": TUNE_N_TESTS
-        }
+        n_train=TUNE_N_TRAIN,
+        batch_size=DATA["batch_size"],
+        n_tests=TUNE_N_TESTS,
+        test_resolutions=DATA["test_resolutions"],
+        test_batch_sizes=DATA["test_batch_sizes"],
+        input_params=DATA["input_params"],
+        seed=SEED,
+        ranges=None,
     )
     data_processor = data_processor.to(device)
     h1loss = H1Loss(d=3, periodic_in_x=False, periodic_in_y=False, periodic_in_z=False)
