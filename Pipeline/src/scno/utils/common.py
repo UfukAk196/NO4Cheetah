@@ -5,9 +5,10 @@ from __future__ import annotations
 import re
 from datetime import date
 from pathlib import Path
+import numpy as np
 
 _RUN_ID = re.compile(r"(\d{4}-\d{2}-\d{2}_\d{2,})$")
-
+EPS = np.finfo(np.float32).eps   # ≈ 1.19e-7
 
 def existing_runs(*dirs: str | Path) -> list[str]:
     """All run IDs ``<YYYY-MM-DD>_<NN>`` that end an entry name (without suffix) in
