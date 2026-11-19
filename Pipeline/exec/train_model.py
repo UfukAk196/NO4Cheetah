@@ -51,8 +51,14 @@ train_loader, test_loaders, data_processor = load_cheetah_sc(
     ranges=None,
 )
 data_processor = data_processor.to(device)
-
 torch.manual_seed(SEED)
+
+"""
+2026-11-09_02 Optuna study best results:
+domain padding = 0.125, epochs 39740 -> 40000
+hidden channels = 12, learning rate = 2.81e-3,
+n_layers = 2, n_modes = 13, weight decay = 1.6767e-6
+"""
 
 model = TFNO(
     n_modes=(5, 5, 5),
