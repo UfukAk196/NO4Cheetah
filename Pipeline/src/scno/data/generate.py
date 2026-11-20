@@ -32,8 +32,8 @@ DEFAULT_RANGES: dict[str, dict[str, float]] = {
     "n_particles": {"min": 1.0e6, "max": 1.0e6},
 }
 
-_LOG_UNIFORM_KEYS = ("sigma_x", "sigma_y", "sigma_tau")
-_UNIFORM_KEYS = ("energy", "total_charge", "n_particles")
+#_LOG_UNIFORM_KEYS = ("sigma_x", "sigma_y", "sigma_tau")
+_UNIFORM_KEYS = ("energy", "total_charge", "n_particles", "sigma_x", "sigma_y", "sigma_tau")
 
 
 def dataset_path(root: str | Path, kind: str, res: int) -> Path:
@@ -47,9 +47,9 @@ def _draw_params(rng: np.random.Generator, ranges: dict) -> dict:
         k: float(rng.uniform(ranges[k]["min"], ranges[k]["max"])) for k in _UNIFORM_KEYS
     }
     p["n_particles"] = max(1, int(round(p["n_particles"])))
-    for k in _LOG_UNIFORM_KEYS:
-        lo, hi = float(ranges[k]["min"]), float(ranges[k]["max"])
-        p[k] = float(np.exp(rng.uniform(np.log(lo), np.log(hi))))
+    #for k in _LOG_UNIFORM_KEYS:
+     #   lo, hi = float(ranges[k]["min"]), float(ranges[k]["max"])
+      #  p[k] = float(np.exp(rng.uniform(np.log(lo), np.log(hi))))
     return p
 
 
@@ -117,7 +117,7 @@ def _write_split(
     #TODO:_gamma = torch.empty((n,), dtype=torch.float32)
 
     params = {
-        k: np.empty(n, dtype="float64") for k in _UNIFORM_KEYS + _LOG_UNIFORM_KEYS
+        k: np.empty(n, dtype="float64") for k in _UNIFORM_KEYS #+ _LOG_UNIFORM_KEYS
     }
 
     for i in tqdm(range(n), desc=desc):

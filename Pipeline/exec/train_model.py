@@ -51,8 +51,14 @@ train_loader, test_loaders, data_processor = load_cheetah_sc(
     ranges=None,
 )
 data_processor = data_processor.to(device)
-
 torch.manual_seed(SEED)
+
+"""
+2026-11-09_02 Optuna study best results:
+domain padding = 0.125, epochs 39740 -> 40000
+hidden channels = 12, learning rate = 2.81e-3,
+n_layers = 2, n_modes = 13, weight decay = 1.6767e-6
+"""
 
 model = TFNO(
     n_modes=(5, 5, 5),
@@ -71,7 +77,7 @@ sys.stdout.flush()
 
 optimizer = AdamW(model.parameters(), lr=1.0e-3, weight_decay=1.0e-3)
 
-b_scheduler = True
+b_scheduler = False
 if b_scheduler:
     # Option A: (Scheduler in-use)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -87,16 +93,17 @@ h1loss = H1Loss(d=3, periodic_in_x=False, periodic_in_y=False, periodic_in_z=Fal
 train_loss = h1loss
 eval_losses = {"h1": h1loss, "l2": l2loss}
 
+epochs = 2000  # TODO: goal: 10000; better 2000, since overfitting starts after 2500 (for 1000:250 datas); more epochs possible with more data
+eval_intv_div = 10 if epochs < 10000 else 100 # log every x epochs
+
 print("\n### MODEL ###\n", model)
 print("\n### OPTIMIZER ###\n", optimizer)
 print("\n### SCHEDULER ###\n", scheduler)
 print("\n### LOSSES ###")
 print(f"\n * Train: {train_loss}")
-print(f"\n * Test: {eval_losses}")
+print(f" * Test: {eval_losses}")
+print(f"\n for {epochs} epochs:")
 sys.stdout.flush()
-
-epochs = 5000  # TODO: goal: 10000; better 2000, since overfitting starts after 2500 (for 1000:250 datas); more epochs possible with more data
-eval_intv_div = 10 if epochs < 1000 else 100 # log every x epochs
 
 trainer = Trainer(
     model=model,

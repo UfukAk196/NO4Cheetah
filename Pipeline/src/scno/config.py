@@ -47,5 +47,5 @@ DATA = {
     # () = rho only. Ablation sets, e.g.: ("gamma",), ("log_sigma_x", "log_sigma_y"),
     # ("log_sigma_x", "log_sigma_y", "log_sigma_tau"),
     # ("log_sigma_x", "log_sigma_y", "log_sigma_tau", "gamma")
-    "input_params": ("log_sigma_x", "log_sigma_y", "log_sigma_tau", "gamma"),
+    "input_params": ("sigma_x", "sigma_y", "sigma_tau", "gamma"),
 }

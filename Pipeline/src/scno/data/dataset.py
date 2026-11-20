@@ -11,6 +11,7 @@ from neuralop.data.transforms.data_processors import DefaultDataProcessor
 from neuralop.data.transforms.normalizers import UnitGaussianNormalizer
 
 from scno.config import DATA_DIR
+from scno.utils.common import EPS
 
 from .generate import dataset_path, generate_cheetah_sc
 
@@ -21,11 +22,18 @@ ELECTRON_MASS_EV = m_e * c**2 / e  # as cheetah's ``Species("electron").mass_eV`
 # ``SpaceChargeKick._solve_poisson_equation`` depends only on the cell size (sigmas) and
 # gamma (energy). Sigmas are log-uniform in the data, hence their log.
 FEATURES = {
-    "log_sigma_x": lambda p: np.log(p["sigma_x"]),
-    "log_sigma_y": lambda p: np.log(p["sigma_y"]),
-    "log_sigma_tau": lambda p: np.log(p["sigma_tau"]),
+    "sigma_x": lambda p: p["sigma_x"],
+    "sigma_y": lambda p: p["sigma_y"],
+    "sigma_tau": lambda p: p["sigma_tau"],
     "gamma": lambda p: p["energy"] / ELECTRON_MASS_EV,  # as ``beam.relativistic_gamma``
 }
+
+# log and exp rho and phi respectively for pre- and postprocessing
+def _log(data):   # rho >= 0, ~57% zeros and phi > 0 (min ~ e^5.3),
+    return torch.log(data + EPS)
+
+def _exp(data):
+    return torch.exp(data)
 
 
 def compute_features(
@@ -71,8 +79,8 @@ class CheetahH5Dataset(H5pyDataset):
 
     def __getitem__(self, idx: int) -> dict:
         assert idx < self.n_samples, f"sample {idx} of a dataset with {self.n_samples} samples"
-        rho = torch.tensor(self.data["rho"][idx], dtype=torch.float32).unsqueeze(0)
-        phi = torch.tensor(self.data["phi"][idx], dtype=torch.float32).unsqueeze(0)
+        rho = _log(torch.tensor(self.data["rho"][idx], dtype=torch.float32).unsqueeze(0))
+        phi = _log(torch.tensor(self.data["phi"][idx], dtype=torch.float32).unsqueeze(0))
         if self.features is None:
             return {"x": rho, "y": phi}
         # one constant (res, res, res) channel per beam parameter, behind rho
@@ -169,8 +177,8 @@ class CheetahDataset:
         in_normalizer = out_normalizer = None
         if encode_input or encode_output:
             with h5py.File(train_path, "r") as f:
-                x_train = torch.from_numpy(f["rho"][:n_train]).unsqueeze(channel_dim)
-                y_train = torch.from_numpy(f["phi"][:n_train]).unsqueeze(channel_dim)
+                x_train = _log(torch.from_numpy(f["rho"][:n_train]).unsqueeze(channel_dim))
+                y_train = _log(torch.from_numpy(f["phi"][:n_train]).unsqueeze(channel_dim))
         if encode_input:
             in_normalizer = self._fit_normalizer(x_train, encoding, channel_dim)
             if train_features is not None:
@@ -180,9 +188,10 @@ class CheetahDataset:
         if encode_output:
             out_normalizer = self._fit_normalizer(y_train, encoding, channel_dim)
 
-        self._data_processor = DefaultDataProcessor(
+        self._data_processor = LogExpDataProcessor(
             in_normalizer=in_normalizer, out_normalizer=out_normalizer
         )
+
 
     @staticmethod
     def _reduce_dims(ndim: int, encoding: str, channel_dim: int) -> list[int]:
@@ -243,6 +252,14 @@ class CheetahDataset:
     @property
     def data_processor(self):
         return self._data_processor
+
+class LogExpDataProcessor(DefaultDataProcessor):
+    def postprocess(self, output, data_dict):
+        output, data_dict = super().postprocess(output, data_dict)  # z-score -> log phi
+        if not self.training:
+            output = _exp(output)                 # log phi -> phi [V]
+            data_dict["y"] = _exp(data_dict["y"])  # y is log phi in eval mode
+        return output, data_dict
 
 
 def load_cheetah_sc(
