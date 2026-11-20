@@ -17,6 +17,7 @@
 
 ### 🚀 Features
 
+- Add `exec/inspect_normalization.py`: data before and after the `DefaultDataProcessor` and the model's in- and outputs in training and eval mode (statistics table, histograms and central cuts), for the saved model or, with `--fresh N`, a processor fitted on the current `DATA` settings
 - Add a distributed Optuna hyperparameter search (`scripts/tune_model.py`, TPE + Hyperband pruning on the Sobolev test loss, journal-file storage) and the Slurm script `maxwell-script.sh` for Maxwell; `scno.train.fit` holds the training shared by both
 - Add tests for `NeuralSpaceChargeKick` against `SpaceChargeKick` with the exact operator (tracking and gradients) and for the `ExactOperator` control
 
