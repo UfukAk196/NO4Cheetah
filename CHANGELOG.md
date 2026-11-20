@@ -1,38 +1,30 @@
 # Changelog
 
-## v0.1.0 [🚧 Work in Progress]
+## v0.2.0 [🚧 Work in Progress]
 
 ### 🚨 Breaking Changes
 
-- Reorganize `Pipeline/`: run scripts move from `scripts/` to `exec/` (with `tests/` and `tutorials/`), the Slurm scripts and their `.out`/`.err` logs to `scripts/`, `checkpoints/` to `models/checkpoints/`; all results go to `outputs/` (`models/`, `figures/`, `tables/`, `studies/`); Optuna studies write to `studies/optuna/<RUN>/` (`<DATE>_optuna_journal_<NN>.log`, `<DATE>_trials_<NN>.csv`, plots), Weights & Biases to `studies/wandb/`; `figures/<RUN>/` and `tables/<RUN>/` hold only training and evaluation results; existing results are migrated
-- Replace `scno.cheetah_element` with `scno.accelerator.NeuralSpaceChargeKick`, a subclass of the unchanged `SpaceChargeKick` that takes a neuralop `BaseModel` and overrides only `_solve_poisson_equation`
-- Train only with the neuralop `Trainer` in `scripts/train_model.py` and evaluate with `scripts/evaluate_model.py`; remove the own training loop, `make_loaders`, `scripts/smoke_train.py`, `scripts/load_model.py`, `scripts/smoke_test.py` and the `main` functions of `scno.train` and `scno.evaluate`
-- Remove all YAML configs (`configs/`) and the `scno.data.generate` CLI; all settings are the constants at the top of `scripts/train_model.py`, which the other scripts import, and missing data is generated on the first training run
-- Write results only to `models/<MODEL_NAME>.pth` (neuralop `state_dict()` with its `_metadata`), `figures/` and `tables/` (history and evaluation as CSV) instead of `outputs/`
-- Give every training run a run ID `<YYYY-MM-DD>_<NN>`: the model goes to `models/<MODEL_NAME>_<RUN>.pth`, plots and tables to `figures/<RUN>/` and `tables/<RUN>/`; `evaluate_model.py [RUN]` evaluates the latest run by default
-- Use neuralop's `FNO` argument names for the model settings and remove the own `FNO3d`
-- Rename `notebooks/smoke_train.ipynb` to `notebooks/train_model.ipynb`
-- Fit the Gaussian output normalizer only for `nondim=False` by default (`encode_output=None`), so nondimensionalized training has a single scaling layer
-- Replace `build_loss` with `SobolevLoss`, built on neuralop's `LpLoss` and `FiniteDiff` and summed over the batch as the `Trainer` expects
+- Change the data representation: log-transform ρ and φ (``log(field + eps)``) and z-score them channel-wise (neuralop ``UnitGaussianNormalizer``, fitted on the training data), append the beam parameters ``sigma_x``, ``sigma_y``, ``sigma_tau`` and ``gamma`` to ρ as constant input channels, and decode the model output back to φ [V] through ``LogExpDataProcessor``; this replaces the earlier analytic nondimensionalization (``rho_hat``/``phi_hat``) and its aspect-ratio channels
+- Train a neuralop ``TFNO`` (input ``1 + len(input_params)`` channels, output φ) instead of the own ``FNO3d``/``FNO``
+- Save the trained model as a neuralop checkpoint (``outputs/models/final_model_*`` via ``save_checkpoint``/``from_checkpoint``) together with the fitted data processor (``final_model_data_processor.pt``), instead of a bare state dict ``<name>_<run>.pth``; the ``Trainer`` keeps the best ``"32_h1"`` epoch under ``outputs/models/checkpoints/``
+- Reorganize ``Pipeline/``: run scripts in ``exec/`` (``train_model.py``, ``evaluate_model.py``, ``tune_model.py``) with ``tests/`` and ``tutorials/``, the Slurm scripts and their ``.out``/``.err`` logs in ``scripts/``, and all results under ``outputs/`` (``models/``, ``figures/<RUN>/``, ``tables/<RUN>/``, ``studies/optuna/<RUN>/``, ``studies/wandb/``)
+- Remove the YAML configs and the ``scno.data.generate`` CLI; data, model and training settings are the constants at the top of the run scripts (``scno.config`` keeps only paths and the global seed), and missing data is generated on the first training run
+- Give every run a run ID ``<YYYY-MM-DD>_<NN>`` for its ``figures/``, ``tables/`` and ``studies/`` folders; the model file in ``models/`` is overwritten by every training run (no ``MODEL_NAME``)
+- Use neuralop's ``H1Loss`` as the training loss (field plus gradient, open boundaries) and report ``H1`` and ``L2`` in evaluation
 
 ### 🚀 Features
 
-- Add a distributed Optuna hyperparameter search (`scripts/tune_model.py`, TPE + Hyperband pruning on the Sobolev test loss, journal-file storage) and the Slurm script `maxwell-script.sh` for Maxwell; `scno.train.fit` holds the training shared by both
-- Add tests for `NeuralSpaceChargeKick` against `SpaceChargeKick` with the exact operator (tracking and gradients) and for the `ExactOperator` control
+- Generate the HDF5 datasets directly from Cheetah's ``SpaceChargeKick`` (``generate.py`` draws beam parameters within ``DEFAULT_RANGES`` and writes ρ and φ plus a reproducible ``params`` group), loaded by ``CheetahDataset``/``load_cheetah_sc`` on top of neuralop's ``H5pyDataset`` and ``DefaultDataProcessor``
+- Add a distributed Optuna hyperparameter search (``exec/tune_model.py`` with the ``create``/``generate``/``work``/``report`` commands, TPE + Hyperband pruning on the H1 test loss, journal-file storage) and the Slurm scripts ``train-script.sh`` and ``tune-script.sh`` for Maxwell
+- Record the neuralop ``Trainer``'s per-epoch metrics into ``history.csv`` and plot the training and evaluation loss curves (``plot_losses``)
+- Evaluate potential and force as relative L2, including zero-shot super-resolution on a larger grid, and plot φ ground truth vs. prediction as projections and central cuts through Cheetah's ``ParticleBeam.plot_distribution``
 
 ### 🐛 Bug fixes
 
-- Evaluate on the dataset's `x`/`y` through the data processor, so `nondim=False` models are no longer evaluated on `rho_hat`
-- Undo the output normalizer through a single `predict` path that sets the data processor to evaluation mode
-- Update `DEFAULT_RANGES` to the bounds of the former configs, which had diverged
-- Stretch the cell size by gamma without an in-place write in `stretched_cell_size`, so gradients w.r.t. the beam energy flow through the lattice element
+- Evaluate through the data processor in ``eval`` mode along a single ``predict`` path, so the model output is decoded back to φ [V] and models are no longer compared on the normalized field
+- Append the beam-parameter channels to the input normalizer from their per-sample statistics, so a constant channel is standardized without loading the training set once per channel
 
 ### 🐆 Other
 
-- Move all run settings and `model_path` from `scripts/train_model.py` to `scno.config` and `history_rows` to `scno.train`; `scno.evaluate` takes its default figure folder from there
-- Add project guidelines for AI agents (`AGENTS.md`)
-- Remove `utils/physics.py` in favour of Cheetah's `SpaceChargeKick` methods; `ExactOperator` and `scripts/verify_physics.py` use `models.exact.solve_poisson_on_grid` (Cheetah's integrated Green function with the padding and FFT mirrored, guarded by a test against `SpaceChargeKick`)
-- Remove the unused `dimensionalize_fields`, `density_from_hat`, `coordinate_channels`, `build_input`, `space_charge_field`, `load_config`, the `format` file attribute and the `pyyaml` dependency
-- `scripts/verify_physics.py` measures with the evaluation's `field_error`, `scripts/inspect_scaling.py` reads the training file of the `train_model.py` settings
-- Move the tests to `tests/` with shared fixtures in `tests/conftest.py`
-- Translate comments, docstrings and README to English
+- Add project guidelines for AI agents (``AGENTS.md``)
+- Translate comments, docstrings and the README to English

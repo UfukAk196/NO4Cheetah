@@ -35,7 +35,7 @@ Not lazy about: understanding the problem (read it fully and trace the real flow
 
 | # | What | Where | Role |
 |---|---|---|---|
-| 1 | **NO4Cheetah** (this repo), package `scno` | `Pipeline/` | Data generation, FNO training, evaluation, lattice element |
+| 1 | **NO4Cheetah** (this repo), package `scno` | `Pipeline/` | Data generation, TFNO training, evaluation, lattice element |
 | 2 | **Cheetah** (`cheetah-accelerator`, 0.8.5-dev clone) | `../Cheetah repos/cheetah-accelerator` | Host simulator; source of `SpaceChargeKick` and training data |
 | 3 | **neuraloperator** `==2.0.0` (pip only, docs: neuraloperator.github.io/dev) | site-packages | `FNO`, `Trainer`, `DefaultDataProcessor`, `UnitGaussianNormalizer` |
 
@@ -67,12 +67,11 @@ Not lazy about: understanding the problem (read it fully and trace the real flow
    the element with `ExactOperator` and `SpaceChargeKick` on the same beam in double
    precision, then assert that both the outputs and the gradients w.r.t. beam and element
    parameters match to float tolerance.
-7. **neuraloperator is a full dependency.** Use their models, don't write your own. Save **only the state dict**
-   as `outputs/models/<name>_<run>.pth` via neuralop's `state_dict()` and load with neuralop's `load_state_dict()`. 
-8. **No silent changes to the data contract.** Nondimensionalization, model input channels,
-   grid geometry/extent and the HDF5 layout change only after the user agrees: such changes
+7. **neuraloperator is a full dependency.** Use their models, don't write your own.
+8. **No silent changes to the data contract.** generation, handling, preperationm, layout etc of data, model input channels,
+   grid geometry and the change only after the user agrees: such changes
    invalidate existing datasets and checkpoints. When agreed, change dataset, train, evaluate
-   and element together; `test_model_input.py` must stay green.
+   and element together; test modules (under `Pipeline/exec/tests/`) must stay green.
 9. **Changelog per change.** Add an entry to `CHANGELOG.md` in
    Cheetah's format (🚨 Breaking Changes / 🚀 Features / 🐛 Bug fixes / 🐆 Other, English; an
    entry ends in a period only if it contains other punctuation), so entries can be carried
@@ -81,18 +80,16 @@ Not lazy about: understanding the problem (read it fully and trace the real flow
 ## Environment and commands
 
 ```bash
-conda activate no4cheetah            # CPU; GPU: no4cheetah-gpu (environment-gpu.yml)
-pip install -e ".[dev]"              # after changing pyproject.toml (the ONLY dependency list)
-python exec/verify_physics.py     # Cheetah's solver vs analytic charged sphere (~30 s)
-pytest                               # testpaths = tests (incl. element vs SpaceChargeKick)
-python exec/train_model.py        # train; generates missing data
-python exec/evaluate_model.py     # evaluation table + test beam plots
-python exec/inspect_scaling.py    # spread of phi in the training data
+conda activate no4cheetah           
+pip install -e ".[dev]"              
+pytest                               # testpath is Pipeline/exec/tests
+python exec/train_model.py        
+python exec/evaluate_model.py     
 ```
 
 ## Working rules (from the author)
 
-1. `verify_physics.py` and `inspect_scaling.py` before training: if the teacher is wrong, the student learns nonsense.
+1. Always make generation, handling, preperationm, layout etc of data, model and code structure comprehensible for user.
 2. Run on tiny data first (few samples and epochs), then scale.
 3. Every training run gets its own run ID (date + consecutive number), so that model, figures
-   and tables belong together; change `MODEL_NAME` for a new kind of model.
+   and tables belong together
