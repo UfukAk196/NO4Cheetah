@@ -33,7 +33,7 @@ import optuna.visualization as vis   # Plotly backend
 import pandas as pd
 import torch
 import traceback
-from neuralop import H1Loss, LpLoss, Trainer
+from neuralop import H1Loss, Trainer
 from neuralop.models import TFNO
 from neuralop.training import AdamW
 from optuna.storages import JournalStorage
@@ -136,7 +136,6 @@ def work(run: str) -> None:
     )
     data_processor = data_processor.to(device)
     h1loss = H1Loss(d=3, periodic_in_x=False, periodic_in_y=False, periodic_in_z=False)
-    l2loss = LpLoss(d=3, p=2)
 
     def objective(trial: optuna.Trial) -> float:
         torch.manual_seed(SEED + trial.number)
@@ -186,7 +185,7 @@ def work(run: str) -> None:
             scheduler=scheduler,
             regularizer=False,
             training_loss=h1loss,
-            eval_losses={"h1": h1loss, "l2": l2loss},
+            eval_losses={"h1": h1loss},
         )          
                 
         return last[METRIC]
