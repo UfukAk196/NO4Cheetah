@@ -16,7 +16,7 @@ The ladder runs after you understand the problem, not instead of it: read the ta
 
 Bug fix = root cause, not symptom: a report names a symptom. Grep every caller of the function you touch and fix the shared function once — one guard there is a smaller diff than one per caller, and patching only the path the ticket names leaves a sibling caller still broken.
 
-## Rules:
+## Coding Rules:
 
 - No abstractions that weren't explicitly requested.
 - No new dependency if it can be avoided.
@@ -30,6 +30,12 @@ Bug fix = root cause, not symptom: a report names a symptom. Grep every caller o
 Not lazy about: understanding the problem (read it fully and trace the real flow before picking a rung, a small diff you don't understand is just laziness dressed up as efficiency), input validation at trust boundaries, error handling that prevents data loss, security, accessibility, the calibration real hardware needs (the platform is never the spec ideal, a clock drifts, a sensor reads off), anything explicitly requested. Lazy code without its check is unfinished: non-trivial logic leaves ONE runnable check behind, the smallest thing that fails if the logic breaks (an assert-based demo/self-check or one small test file; no frameworks, no fixtures). Trivial one-liners need no test.
 
 (Yes, this file also applies to agents working on the ponytail repo itself. Especially to them.)
+
+## Guardrails against "LLM Slop":
+- The Detail Rule: If a section feels "smooth but lacks detail", you were too vague. Require concrete parameters (modes, widths, batch sizes, learning rates) instead, if necessary.
+- The Citation Rule: For every factual assertion you generate (e.g., "FNO is resolution-invariant" or "IGF is O(N log N)"), provide an exact literature reference (e.g., Li et al. 2021, Qiang et al. 2006).
+- The Evidence Rule: Every claim of improvement or performance MUST tie directly to a plottable/ printable metric (potential\_rel\_l2, force\_rel\_l2, runtime ms, GPU memory).
+- No Fluff / Textbook Filler: Strip out generic introductions to machine learning. Focus strictly on Cheetah, Space Charge, and (Fourier) Neural Operators.
 
 ## Three code bases are involved:
 
