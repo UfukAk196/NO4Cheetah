@@ -27,13 +27,14 @@ DEFAULT_RANGES: dict[str, dict[str, float]] = {
     "sigma_x": {"min": 5.0e-6, "max": 1.5e-3},
     "sigma_y": {"min": 5.0e-6, "max": 1.5e-3},
     "sigma_tau": {"min": 1.0e-3, "max": 5.0e-3},
-    "energy": {"min": 5.0e7, "max": 1.5e8},
-    "total_charge": {"min": 1.0e-10, "max": 2.0e-9},
+    "energy": {"min": 5.0e6, "max": 1.5e7},
+    "total_charge": {"min": 1.0e-10, "max": 2.0e-9}, #TODO: prob. too big; Jan & Christian check it
     "n_particles": {"min": 1.0e6, "max": 1.0e6},
-}
+} #TODO: send Ranges to Alex for more variing beams
+#TODO: pull latest cheetah commit with distgen stuff
 
-#_LOG_UNIFORM_KEYS = ("sigma_x", "sigma_y", "sigma_tau")
-_UNIFORM_KEYS = ("energy", "total_charge", "n_particles", "sigma_x", "sigma_y", "sigma_tau")
+_LOG_UNIFORM_KEYS = ("energy", "total_charge")
+_UNIFORM_KEYS = ("n_particles", "sigma_x", "sigma_y", "sigma_tau")
 
 
 def dataset_path(root: str | Path, kind: str, res: int) -> Path:
@@ -47,9 +48,9 @@ def _draw_params(rng: np.random.Generator, ranges: dict) -> dict:
         k: float(rng.uniform(ranges[k]["min"], ranges[k]["max"])) for k in _UNIFORM_KEYS
     }
     p["n_particles"] = max(1, int(round(p["n_particles"])))
-    #for k in _LOG_UNIFORM_KEYS:
-     #   lo, hi = float(ranges[k]["min"]), float(ranges[k]["max"])
-      #  p[k] = float(np.exp(rng.uniform(np.log(lo), np.log(hi))))
+    for k in _LOG_UNIFORM_KEYS:
+        lo, hi = float(ranges[k]["min"]), float(ranges[k]["max"])
+        p[k] = float(np.exp(rng.uniform(np.log(lo), np.log(hi))))
     return p
 
 
