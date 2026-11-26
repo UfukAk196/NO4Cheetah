@@ -21,7 +21,7 @@ from collections import defaultdict
 
 import pandas as pd
 import torch
-from neuralop import H1Loss, Trainer
+from neuralop import Trainer, H1Loss, LpLoss
 from neuralop.models import TFNO
 from neuralop.training import AdamW
 from neuralop.utils import count_model_params
@@ -88,9 +88,10 @@ else:
         optimizer, factor=1.0, total_iters=0)
 
 h1loss = H1Loss(d=3, periodic_in_x=False, periodic_in_y=False, periodic_in_z=False)  # H1 loss includes gradient information
+l2loss = LpLoss(d=3, p=2)
 
 train_loss = h1loss
-eval_losses = {"h1": h1loss}
+eval_losses = {"h1": h1loss, "l2": l2loss}      # to check, whether gradients pay more into h1loss or not
 
 epochs = 2000  # TODO: goal: 10000; better 2000, since overfitting starts after 2500 (for 1000:250 datas); more epochs possible with more data
 eval_intv_div = 10 if epochs < 10000 else 100 # log every x epochs
